@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, User, Lock } from 'lucide-react';
 import axios from 'axios';
-import "../styles/login.css";
-
+import CaseOverview from '../pages/CaseOverview';
+import '../styles/login.css';
 
 const API_BASE =
   import.meta.env.VITE_NEXT_PUBLIC_API_BASE || "https://api.128-199-65-122.sslip.io";
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -19,7 +20,20 @@ function App() {
     e.preventDefault();
     setError("");
     setLoading(true);
+
     try {
+      // 測試帳號密碼驗證
+      if (username === "admin" && password === "123456") {
+        if (remember) {
+          localStorage.setItem("law_username", username);
+        }
+        localStorage.setItem("law_token", "demo_token_12345");
+        setIsLoggedIn(true);
+        setLoading(false);
+        return;
+      }
+
+      // 實際 API 呼叫（如果測試帳號不符合）
       const res = await axios.post(`${API_BASE}/auth/login`, {
         username,
         password,
@@ -30,7 +44,7 @@ function App() {
           localStorage.setItem("law_username", username);
         }
         localStorage.setItem("law_token", token);
-        window.location.href = "/";
+        setIsLoggedIn(true);
       } else {
         setError("登入成功，但未收到 token。請稍後再試。");
       }
@@ -41,6 +55,12 @@ function App() {
     }
   };
 
+  // 如果已登入，顯示案件管理系統
+  if (isLoggedIn) {
+    return <CaseOverview />;
+  }
+
+  // 顯示登入介面
   return (
     <main className="login-container">
       <div className="login-wrapper">
@@ -129,6 +149,18 @@ function App() {
                 <a href="#" className="forgot-password">
                   忘記密碼？
                 </a>
+              </div>
+
+              {/* 測試帳號提示 */}
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                <div className="flex items-start space-x-2">
+                  <div className="w-4 h-4 bg-blue-500 rounded-full mt-0.5 flex-shrink-0"></div>
+                  <div className="text-xs text-blue-700">
+                    <p className="font-medium mb-1">測試帳號</p>
+                    <p>帳號：<span className="font-mono bg-blue-100 px-1 rounded">admin</span></p>
+                    <p>密碼：<span className="font-mono bg-blue-100 px-1 rounded">123456</span></p>
+                  </div>
+                </div>
               </div>
 
               {/* 錯誤訊息 */}
