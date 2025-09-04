@@ -4,7 +4,7 @@ import axios from 'axios';
 import './styles/login.css';
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || "https://api.128-199-65-122.sslip.io";
+  import.meta.env.VITE_NEXT_PUBLIC_API_BASE || "https://api.128-199-65-122.sslip.io";
 
 function App() {
   const [username, setUsername] = useState("");
@@ -60,7 +60,7 @@ function App() {
         <div className="login-card">
           {/* 頂部裝飾條 */}
           <div className="card-accent" />
-
+          
           <div className="card-content">
             <h2 className="form-title">
               系統登入
