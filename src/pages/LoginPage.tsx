@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, User, Lock } from 'lucide-react';
 import axios from 'axios';
-import './styles/login.css';
+import "../styles/login.css";
+
 
 const API_BASE =
   import.meta.env.VITE_NEXT_PUBLIC_API_BASE || "https://api.128-199-65-122.sslip.io";
