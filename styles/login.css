@@ -1,0 +1,355 @@
+/* 登入介面專用樣式 */
+
+/* 主要容器樣式 */
+.login-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f1f5f9 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.login-wrapper {
+  width: 100%;
+  max-width: 28rem;
+}
+
+/* 品牌區域 */
+.brand-section {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  background-color: #334d6d;
+  border-radius: 50%;
+  margin-bottom: 1rem;
+  box-shadow: 0 10px 25px -5px rgba(51, 77, 109, 0.3);
+}
+
+.brand-icon svg {
+  width: 2rem;
+  height: 2rem;
+  color: white;
+}
+
+.brand-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #334d6d;
+  letter-spacing: -0.025em;
+  margin-bottom: 0.5rem;
+}
+
+.brand-subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+/* 登入卡片 */
+.login-card {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.card-accent {
+  height: 0.25rem;
+  background: linear-gradient(90deg, #334d6d 0%, #3b82f6 50%, #334d6d 100%);
+}
+
+.card-content {
+  padding: 2rem;
+}
+
+.form-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #334d6d;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+/* 表單樣式 */
+.form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.input-wrapper {
+  position: relative;
+}
+
+.input-icon {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.input-icon svg {
+  width: 1rem;
+  height: 1rem;
+  color: #9ca3af;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  transition: all 0.2s ease-in-out;
+  outline: none;
+}
+
+.form-input:hover {
+  border-color: #9ca3af;
+}
+
+.form-input:focus {
+  ring: 2px;
+  ring-color: #334d6d;
+  border-color: #334d6d;
+}
+
+.form-input::placeholder {
+  color: #9ca3af;
+}
+
+.password-input {
+  padding-right: 3rem;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.password-toggle:hover {
+  background-color: #f8fafc;
+}
+
+.password-toggle svg {
+  width: 1rem;
+  height: 1rem;
+  color: #6b7280;
+}
+
+.password-toggle:hover svg {
+  color: #374151;
+}
+
+/* 記住我和忘記密碼 */
+.form-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+  cursor: pointer;
+  transition: color 0.2s ease-in-out;
+}
+
+.remember-me:hover {
+  color: #374151;
+}
+
+.remember-checkbox {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #334d6d;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.forgot-password {
+  font-size: 0.875rem;
+  color: #334d6d;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+}
+
+.forgot-password:hover {
+  color: #1e40af;
+  text-decoration: underline;
+}
+
+/* 錯誤訊息 */
+.error-message {
+  font-size: 0.875rem;
+  color: #dc2626;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  animation: slideInFromTop 0.3s ease-out;
+}
+
+.error-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.error-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: #dc2626;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 登入按鈕 */
+.login-button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: #334d6d;
+  color: white;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  border: none;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 4px 14px 0 rgba(51, 77, 109, 0.3);
+}
+
+.login-button:hover:not(:disabled) {
+  background-color: #3f5a7d;
+  box-shadow: 0 6px 20px 0 rgba(51, 77, 109, 0.4);
+  transform: translateY(-1px);
+}
+
+.login-button:disabled {
+  background-color: #cbd5e1;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.login-button:focus {
+  ring: 2px;
+  ring-color: #334d6d;
+  ring-offset: 2px;
+}
+
+/* 載入狀態 */
+.loading-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.loading-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid white;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* 頁尾 */
+.card-footer {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.footer-text {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-align: center;
+}
+
+/* 額外資訊 */
+.additional-info {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.help-text {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+/* 動畫 */
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 響應式設計 */
+@media (max-width: 640px) {
+  .login-container {
+    padding: 0.5rem;
+  }
+
+  .card-content {
+    padding: 1.5rem;
+  }
+
+  .brand-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .brand-title {
+    font-size: 1.25rem;
+  }
+}
