@@ -1,5 +1,5 @@
 // src/pages/LoginPage.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, User, Lock, Loader } from 'lucide-react';
 import axios from 'axios';
 import RegisterDialog from '../components/RegisterDialog';
@@ -16,9 +16,9 @@ export default function LoginPage() {
   const [showRegister, setShowRegister] = useState(false);
 
   const [error, setError] = useState('');
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // 若已存在 token，直接導到案件頁
     const token = localStorage.getItem('law_token');
     if (token) {
       window.location.replace('/cases');
@@ -31,17 +31,15 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 內建測試帳密
       if (username === 'admin' && password === '123456') {
         if (remember) localStorage.setItem('law_username', username);
         else localStorage.removeItem('law_username');
 
         localStorage.setItem('law_token', 'demo_token_12345');
-        window.location.assign('/cases'); // 確保 App.tsx 有把 /cases 指到 CaseOverview
+        window.location.assign('/cases');
         return;
       }
 
-      // 真實 API
       const res = await axios.post(`${API_BASE}/auth/login`, {
         username,
         password,
@@ -112,6 +110,7 @@ export default function LoginPage() {
                     <Lock className="w-4 h-4" />
                   </div>
                   <input
+                    ref={passwordRef}
                     type={showPwd ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -123,7 +122,6 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => setShowPwd((s) => !s)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
-                    aria-label="切換顯示密碼"
                   >
                     {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -152,27 +150,14 @@ export default function LoginPage() {
               </div>
 
               {/* 測試帳號提示 */}
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <div className="flex items-start space-x-2">
-                  <div className="w-4 h-4 bg-blue-500 rounded-full mt-0.5 flex-shrink-0" />
-                  <div className="text-xs text-blue-700">
-                    <p className="font-medium mb-1">測試帳號</p>
-                    <p>
-                      帳號：
-                      <span className="font-mono bg-blue-100 px-1 rounded">admin</span>
-                    </p>
-                    <p>
-                      密碼：
-                      <span className="font-mono bg-blue-100 px-1 rounded">123456</span>
-                    </p>
-                  </div>
-                </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-xs text-blue-700">
+                測試帳號：admin / 123456
               </div>
 
               {/* 錯誤訊息 */}
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                  <div className="text-sm text-red-700">{error}</div>
+                <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
+                  {error}
                 </div>
               )}
 
@@ -196,34 +181,33 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowRegister(true)}
-                  className="w-full mt-3 px-4 py-2 rounded-md border text-[#334d6d] hover:bg-gray-50"
+                  className="px-4 py-2 rounded-md border text-[#334d6d] hover:bg-gray-50"
                 >
                   註冊
                 </button>
-
               </div>
             </form>
 
-            {/* 頁尾 */}
             <div className="mt-6 text-center text-xs text-gray-500">
               © {new Date().getFullYear()} 案件管理系統. 版權所有
             </div>
           </div>
         </div>
 
-        {/* 需要協助 */}
         <p className="text-center text-gray-500 text-sm mt-4">需要協助？請聯繫系統管理員</p>
       </div>
 
-      {/* 註冊對話框（放在 LoginPage 內） */}
+      {/* 註冊對話框 */}
       <RegisterDialog
         isOpen={showRegister}
         onClose={() => setShowRegister(false)}
         onRegisterSuccess={(r) => {
-          // 成功後可以帶回登入表單自動填入 client_id 或給提示
-          console.log('註冊成功', r);
+          // 註冊成功 → 自動填入帳號並 focus 密碼
+          setUsername(r.client_id);
+          setShowRegister(false);
+          setTimeout(() => passwordRef.current?.focus(), 100);
         }}
-        apiBaseUrl={import.meta.env.VITE_API_BASE_URL || 'http://localhost:8100'}
+        apiBaseUrl={API_BASE}
       />
     </main>
   );
