@@ -340,16 +340,43 @@
   .login-container {
     padding: 0.5rem;
   }
-  
+
   .card-content {
     padding: 1.5rem;
   }
-  
+
   .brand-section {
     margin-bottom: 1.5rem;
   }
-  
+
   .brand-title {
     font-size: 1.25rem;
+  }
+
+  .form-container {
+    gap: 1rem;
+  }
+
+  .login-button, .register-button {
+    padding: 0.875rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-container {
+    padding: 0.25rem;
+  }
+
+  .card-content {
+    padding: 1rem;
+  }
+
+  .brand-title {
+    font-size: 1.125rem;
+  }
+
+  .form-title {
+    font-size: 1.125rem;
   }
 }

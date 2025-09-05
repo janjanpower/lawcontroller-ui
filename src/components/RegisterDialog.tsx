@@ -3,7 +3,6 @@ import { X, Building, User, Lock, Loader, Eye, EyeOff } from 'lucide-react';
 import { PLANS } from '../types';
 import type { RegisterData, PlanType } from '../types';
 
-
 interface RegisterDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -255,43 +254,6 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
             </div>
 
             {/* 方案選擇 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                選擇方案 <span className="text-red-500">*</span>
-              </label>
-              <div className="grid grid-cols-1 gap-3">
-                {Object.entries(PLANS).map(([key, plan]) => (
-                  <label
-                    key={key}
-                    className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${
-                      formData.plan === key
-                        ? 'border-[#334d6d] bg-blue-50'
-                        : 'border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="plan"
-                      value={key}
-                      checked={formData.plan === key}
-                      onChange={(e) => handleInputChange('plan', e.target.value as PlanType)}
-                      className="mr-3"
-                      disabled={loading}
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-900">{plan.name}</span>
-                        <span className="text-sm text-gray-600">最多 {plan.maxUsers} 人</span>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {plan.features.slice(0, 2).join('、')}
-                        {plan.features.length > 2 && '...'}
-                      </div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
 
             {/* 提交錯誤 */}
             {errors.submit && (
