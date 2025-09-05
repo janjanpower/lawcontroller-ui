@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Eye, EyeOff, User, Lock, Building, Users, Plus, Trash2, Loader } from 'lucide-react';
+import { Eye, EyeOff, User, Lock, Building, Users, Plus, Trash2, Loader, CreditCard, Banknote } from 'lucide-react';
 import RegisterDialog from '../components/RegisterDialog';
 import type {
   LoginCredentials,
@@ -8,13 +8,14 @@ import type {
   Firm,
   CreateUserData,
   PlanType,
-  PLANS
+  PLANS,
+  PlanSelectionData
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_NEXT_PUBLIC_API_BASE || 'https://api.128-199-65-122.sslip.io';
 
 // 模擬資料
-const mockFirms: Record<string, Firm & { users: UserType[]; adminPassword: string }> = {
+const mockFirms: Record<string, Firm & { users: UserType[]; adminPassword: string; hasPlan: boolean }> = {
   'admin': {
     id: '1',
     firmName: '測試法律事務所',
@@ -25,6 +26,7 @@ const mockFirms: Record<string, Firm & { users: UserType[]; adminPassword: strin
     createdAt: '2024-01-01',
     isActive: true,
     adminPassword: 'Admin123!',
+    hasPlan: true,
     users: [
       {
         id: '1',
@@ -54,6 +56,29 @@ const mockFirms: Record<string, Firm & { users: UserType[]; adminPassword: strin
         createdAt: '2024-01-03'
       }
     ]
+  },
+  'testfirm': {
+    id: '2',
+    firmName: '新註冊事務所',
+    firmCode: 'NEWFIRM',
+    plan: 'basic',
+    currentUsers: 1,
+    maxUsers: 0, // 未付費
+    createdAt: '2024-01-15',
+    isActive: true,
+    adminPassword: 'Test123!',
+    hasPlan: false, // 未選擇方案
+    users: [
+      {
+        id: '4',
+        firmId: '2',
+        username: 'testfirm',
+        fullName: '測試管理員',
+        role: 'admin',
+        isActive: true,
+        createdAt: '2024-01-15'
+      }
+    ]
   }
 };
 
@@ -61,12 +86,13 @@ const mockFirms: Record<string, Firm & { users: UserType[]; adminPassword: strin
 const mockUserPasswords: Record<string, string> = {
   '1': '123456',
   '2': '234567',
-  '3': '345678'
+  '3': '345678',
+  '4': '111111'
 };
 
 export default function LoginPage() {
   // 登入流程狀態
-  const [loginStep, setLoginStep] = useState<'login' | 'userSelect' | 'personalPassword'>('login');
+  const [loginStep, setLoginStep] = useState<'login' | 'planSelection' | 'userSelect' | 'personalPassword'>('login');
   const [selectedFirm, setSelectedFirm] = useState<Firm | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
 
@@ -79,6 +105,12 @@ export default function LoginPage() {
   const [userCredentials, setUserCredentials] = useState<UserLoginCredentials>({
     userId: '',
     personalPassword: ''
+  });
+
+  // 方案選擇
+  const [planSelection, setPlanSelection] = useState<PlanSelectionData>({
+    selectedPlan: 'basic',
+    paymentMethod: 'bank_transfer'
   });
 
   // UI 狀態
@@ -118,17 +150,6 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 內建測試帳密
-      if (loginCredentials.username === 'admin' &&
-          loginCredentials.password === 'Admin123!') {
-
-        const firm = mockFirms['admin'];
-        setSelectedFirm(firm);
-        setLoginStep('userSelect');
-        setLoading(false);
-        return;
-      }
-
       // 模擬 API 呼叫
       await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -140,10 +161,42 @@ export default function LoginPage() {
       }
 
       setSelectedFirm(firm);
-      setLoginStep('userSelect');
+
+      // 檢查是否有方案
+      if (!firm.hasPlan) {
+        setLoginStep('planSelection');
+      } else {
+        setLoginStep('userSelect');
+      }
 
     } catch {
       setError('登入失敗，請稍後再試');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 方案選擇和付費
+  const handlePlanSelection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // 模擬付費成功，更新事務所方案
+      if (selectedFirm) {
+        selectedFirm.plan = planSelection.selectedPlan;
+        selectedFirm.maxUsers = PLANS[planSelection.selectedPlan].maxUsers;
+        selectedFirm.hasPlan = true;
+      }
+
+      alert('付費成功！方案已啟用。');
+      setLoginStep('userSelect');
+
+    } catch {
+      setError('付費處理失敗，請稍後再試');
     } finally {
       setLoading(false);
     }
@@ -302,8 +355,8 @@ export default function LoginPage() {
 
   const handleRegisterSuccess = (result: { success: boolean; firmCode: string }) => {
     if (result.success) {
-      // 可以自動填入事務所代碼
-      setLoginCredentials(prev => ({ ...prev, username: 'admin' }));
+      // 可以自動填入帳號
+      setLoginCredentials(prev => ({ ...prev, username: result.firmCode.toLowerCase() }));
     }
   };
 
@@ -314,12 +367,14 @@ export default function LoginPage() {
         <div className="flex flex-col items-center mb-6">
           <div className="w-12 h-12 bg-[#334d6d] rounded-full flex items-center justify-center mb-3">
             {loginStep === 'login' ? <Building className="w-6 h-6 text-white" /> :
+             loginStep === 'planSelection' ? <CreditCard className="w-6 h-6 text-white" /> :
              loginStep === 'userSelect' ? <Users className="w-6 h-6 text-white" /> :
              <User className="w-6 h-6 text-white" />}
           </div>
           <h1 className="text-xl font-bold text-[#334d6d]">案件管理系統</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {loginStep === 'login' ? '請輸入管理員帳密' :
+            {loginStep === 'login' ? '請輸入帳號密碼' :
+             loginStep === 'planSelection' ? '請選擇方案並完成付費' :
              loginStep === 'userSelect' ? '請選擇登入用戶' :
              '請輸入個人密碼'}
           </p>
@@ -329,26 +384,26 @@ export default function LoginPage() {
         {loginStep === 'login' && (
           <form onSubmit={handleAdminLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">管理員帳號</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">帳號</label>
               <input
                 type="text"
                 value={loginCredentials.username}
                 onChange={(e) => setLoginCredentials(prev => ({ ...prev, username: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                placeholder="請輸入管理員帳號"
+                placeholder="請輸入帳號"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">管理員密碼</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">密碼</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={loginCredentials.password}
                   onChange={(e) => setLoginCredentials(prev => ({ ...prev, password: e.target.value }))}
                   className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                  placeholder="請輸入管理員密碼"
+                  placeholder="請輸入密碼"
                   required
                 />
                 <button
@@ -392,6 +447,123 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
+        )}
+
+        {/* 方案選擇和付費 */}
+        {loginStep === 'planSelection' && selectedFirm && (
+          <div className="space-y-4">
+            {/* 事務所資訊 */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+              <h3 className="font-medium text-yellow-900 mb-1">{selectedFirm.firmName}</h3>
+              <p className="text-sm text-yellow-700">
+                請選擇方案以開始使用系統
+              </p>
+            </div>
+
+            <form onSubmit={handlePlanSelection} className="space-y-4">
+              {/* 方案選擇 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">選擇方案</label>
+                <div className="space-y-2">
+                  {Object.entries(PLANS).map(([key, plan]) => (
+                    <label
+                      key={key}
+                      className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
+                        planSelection.selectedPlan === key
+                          ? 'border-[#334d6d] bg-blue-50'
+                          : 'border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          name="plan"
+                          value={key}
+                          checked={planSelection.selectedPlan === key}
+                          onChange={(e) => setPlanSelection(prev => ({ ...prev, selectedPlan: e.target.value as PlanType }))}
+                          className="mr-3"
+                        />
+                        <div>
+                          <div className="font-medium text-gray-900">{plan.name}</div>
+                          <div className="text-xs text-gray-500">最多 {plan.maxUsers} 人</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-[#334d6d]">
+                          {key === 'basic' ? '免費' :
+                           key === 'advanced' ? '月付 $1,999' :
+                           key === 'premium' ? '月付 $3,999' : '月付 $9,999'}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* 付費方式 */}
+              {planSelection.selectedPlan !== 'basic' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">付費方式</label>
+                  <div className="space-y-2">
+                    <label className="flex items-center p-2 border rounded cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="bank_transfer"
+                        checked={planSelection.paymentMethod === 'bank_transfer'}
+                        onChange={(e) => setPlanSelection(prev => ({ ...prev, paymentMethod: e.target.value as any }))}
+                        className="mr-2"
+                      />
+                      <Banknote className="w-4 h-4 mr-2" />
+                      <span className="text-sm">銀行轉帳</span>
+                    </label>
+                    <label className="flex items-center p-2 border rounded cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="credit_card"
+                        checked={planSelection.paymentMethod === 'credit_card'}
+                        onChange={(e) => setPlanSelection(prev => ({ ...prev, paymentMethod: e.target.value as any }))}
+                        className="mr-2"
+                      />
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      <span className="text-sm">信用卡</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <div className="text-sm text-red-700">{error}</div>
+                </div>
+              )}
+
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={resetLogin}
+                  className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-400"
+                >
+                  返回登入
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-[#334d6d] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 flex items-center justify-center"
+                >
+                  {loading ? (
+                    <>
+                      <Loader className="w-4 h-4 mr-2 animate-spin" />
+                      處理中...
+                    </>
+                  ) : (
+                    planSelection.selectedPlan === 'basic' ? '啟用免費方案' : '確認付費'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         )}
 
         {/* 第二步：選擇用戶 */}

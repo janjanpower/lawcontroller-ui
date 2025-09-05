@@ -82,11 +82,16 @@ export interface LoginResponse {
 // 註冊型別
 export interface RegisterData {
   firmName: string;
-  firmCode: string;
-  adminUsername: string;
+  username: string;
   adminPassword: string;
   confirmPassword: string;
   plan: PlanType;
+}
+
+// 方案選擇型別
+export interface PlanSelectionData {
+  selectedPlan: PlanType;
+  paymentMethod: 'bank_transfer' | 'credit_card';
 }
 
 // 用戶管理型別

@@ -5,15 +5,14 @@ import type { RegisterData, PlanType, PLANS } from '../types';
 interface RegisterDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onRegisterSuccess: (result: { success: boolean; firmCode: string }) => void;
+  onRegisterSuccess: (result: { success: boolean; username: string }) => void;
   apiBaseUrl: string;
 }
 
 export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, apiBaseUrl }: RegisterDialogProps) {
   const [formData, setFormData] = useState<RegisterData>({
     firmName: '',
-    firmCode: '',
-    adminUsername: '',
+    username: '',
     adminPassword: '',
     confirmPassword: '',
     plan: 'basic'
@@ -32,27 +31,18 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
       newErrors.firmName = '請輸入事務所名稱';
     }
 
-    // 事務所代碼驗證 (8-16位)
-    if (!formData.firmCode.trim()) {
-      newErrors.firmCode = '請輸入事務所代碼';
-    } else if (formData.firmCode.length < 8 || formData.firmCode.length > 16) {
-      newErrors.firmCode = '事務所代碼需為 8~16 個字元';
-    } else if (!/^[A-Za-z0-9_-]+$/.test(formData.firmCode)) {
-      newErrors.firmCode = '事務所代碼僅允許英數字、_ 與 -';
+    // 帳號驗證 (8-16位)
+    if (!formData.username.trim()) {
+      newErrors.username = '請輸入帳號';
+    } else if (formData.username.length < 8 || formData.username.length > 16) {
+      newErrors.username = '帳號需為 8~16 個字元';
+    } else if (!/^[A-Za-z0-9_-]+$/.test(formData.username)) {
+      newErrors.username = '帳號僅允許英數字、_ 與 -';
     }
 
-    // 管理員帳號驗證 (8-16位)
-    if (!formData.adminUsername.trim()) {
-      newErrors.adminUsername = '請輸入管理員帳號';
-    } else if (formData.adminUsername.length < 8 || formData.adminUsername.length > 16) {
-      newErrors.adminUsername = '管理員帳號需為 8~16 個字元';
-    } else if (!/^[A-Za-z0-9_-]+$/.test(formData.adminUsername)) {
-      newErrors.adminUsername = '管理員帳號僅允許英數字、_ 與 -';
-    }
-
-    // 密碼驗證 (8碼+大小寫英文至少各一個)
+    // 管理員密碼驗證 (8碼+大小寫英文至少各一個)
     if (!formData.adminPassword) {
-      newErrors.adminPassword = '請輸入管理員密碼';
+      newErrors.adminPassword = '請輸入密碼';
     } else if (formData.adminPassword.length < 8) {
       newErrors.adminPassword = '密碼需至少 8 個字元';
     } else if (!/(?=.*[a-z])(?=.*[A-Z])/.test(formData.adminPassword)) {
@@ -61,7 +51,7 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
 
     // 確認密碼驗證
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = '請確認管理員密碼';
+      newErrors.confirmPassword = '請確認密碼';
     } else if (formData.adminPassword !== formData.confirmPassword) {
       newErrors.confirmPassword = '兩次輸入的密碼不一致';
     }
@@ -86,7 +76,7 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
       // 模擬註冊成功
       const result = {
         success: true,
-        firmCode: formData.firmCode,
+        username: formData.username,
         message: '事務所註冊成功！'
       };
 
@@ -94,7 +84,7 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
       onClose();
 
       // 顯示成功訊息
-      alert(`註冊成功！\n\n事務所：${formData.firmName}\n代碼：${formData.firmCode}\n方案：${PLANS[formData.plan].name}\n\n請使用事務所代碼和管理員帳密登入系統。`);
+      alert(`註冊成功！\n\n事務所：${formData.firmName}\n帳號：${formData.username}\n方案：${PLANS[formData.plan].name}\n\n請使用帳號和密碼登入系統。`);
 
     } catch (error) {
       console.error('註冊請求失敗:', error);
@@ -122,8 +112,7 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
   const handleClose = () => {
     setFormData({
       firmName: '',
-      firmCode: '',
-      adminUsername: '',
+      username: '',
       adminPassword: '',
       confirmPassword: '',
       plan: 'basic'
@@ -178,58 +167,36 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
               )}
             </div>
 
-            {/* 事務所代碼 */}
+            {/* 帳號 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <User className="w-4 h-4 inline mr-1" />
-                事務所代碼 <span className="text-red-500">*</span>
+                帳號 <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                value={formData.firmCode}
-                onChange={(e) => handleInputChange('firmCode', e.target.value.toUpperCase())}
+                value={formData.username}
+                onChange={(e) => handleInputChange('username', e.target.value)}
                 className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none ${
-                  errors.firmCode ? 'border-red-500' : 'border-gray-300'
+                  errors.username ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="8~16個字元，英數字、_ 與 -"
                 disabled={loading}
                 maxLength={16}
               />
-              {errors.firmCode && (
-                <p className="text-red-500 text-xs mt-1">{errors.firmCode}</p>
+              {errors.username && (
+                <p className="text-red-500 text-xs mt-1">{errors.username}</p>
               )}
               <p className="text-gray-500 text-xs mt-1">
-                此代碼將作為登入時的事務所識別碼
+                此帳號將作為登入時的識別碼
               </p>
             </div>
 
-            {/* 管理員帳號 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <User className="w-4 h-4 inline mr-1" />
-                管理員帳號 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.adminUsername}
-                onChange={(e) => handleInputChange('adminUsername', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none ${
-                  errors.adminUsername ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="8~16個字元，英數字、_ 與 -"
-                disabled={loading}
-                maxLength={16}
-              />
-              {errors.adminUsername && (
-                <p className="text-red-500 text-xs mt-1">{errors.adminUsername}</p>
-              )}
-            </div>
-
-            {/* 管理員密碼 */}
+            {/* 密碼 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <Lock className="w-4 h-4 inline mr-1" />
-                管理員密碼 <span className="text-red-500">*</span>
+                密碼 <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <input
@@ -259,7 +226,7 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <Lock className="w-4 h-4 inline mr-1" />
-                確認管理員密碼 <span className="text-red-500">*</span>
+                確認密碼 <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <input
