@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, CreditCard, Banknote, Loader } from 'lucide-react';
-import type { PlanType, PLANS, Firm } from '../types';
+import { PLANS } from '../types';
+import type { PlanType, Firm } from '../types';
+
 
 interface PlanSelectionDialogProps {
   isOpen: boolean;

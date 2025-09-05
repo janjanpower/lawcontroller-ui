@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, Building, User, Lock, Loader, Eye, EyeOff } from 'lucide-react';
-import type { RegisterData, PlanType, PLANS } from '../types';
+import { PLANS } from '../types';
+import type { RegisterData, PlanType } from '../types';
+
 
 interface RegisterDialogProps {
   isOpen: boolean;

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, Users, Plus, Trash2, User, Eye, EyeOff, Loader } from 'lucide-react';
-import type { User as UserType, Firm, CreateUserData, PLANS } from '../types';
+import { PLANS } from '../types';
+import type { User as UserType, Firm, CreateUserData } from '../types';
+
 
 interface UserSelectionDialogProps {
   isOpen: boolean;
