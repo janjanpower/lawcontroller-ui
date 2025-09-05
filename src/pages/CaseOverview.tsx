@@ -1,4 +1,8 @@
 // src/pages/CaseOverview.tsx
+import { hasClosedStage } from '../utils/caseStage';
+
+// 如果已引入就不用重複
+import StageEditDialog, { StageFormData } from '../components/StageEditDialog';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Search,
@@ -9,14 +13,13 @@ import {
   FileText,
   User,
   Building,
-  Clock,
-  CheckCircle,
-  XCircle,
   MoreHorizontal,
   Eye,
   Edit,
   Trash2,
+  CheckCircle,   // 新增
 } from 'lucide-react';
+
 
 import CaseForm from '../components/CaseForm';
 import ImportDataDialog from '../components/ImportDataDialog';
@@ -46,7 +49,9 @@ interface Stage {
   date: string; // YYYY-MM-DD
   completed: boolean;
   note?: string;
+  time?: string;   // <--- 新增
 }
+
 
 type Status = 'active' | 'pending' | 'completed' | 'urgent';
 
@@ -192,9 +197,16 @@ function formToTableCase(form: FormCaseData, base?: TableCase): TableCase {
 
 /* ------------------ 主元件 ------------------ */
 export default function CaseOverview() {
+
+
   const [cases, setCases] = useState<TableCase[]>(mockCaseData);
   const [filteredCases, setFilteredCases] = useState<TableCase[]>(mockCaseData);
   const [selectedCase, setSelectedCase] = useState<TableCase | null>(null);
+
+  // ✅ 新增：勾選的案件 ID & 轉移確認框
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showTransferConfirm, setShowTransferConfirm] = useState(false);
+
 
   // 搜尋 & 欄位控制
   const [searchTerm, setSearchTerm] = useState('');
@@ -229,6 +241,140 @@ export default function CaseOverview() {
     message: '',
     type: 'info',
   });
+
+// 進度編輯對話框狀態
+const [showStageDialog, setShowStageDialog] = useState(false);
+const [stageDialogMode, setStageDialogMode] = useState<'add' | 'edit'>('add');
+const [stageInitial, setStageInitial] = useState<Partial<StageFormData>>({});
+const [editingStageIndex, setEditingStageIndex] = useState<number | null>(null);
+
+ const getStageSuggestions = (caseId?: string): string[] => {
+  if (!caseId) return ['委任','起訴','開庭','判決','上訴','執行','結案'];
+  const found = cases.find((c) => c.id === caseId);
+  const names = (found?.stages ?? []).map((s) => s.name);
+  const base = ['委任','起訴','開庭','判決','上訴','執行','結案'];
+  return Array.from(new Set([...names, ...base]));
+};
+
+const openAddStage = () => {
+  if (!selectedCase) return;
+  setStageDialogMode('add');
+  setEditingStageIndex(null);
+  setStageInitial({
+    stageName: '',
+    date: new Date().toISOString().slice(0,10), // 預設今天
+    time: '',
+    note: '',
+  });
+  setShowStageDialog(true);
+};
+
+const openEditStage = (idx: number) => {
+  if (!selectedCase) return;
+  const st = selectedCase.stages[idx];
+  setStageDialogMode('edit');
+  setEditingStageIndex(idx);
+  setStageInitial({
+    stageName: st.name,
+    date: st.date,
+    time: st.time ?? '',
+    note: st.note ?? '',
+  });
+  setShowStageDialog(true);
+};
+
+// 新增或編輯階段 - 實際儲存
+const handleSaveStage = async (data: StageFormData): Promise<boolean> => {
+  if (!selectedCase) return false;
+
+  const updateCase = (c: typeof selectedCase) => {
+    // 產生新 stages 陣列
+    const nextStages = [...c.stages];
+
+    if (stageDialogMode === 'add') {
+      const existIdx = nextStages.findIndex((s) => s.name === data.stageName);
+      if (existIdx >= 0) {
+        // 已存在 → 詢問是否覆蓋
+        const ok = window.confirm(`階段「${data.stageName}」已存在，是否更新日期 / 備註 / 時間？`);
+        if (!ok) return null;
+        nextStages[existIdx] = {
+          ...nextStages[existIdx],
+          date: data.date,
+          note: data.note,
+          time: data.time,
+        };
+      } else {
+        nextStages.push({
+          name: data.stageName,
+          date: data.date,
+          note: data.note,
+          time: data.time,
+          completed: false,
+        });
+      }
+    } else {
+      // edit 模式
+      if (editingStageIndex == null || editingStageIndex < 0 || editingStageIndex >= nextStages.length) {
+        return null;
+      }
+      const before = nextStages[editingStageIndex];
+      // 若改了名稱且名稱已存在 → 詢問合併（覆蓋）
+      const dupIdx = nextStages.findIndex(
+        (s, idx) => idx !== editingStageIndex && s.name === data.stageName
+      );
+      if (dupIdx >= 0) {
+        const ok = window.confirm(
+          `階段名稱「${data.stageName}」已存在，是否將本次編輯內容覆蓋該階段？（原階段將被更新）`
+        );
+        if (!ok) return null;
+        nextStages[dupIdx] = {
+          ...nextStages[dupIdx],
+          date: data.date,
+          note: data.note,
+          time: data.time,
+          completed: nextStages[dupIdx].completed || before.completed,
+        };
+        // 刪除原本的位置
+        nextStages.splice(editingStageIndex, 1);
+      } else {
+        nextStages[editingStageIndex] = {
+          ...before,
+          name: data.stageName,
+          date: data.date,
+          note: data.note,
+          time: data.time,
+        };
+      }
+    }
+
+    return { ...c, stages: nextStages };
+  };
+
+  // 同步更新列表與右側詳情
+  const updated = updateCase(selectedCase);
+  if (!updated) return false;
+
+  setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updated : c)));
+  setSelectedCase(updated);
+  return true;
+};
+// ✅ 轉移結案邏輯
+  const handleTransferToClosed = () => {
+    if (selectedIds.length === 0) {
+      window.alert("請先勾選要轉移的案件");
+      return;
+    }
+    const selectedCases = cases.filter((c) => selectedIds.includes(c.id));
+    const notClosed = selectedCases.filter((c) => !hasClosedStage(c.stages));
+    if (notClosed.length > 0) {
+      const list = notClosed.map((c) => `#${c.id} ${c.caseNumber}`).join("\n");
+      window.alert(
+        `以下案件尚未新增「已結案」階段，無法轉移：\n\n${list}\n\n請先到案件詳情 → 新增階段，加入「已結案」。`
+      );
+      return;
+    }
+    setShowTransferConfirm(true);
+  };
 
   /* -------- 搜尋 -------- */
   useEffect(() => {
@@ -428,7 +574,7 @@ export default function CaseOverview() {
               <div className="bg-[#3498db] rounded-md">
                 <a href="#" className="flex items-center space-x-3 px-3 py-2 text-white">
                   <FileText className="w-4 h-4" />
-                  <span className="text-sm font-medium">案件區分</span>
+                  <span className="text-sm font-medium">案件總覽</span>
                 </a>
               </div>
             </div>
@@ -466,19 +612,27 @@ export default function CaseOverview() {
                     <Download className="w-4 h-4" />
                     <span>匯入資料</span>
                   </button>
-
+                  {/* ✅ 新增：轉移結案按鈕 */}
+                  <button
+                    onClick={handleTransferToClosed}
+                    className="bg-[#f39c12] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#d68910] transition-colors flex items-center space-x-2"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>轉移結案</span>
+                  </button>
                 </div>
-
               </div>
 
-              <div className="flex-1 flex items-center justify-end space-x-4">
-                {/* 跑馬燈：日期提醒 */}
-                <div className="w-[420px] mr-4">
+              <div className="flex-1">
+                <div className="h-10 w-full rounded-md border border-gray-300 bg-white flex items-center px-3 overflow-hidden">
+                  <div className="whitespace-nowrap text-sm text-[#334d6d] animate-marquee">
                   <DateReminderWidget
                     caseData={reminderData}
                     onCaseSelect={onCaseSelectFromReminder}
                   />
-                </div>
+                 </div>
+              </div>
+
 
                 {/* 搜尋 */}
                 <div className="relative">
@@ -630,9 +784,18 @@ export default function CaseOverview() {
                           <input
                             type="checkbox"
                             className="rounded border-gray-300 text-[#334d6d] focus:ring-[#334d6d]"
-                            onClick={(e) => e.stopPropagation()}
+                            checked={selectedIds.includes(row.id)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              if (e.target.checked) {
+                                setSelectedIds((prev) => [...prev, row.id]);
+                              } else {
+                                setSelectedIds((prev) => prev.filter((id) => id !== row.id));
+                              }
+                            }}
                           />
                         </td>
+
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {row.id}
                         </td>
@@ -768,51 +931,54 @@ export default function CaseOverview() {
                   <div>
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-sm font-semibold text-gray-900">案件進度</h4>
-                      <button
-                        onClick={() => handleEditCase(selectedCase)}
-                        className="bg-[#27ae60] text-white px-3 py-1 rounded-md text-xs font-medium hover:bg-[#229954] transition-colors flex items-center space-x-1"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>新增階段</span>
-                      </button>
+                 <button
+                    onClick={openAddStage}
+                    className="bg-[#27ae60] text-white px-3 py-1.5 rounded-md hover:bg-[#229954]
+                   transition-colors flex items-center space-x-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>新增階段</span>
+                  </button>
+
                     </div>
 
                     <div className="space-y-3">
                       {selectedCase.stages.map((stage, idx) => {
                         const isCurrent = stage.name === selectedCase.progress;
                         return (
-                          <div key={`${stage.name}-${idx}`} className="flex items-center space-x-3">
+                          <div
+                            key={`${stage.name}-${idx}`}
+                            className="flex items-start space-x-3 p-2 rounded-md hover:bg-gray-50 cursor-pointer"
+                            onClick={() => openEditStage(idx)}
+                            title="點擊編輯此進度"
+                          >
+                            {/* 由圓形改為橫向長方形 */}
                             <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${getStageColor(
-                                stage,
-                                isCurrent,
-                              )}`}
+                              className={`min-w-[88px] px-3 py-1 rounded-xl text-xs font-semibold text-center ${getStageColor(stage, isCurrent)}`}
                             >
-                              {stage.name.slice(0, 2)}
+                              {/* 顯示完整名稱，不再 slice(0,2) */}
+                              {stage.name}
                             </div>
+
                             <div className="flex-1">
                               <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-900">
-                                  {stage.name}
+                                <span className="text-sm font-medium text-gray-900">{stage.name}</span>
+                                <span className="text-xs text-gray-500">
+                                  {stage.date}
+                                  {stage.time ? ` ${stage.time}` : ''}
                                 </span>
-                                {stage.completed ? (
-                                  <CheckCircle className="w-4 h-4 text-green-500" />
-                                ) : isCurrent ? (
-                                  <Clock className="w-4 h-4 text-blue-500" />
-                                ) : (
-                                  <XCircle className="w-4 h-4 text-gray-300" />
-                                )}
                               </div>
-                              <p className="text-xs text-gray-500">{stage.date}</p>
+                              {/* 備註 */}
                               {stage.note && (
-                                <p className="text-xs text-gray-600 mt-1 bg-gray-50 p-2 rounded">
-                                  📄 {stage.note}
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {stage.note}
                                 </p>
                               )}
                             </div>
                           </div>
                         );
                       })}
+
                     </div>
                   </div>
                 </div>
@@ -848,6 +1014,48 @@ export default function CaseOverview() {
           dialogConfig.onConfirm?.();
         }}
       />
+
+      <StageEditDialog
+      isOpen={showStageDialog}
+      mode={stageDialogMode}
+      initial={stageInitial}
+      suggestions={getStageSuggestions(selectedCase?.id)}
+      onClose={() => setShowStageDialog(false)}
+      onSave={handleSaveStage}
+    />
+{/* ✅ 新增：轉移確認框 */}
+          {showTransferConfirm && (
+            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+                <div className="bg-[#334d6d] text-white px-5 py-3 rounded-t-xl">
+                  <h3 className="text-lg font-semibold">確認轉移至結案案件</h3>
+                </div>
+                <div className="p-5 space-y-3">
+                  <p className="text-sm text-gray-700">
+                    即將轉移 {selectedIds.length} 筆案件至「結案案件」。
+                  </p>
+                </div>
+                <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-2">
+                  <button
+                    onClick={() => setShowTransferConfirm(false)}
+                    className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={() => {
+                      // TODO: 串 API
+                      setShowTransferConfirm(false);
+                      window.alert("已送出轉移結案請求");
+                    }}
+                    className="px-4 py-2 rounded-md bg-[#f39c12] hover:bg-[#d68910] text-white"
+                  >
+                    確認轉移
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
     </div>
   );
 }
