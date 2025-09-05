@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Eye, EyeOff, User, Lock, Building, Users, Plus, Trash2, Loader } from 'lucide-react';
+import RegisterDialog from '../components/RegisterDialog';
 import type {
   LoginCredentials,
   UserLoginCredentials,
@@ -14,7 +15,7 @@ const API_BASE = import.meta.env.VITE_NEXT_PUBLIC_API_BASE || 'https://api.128-1
 
 // 模擬資料
 const mockFirms: Record<string, Firm & { users: UserType[]; adminPassword: string }> = {
-  'TEST001': {
+  'admin': {
     id: '1',
     firmName: '測試法律事務所',
     firmCode: 'TEST001',
@@ -65,13 +66,12 @@ const mockUserPasswords: Record<string, string> = {
 
 export default function LoginPage() {
   // 登入流程狀態
-  const [loginStep, setLoginStep] = useState<'firm' | 'user' | 'password'>('firm');
+  const [loginStep, setLoginStep] = useState<'login' | 'userSelect' | 'personalPassword'>('login');
   const [selectedFirm, setSelectedFirm] = useState<Firm | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
 
   // 表單資料
-  const [firmCredentials, setFirmCredentials] = useState<LoginCredentials>({
-    firmCode: '',
+  const [loginCredentials, setLoginCredentials] = useState<LoginCredentials>({
     username: '',
     password: ''
   });
@@ -87,8 +87,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // 註冊對話框
+  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
+
   // 用戶管理狀態
-  const [showUserManagement, setShowUserManagement] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [createUserData, setCreateUserData] = useState<CreateUserData>({
     username: '',
@@ -98,6 +100,10 @@ export default function LoginPage() {
     confirmPersonalPassword: ''
   });
 
+  // 刪除用戶確認
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+
   useEffect(() => {
     const token = localStorage.getItem('law_token');
     if (token) {
@@ -105,21 +111,20 @@ export default function LoginPage() {
     }
   }, []);
 
-  // 第一步：事務所登入
-  const handleFirmLogin = async (e: React.FormEvent) => {
+  // 第一步：管理員登入
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
       // 內建測試帳密
-      if (firmCredentials.firmCode === 'TEST001' &&
-          firmCredentials.username === 'admin' &&
-          firmCredentials.password === 'Admin123!') {
+      if (loginCredentials.username === 'admin' &&
+          loginCredentials.password === 'Admin123!') {
 
-        const firm = mockFirms['TEST001'];
+        const firm = mockFirms['admin'];
         setSelectedFirm(firm);
-        setLoginStep('user');
+        setLoginStep('userSelect');
         setLoading(false);
         return;
       }
@@ -127,15 +132,15 @@ export default function LoginPage() {
       // 模擬 API 呼叫
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const firm = mockFirms[firmCredentials.firmCode];
-      if (!firm || firm.adminPassword !== firmCredentials.password) {
-        setError('事務所代碼、帳號或密碼錯誤');
+      const firm = mockFirms[loginCredentials.username];
+      if (!firm || firm.adminPassword !== loginCredentials.password) {
+        setError('帳號或密碼錯誤');
         setLoading(false);
         return;
       }
 
       setSelectedFirm(firm);
-      setLoginStep('user');
+      setLoginStep('userSelect');
 
     } catch {
       setError('登入失敗，請稍後再試');
@@ -148,7 +153,7 @@ export default function LoginPage() {
   const handleUserSelect = (user: UserType) => {
     setSelectedUser(user);
     setUserCredentials({ userId: user.id, personalPassword: '' });
-    setLoginStep('password');
+    setLoginStep('personalPassword');
   };
 
   // 第三步：個人密碼驗證
@@ -181,7 +186,7 @@ export default function LoginPage() {
     }
   };
 
-  // 用戶管理功能
+  // 新增用戶
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -256,23 +261,27 @@ export default function LoginPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!selectedFirm) return;
+  // 刪除用戶確認
+  const handleDeleteUserConfirm = async () => {
+    if (!selectedFirm || !deleteUserId) return;
 
-    const user = selectedFirm.users.find(u => u.id === userId);
-    if (!user) return;
-
-    if (!confirm(`確定要刪除用戶「${user.fullName}」嗎？`)) return;
+    // 驗證管理員密碼
+    if (deletePassword !== selectedFirm.adminPassword) {
+      setError('管理員密碼錯誤');
+      return;
+    }
 
     try {
       setLoading(true);
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // 更新模擬資料
-      selectedFirm.users = selectedFirm.users.filter(u => u.id !== userId);
+      selectedFirm.users = selectedFirm.users.filter(u => u.id !== deleteUserId);
       selectedFirm.currentUsers--;
-      delete mockUserPasswords[userId];
+      delete mockUserPasswords[deleteUserId];
 
+      setDeleteUserId(null);
+      setDeletePassword('');
       alert('用戶已刪除');
 
     } catch {
@@ -283,13 +292,19 @@ export default function LoginPage() {
   };
 
   const resetLogin = () => {
-    setLoginStep('firm');
+    setLoginStep('login');
     setSelectedFirm(null);
     setSelectedUser(null);
-    setFirmCredentials({ firmCode: '', username: '', password: '' });
+    setLoginCredentials({ username: '', password: '' });
     setUserCredentials({ userId: '', personalPassword: '' });
     setError('');
-    setShowUserManagement(false);
+  };
+
+  const handleRegisterSuccess = (result: { success: boolean; firmCode: string }) => {
+    if (result.success) {
+      // 可以自動填入事務所代碼
+      setLoginCredentials(prev => ({ ...prev, username: 'admin' }));
+    }
   };
 
   return (
@@ -298,57 +313,27 @@ export default function LoginPage() {
         {/* 標題區 */}
         <div className="flex flex-col items-center mb-6">
           <div className="w-12 h-12 bg-[#334d6d] rounded-full flex items-center justify-center mb-3">
-            {loginStep === 'firm' ? <Building className="w-6 h-6 text-white" /> :
-             loginStep === 'user' ? <Users className="w-6 h-6 text-white" /> :
+            {loginStep === 'login' ? <Building className="w-6 h-6 text-white" /> :
+             loginStep === 'userSelect' ? <Users className="w-6 h-6 text-white" /> :
              <User className="w-6 h-6 text-white" />}
           </div>
           <h1 className="text-xl font-bold text-[#334d6d]">案件管理系統</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {loginStep === 'firm' ? '請輸入事務所資訊' :
-             loginStep === 'user' ? '請選擇登入用戶' :
+            {loginStep === 'login' ? '請輸入管理員帳密' :
+             loginStep === 'userSelect' ? '請選擇登入用戶' :
              '請輸入個人密碼'}
           </p>
         </div>
 
-        {/* 步驟指示器 */}
-        <div className="flex items-center justify-center mb-6">
-          <div className="flex items-center space-x-2">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-              loginStep === 'firm' ? 'bg-[#334d6d] text-white' : 'bg-green-500 text-white'
-            }`}>1</div>
-            <div className="w-8 h-0.5 bg-gray-300"></div>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-              loginStep === 'user' ? 'bg-[#334d6d] text-white' :
-              loginStep === 'password' ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
-            }`}>2</div>
-            <div className="w-8 h-0.5 bg-gray-300"></div>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-              loginStep === 'password' ? 'bg-[#334d6d] text-white' : 'bg-gray-300 text-gray-600'
-            }`}>3</div>
-          </div>
-        </div>
-
-        {/* 第一步：事務所登入 */}
-        {loginStep === 'firm' && (
-          <form onSubmit={handleFirmLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">事務所代碼</label>
-              <input
-                type="text"
-                value={firmCredentials.firmCode}
-                onChange={(e) => setFirmCredentials(prev => ({ ...prev, firmCode: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                placeholder="請輸入事務所代碼"
-                required
-              />
-            </div>
-
+        {/* 第一步：管理員登入 */}
+        {loginStep === 'login' && (
+          <form onSubmit={handleAdminLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">管理員帳號</label>
               <input
                 type="text"
-                value={firmCredentials.username}
-                onChange={(e) => setFirmCredentials(prev => ({ ...prev, username: e.target.value }))}
+                value={loginCredentials.username}
+                onChange={(e) => setLoginCredentials(prev => ({ ...prev, username: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
                 placeholder="請輸入管理員帳號"
                 required
@@ -360,8 +345,8 @@ export default function LoginPage() {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  value={firmCredentials.password}
-                  onChange={(e) => setFirmCredentials(prev => ({ ...prev, password: e.target.value }))}
+                  value={loginCredentials.password}
+                  onChange={(e) => setLoginCredentials(prev => ({ ...prev, password: e.target.value }))}
                   className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
                   placeholder="請輸入管理員密碼"
                   required
@@ -390,17 +375,27 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <Loader className="w-4 h-4 mr-2 animate-spin" />
-                  驗證中...
+                  登入中...
                 </>
               ) : (
-                '下一步'
+                '登入'
               )}
             </button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setShowRegisterDialog(true)}
+                className="text-sm text-[#334d6d] hover:underline"
+              >
+                還沒有帳號？立即註冊
+              </button>
+            </div>
           </form>
         )}
 
         {/* 第二步：選擇用戶 */}
-        {loginStep === 'user' && selectedFirm && (
+        {loginStep === 'userSelect' && selectedFirm && (
           <div className="space-y-4">
             {/* 事務所資訊 */}
             <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
@@ -414,48 +409,14 @@ export default function LoginPage() {
             <div className="flex justify-between items-center">
               <h3 className="font-medium text-gray-900">選擇登入用戶</h3>
               <button
-                onClick={() => setShowUserManagement(!showUserManagement)}
-                className="text-sm text-[#334d6d] hover:underline flex items-center"
+                onClick={() => setShowCreateUser(true)}
+                disabled={selectedFirm.currentUsers >= selectedFirm.maxUsers}
+                className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
-                <Users className="w-4 h-4 mr-1" />
-                管理用戶
+                <Plus className="w-3 h-3 mr-1" />
+                新增用戶
               </button>
             </div>
-
-            {/* 用戶管理面板 */}
-            {showUserManagement && (
-              <div className="bg-gray-50 border border-gray-200 rounded-md p-3 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">用戶管理</span>
-                  <button
-                    onClick={() => setShowCreateUser(true)}
-                    disabled={selectedFirm.currentUsers >= selectedFirm.maxUsers}
-                    className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                  >
-                    <Plus className="w-3 h-3 mr-1" />
-                    新增用戶
-                  </button>
-                </div>
-
-                {selectedFirm.users.map(user => (
-                  <div key={user.id} className="flex items-center justify-between bg-white p-2 rounded border">
-                    <div>
-                      <div className="font-medium text-sm">{user.fullName}</div>
-                      <div className="text-xs text-gray-500">{user.username} - {user.role}</div>
-                    </div>
-                    {user.role !== 'admin' && (
-                      <button
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="text-red-600 hover:text-red-800 p-1"
-                        title="刪除用戶"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
 
             {/* 新增用戶表單 */}
             {showCreateUser && (
@@ -549,33 +510,41 @@ export default function LoginPage() {
             {/* 用戶列表 */}
             <div className="space-y-2">
               {selectedFirm.users.filter(u => u.isActive).map(user => (
-                <button
-                  key={user.id}
-                  onClick={() => handleUserSelect(user)}
-                  className="w-full p-3 border border-gray-300 rounded-md hover:bg-gray-50 text-left transition-colors"
-                >
-                  <div className="font-medium text-gray-900">{user.fullName}</div>
-                  <div className="text-sm text-gray-500">{user.username} - {
-                    user.role === 'admin' ? '管理員' :
-                    user.role === 'lawyer' ? '律師' : '法務'
-                  }</div>
-                </button>
+                <div key={user.id} className="flex items-center justify-between p-3 border border-gray-300 rounded-md hover:bg-gray-50">
+                  <button
+                    onClick={() => handleUserSelect(user)}
+                    className="flex-1 text-left"
+                  >
+                    <div className="font-medium text-gray-900">{user.fullName}</div>
+                    <div className="text-sm text-gray-500">{user.username} - {
+                      user.role === 'admin' ? '管理員' :
+                      user.role === 'lawyer' ? '律師' : '法務'
+                    }</div>
+                  </button>
+                  {user.role !== 'admin' && (
+                    <button
+                      onClick={() => setDeleteUserId(user.id)}
+                      className="text-red-600 hover:text-red-800 p-1 ml-2"
+                      title="刪除用戶"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
 
-            <div className="flex space-x-3">
-              <button
-                onClick={resetLogin}
-                className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-400"
-              >
-                返回上一步
-              </button>
-            </div>
+            <button
+              onClick={resetLogin}
+              className="w-full bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-400"
+            >
+              返回登入
+            </button>
           </div>
         )}
 
         {/* 第三步：個人密碼 */}
-        {loginStep === 'password' && selectedUser && (
+        {loginStep === 'personalPassword' && selectedUser && (
           <div className="space-y-4">
             {/* 用戶資訊 */}
             <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
@@ -616,7 +585,7 @@ export default function LoginPage() {
               <div className="flex space-x-3">
                 <button
                   type="button"
-                  onClick={() => setLoginStep('user')}
+                  onClick={() => setLoginStep('userSelect')}
                   className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-400"
                 >
                   返回上一步
@@ -639,7 +608,59 @@ export default function LoginPage() {
             </form>
           </div>
         )}
+
+        {/* 刪除用戶確認對話框 */}
+        {deleteUserId && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+              <h3 className="text-lg font-semibold mb-4">確認刪除用戶</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                請輸入管理員密碼以確認刪除用戶：
+                <strong>{selectedFirm?.users.find(u => u.id === deleteUserId)?.fullName}</strong>
+              </p>
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none mb-4"
+                placeholder="請輸入管理員密碼"
+              />
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-2 mb-4">
+                  <div className="text-sm text-red-700">{error}</div>
+                </div>
+              )}
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setDeleteUserId(null);
+                    setDeletePassword('');
+                    setError('');
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-400"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleDeleteUserConfirm}
+                  disabled={loading}
+                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-md text-sm hover:bg-red-700 disabled:opacity-50"
+                >
+                  {loading ? '刪除中...' : '確認刪除'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* 註冊對話框 */}
+      <RegisterDialog
+        isOpen={showRegisterDialog}
+        onClose={() => setShowRegisterDialog(false)}
+        onRegisterSuccess={handleRegisterSuccess}
+        apiBaseUrl={API_BASE}
+      />
     </main>
   );
 }

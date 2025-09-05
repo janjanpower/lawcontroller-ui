@@ -63,7 +63,6 @@ export interface User {
 
 // 登入相關型別
 export interface LoginCredentials {
-  firmCode: string;
   username: string;
   password: string;
 }
