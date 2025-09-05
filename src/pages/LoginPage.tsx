@@ -151,8 +151,10 @@ export default function LoginPage() {
 
       // 檢查是否有方案
       if (!firm.hasPlan) {
+        console.log('顯示方案選擇對話框');
         setShowPlanSelectionDialog(true);
       } else {
+        console.log('顯示用戶選擇對話框');
         setShowUserSelectionDialog(true);
       }
 
@@ -328,25 +330,21 @@ export default function LoginPage() {
       />
 
       {/* 方案選擇對話框 */}
-      {selectedFirm && (
-        <PlanSelectionDialog
-          isOpen={showPlanSelectionDialog}
-          onClose={() => setShowPlanSelectionDialog(false)}
-          firm={selectedFirm}
-          onComplete={handlePlanSelectionComplete}
-        />
-      )}
+      <PlanSelectionDialog
+        isOpen={showPlanSelectionDialog && selectedFirm !== null}
+        onClose={() => setShowPlanSelectionDialog(false)}
+        firm={selectedFirm}
+        onComplete={handlePlanSelectionComplete}
+      />
 
       {/* 用戶選擇對話框 */}
-      {selectedFirm && (
-        <UserSelectionDialog
-          isOpen={showUserSelectionDialog}
-          onClose={() => setShowUserSelectionDialog(false)}
-          firm={selectedFirm}
-          userPasswords={mockUserPasswords}
-          onComplete={handleUserSelectionComplete}
-        />
-      )}
+      <UserSelectionDialog
+        isOpen={showUserSelectionDialog && selectedFirm !== null}
+        onClose={() => setShowUserSelectionDialog(false)}
+        firm={selectedFirm}
+        userPasswords={mockUserPasswords}
+        onComplete={handleUserSelectionComplete}
+      />
     </div>
   );
 }

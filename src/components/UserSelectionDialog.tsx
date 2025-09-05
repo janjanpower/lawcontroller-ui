@@ -26,6 +26,9 @@ export default function UserSelectionDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // 調試日誌
+  console.log('UserSelectionDialog render:', { isOpen, firm: !!firm });
+
   // 新增用戶表單
   const [createUserData, setCreateUserData] = useState<CreateUserData>({
     username: '',
@@ -177,6 +180,11 @@ export default function UserSelectionDialog({
   };
 
   if (!isOpen) return null;
+
+  if (!firm) {
+    console.log('UserSelectionDialog: firm is null');
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

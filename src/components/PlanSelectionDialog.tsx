@@ -15,6 +15,9 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // 調試日誌
+  console.log('PlanSelectionDialog render:', { isOpen, firm: !!firm });
+
   const handlePlanSelection = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -39,6 +42,11 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
   };
 
   if (!isOpen) return null;
+
+  if (!firm) {
+    console.log('PlanSelectionDialog: firm is null');
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
