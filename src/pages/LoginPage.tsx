@@ -365,16 +365,16 @@ export default function LoginPage() {
         {/* 標題區 */}
         <div className="flex flex-col items-center mb-6">
           <div className="w-12 h-12 bg-[#334d6d] rounded-full flex items-center justify-center mb-3">
-            {loginStep === 'login' ? <Building className="w-6 h-6 text-white" /> :
-             loginStep === 'planSelection' ? <CreditCard className="w-6 h-6 text-white" /> :
-             loginStep === 'userSelect' ? <Users className="w-6 h-6 text-white" /> :
-             <User className="w-6 h-6 text-white" />}
+            {loginStep === 'login' && <Building className="w-6 h-6 text-white" />}
+            {loginStep === 'planSelection' && <CreditCard className="w-6 h-6 text-white" />}
+            {loginStep === 'userSelect' && <Users className="w-6 h-6 text-white" />}
+            {loginStep === 'personalPassword' && <User className="w-6 h-6 text-white" />}
           </div>
           <h1 className="text-xl font-semibold text-gray-900">
-            {loginStep === 'login' ? '管理員登入' :
-             loginStep === 'planSelection' ? '選擇方案' :
-             loginStep === 'userSelect' ? '選擇用戶' :
-             '個人密碼驗證'}
+            {loginStep === 'login' && '管理員登入'}
+            {loginStep === 'planSelection' && '選擇方案'}
+            {loginStep === 'userSelect' && '選擇用戶'}
+            {loginStep === 'personalPassword' && '個人密碼驗證'}
           </h1>
         </div>
 
