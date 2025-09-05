@@ -483,6 +483,7 @@ export default function CaseOverview() {
                     <Plus className="w-4 h-4" />
                     <span>新增案件</span>
                   </button>
+
                   <button
                     onClick={() => setShowImportDialog(true)}
                     className="bg-[#27ae60] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#229954] transition-colors flex items-center space-x-2"
@@ -490,6 +491,7 @@ export default function CaseOverview() {
                     <Upload className="w-4 h-4" />
                     <span>上傳資料</span>
                   </button>
+
                   <button
                     onClick={() => setShowImportDialog(true)}
                     className="bg-[#8e44ad] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#7d3c98] transition-colors flex items-center space-x-2"
@@ -497,7 +499,15 @@ export default function CaseOverview() {
                     <Download className="w-4 h-4" />
                     <span>匯入資料</span>
                   </button>
+
+                  <button
+                    onClick={() => setShowFilters(v => !v)}
+                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                  >
+                    <Filter className="w-4 h-4" />
+                  </button>
                 </div>
+
               </div>
 
               <div className="flex-1 flex items-center justify-end space-x-4">
@@ -722,28 +732,29 @@ export default function CaseOverview() {
                         >
                           <div className="flex items-center space-x-2">
                             <button
+                              onClick={(e) => { e.stopPropagation(); setSelectedCase(row); }}
                               className="text-gray-400 hover:text-[#334d6d] transition-colors"
                               title="檢視"
-                              onClick={() => setSelectedCase(row)}
                             >
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
+                              onClick={(e) => { e.stopPropagation(); handleEditCase(row); }}
                               className="text-gray-400 hover:text-[#334d6d] transition-colors"
                               title="編輯"
-                              onClick={() => handleEditCase(row)}
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
+                              onClick={(e) => { e.stopPropagation(); confirmDeleteCase(row); }}
                               className="text-gray-400 hover:text-red-600 transition-colors"
                               title="刪除"
-                              onClick={() => confirmDeleteCase(row)}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
+
                       </tr>
                     ))}
                   </tbody>
