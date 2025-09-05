@@ -31,13 +31,13 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 內建測試帳密
+      // 內建測試帳密（✅ 拿掉硬塞 token，每次必須輸入 admin / 123456）
       if (username === 'admin' && password === '123456') {
         if (remember) localStorage.setItem('law_username', username);
         else localStorage.removeItem('law_username');
 
-        localStorage.setItem('law_token', 'demo_token_12345');
-        window.location.assign('/cases'); // 確保 App.tsx 有把 /cases 指到 CaseOverview
+        // 不再存 demo_token，直接進入系統
+        window.location.assign('/cases');
         return;
       }
 
@@ -66,6 +66,7 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
