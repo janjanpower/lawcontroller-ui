@@ -19,10 +19,10 @@ import {
   Trash2,
 } from 'lucide-react';
 
-import CaseForm from '../pages/CaseForm';
-import ImportDataDialog from '../pages/ImportDataDialog';
-import UnifiedDialog from '../pages/UnifiedDialog';
-import DateReminderWidget from '../pages/DateReminderWidget';
+import CaseForm from './CaseForm';
+import ImportDataDialog from './ImportDataDialog';
+import UnifiedDialog from './UnifiedDialog';
+import DateReminderWidget from './DateReminderWidget';
 
 /** 供 CaseForm 使用的型別（與 CaseForm.tsx 相容） */
 export interface FormCaseData {

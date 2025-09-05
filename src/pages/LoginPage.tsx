@@ -1,6 +1,6 @@
 // src/pages/LoginPage.tsx
 import { useEffect, useState } from 'react';
-import { Eye, EyeOff, User, Lock, UserPlus, Loader } from 'lucide-react';
+import { Eye, EyeOff, User, Lock, Loader } from 'lucide-react';
 import axios from 'axios';
 import RegisterDialog from '../pages/RegisterDialog';
 
@@ -13,10 +13,9 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(!!localStorage.getItem('law_username'));
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [showRegister, setShowRegister] = useState(false);
 
-  // 註冊對話框
-  const [openRegister, setOpenRegister] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     // 若已存在 token，直接導到案件頁
@@ -196,12 +195,12 @@ export default function LoginPage() {
 
                 <button
                   type="button"
-                  onClick={() => setOpenRegister(true)}
-                  className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50"
+                  onClick={() => setShowRegister(true)}
+                  className="w-full mt-3 px-4 py-2 rounded-md border text-[#334d6d] hover:bg-gray-50"
                 >
-                  <UserPlus className="w-4 h-4 mr-2" />
                   註冊
                 </button>
+
               </div>
             </form>
 
@@ -218,14 +217,13 @@ export default function LoginPage() {
 
       {/* 註冊對話框（放在 LoginPage 內） */}
       <RegisterDialog
-        isOpen={openRegister}
-        onClose={() => setOpenRegister(false)}
-        apiBaseUrl={API_BASE}
-        onRegisterSuccess={(result) => {
-          // 註冊成功後：自動填入帳密，幫助快速登入（可按需求調整）
-          setUsername(result.client_id);
-          setPassword(result.password);
+        isOpen={showRegister}
+        onClose={() => setShowRegister(false)}
+        onRegisterSuccess={(r) => {
+          // 成功後可以帶回登入表單自動填入 client_id 或給提示
+          console.log('註冊成功', r);
         }}
+        apiBaseUrl={import.meta.env.VITE_API_BASE_URL || 'http://localhost:8100'}
       />
     </main>
   );
