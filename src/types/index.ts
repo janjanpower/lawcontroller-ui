@@ -18,14 +18,14 @@ export const PLANS: Record<PlanType, Plan> = {
     features: ['基本案件管理', '客戶管理', '檔案上傳']
   },
   advanced: {
-    type: 'advanced',
+    type: 'advanced', 
     name: '進階方案',
     maxUsers: 10,
     features: ['基本案件管理', '客戶管理', '檔案上傳', 'LINE Bot整合', '進度提醒']
   },
   premium: {
     type: 'premium',
-    name: '高階方案',
+    name: '高階方案', 
     maxUsers: 20,
     features: ['所有進階功能', '自訂報表', '資料匯出', 'API整合']
   },

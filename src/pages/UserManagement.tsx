@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Search, Filter, Plus, Edit, Trash2, Eye, Shield, UserCheck, UserX } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Eye, Edit, Trash2, Shield, UserCheck, UserX, X } from 'lucide-react';
 
 // 模擬用戶資料
 const mockUsers = [
@@ -134,7 +134,7 @@ export default function UserManagement() {
   };
 
   const handleToggleStatus = (userId) => {
-    setUsers(prev => prev.map(u =>
+    setUsers(prev => prev.map(u => 
       u.id === userId ? { ...u, isActive: !u.isActive } : u
     ));
   };
@@ -152,21 +152,21 @@ export default function UserManagement() {
     <div className="flex-1 flex flex-col">
       {/* 頂部工具列 */}
       <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <h2 className="text-xl font-semibold text-[#334d6d]">人員權限</h2>
             <button
               onClick={() => setShowCreateUser(true)}
-              className="bg-[#3498db] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-2"
+              className="bg-[#3498db] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-2 justify-center sm:justify-start"
             >
               <Plus className="w-4 h-4" />
               <span>新增用戶</span>
             </button>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             {/* 搜尋 */}
-            <div className="relative flex-1 sm:flex-none">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
@@ -178,7 +178,7 @@ export default function UserManagement() {
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors self-center sm:self-auto"
             >
               <Filter className="w-4 h-4" />
             </button>
@@ -187,12 +187,12 @@ export default function UserManagement() {
 
         {/* 過濾器 */}
         {showFilters && (
-          <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-4">
+          <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <span className="text-sm font-medium text-gray-700">篩選條件：</span>
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
             >
               <option value="all">所有角色</option>
               <option value="admin">管理員</option>
@@ -203,7 +203,7 @@ export default function UserManagement() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
             >
               <option value="all">所有狀態</option>
               <option value="active">啟用</option>
@@ -223,7 +223,7 @@ export default function UserManagement() {
       {/* 用戶列表 + 右側詳情 */}
       <div className="flex-1 flex flex-col lg:flex-row">
         {/* 列表 */}
-        <div className="flex-1 overflow-hidden">
+        <div className={`flex-1 overflow-hidden ${selectedUser ? 'hidden lg:block' : ''}`}>
           <div className="h-full overflow-auto">
             <div className="hidden lg:block">
               <table className="w-full">
@@ -311,8 +311,8 @@ export default function UserManagement() {
                           <button
                             onClick={() => handleToggleStatus(user.id)}
                             className={`transition-colors ${
-                              user.isActive
-                                ? 'text-gray-400 hover:text-red-600'
+                              user.isActive 
+                                ? 'text-gray-400 hover:text-red-600' 
                                 : 'text-gray-400 hover:text-green-600'
                             }`}
                             title={user.isActive ? '停用' : '啟用'}
@@ -384,6 +384,14 @@ export default function UserManagement() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">用戶詳情</h3>
                 <div className="flex items-center space-x-2">
+                  {/* 手機版關閉按鈕 */}
+                  <button
+                    onClick={() => setSelectedUser(null)}
+                    className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    title="關閉詳情"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                   <button
                     onClick={() => {
                       setShowEditUser(true);

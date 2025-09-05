@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Search, Filter, FileText, User, Building, Eye, Folder } from 'lucide-react';
+import { Download, Search, Filter, FileText, User, Building, Eye, Folder, X } from 'lucide-react';
 
 // 模擬結案案件資料
 const mockClosedCases = [
@@ -206,13 +206,13 @@ export default function ClosedCases() {
   return (
     <div className="flex-1 flex flex-col">
       {/* 頂部工具列 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+      <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center">
             <h2 className="text-xl font-semibold text-[#334d6d]">結案案件</h2>
           </div>
 
-          <div className="flex-1 flex items-center justify-end space-x-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             {/* 搜尋 */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -221,12 +221,12 @@ export default function ClosedCases() {
                 placeholder="搜尋結案案件..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-sm w-64"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-sm w-full sm:w-64"
               />
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors self-center sm:self-auto"
             >
               <Filter className="w-4 h-4" />
             </button>
@@ -242,9 +242,9 @@ export default function ClosedCases() {
       </div>
 
       {/* 案件列表 + 右側詳情 */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex flex-col lg:flex-row">
         {/* 列表 */}
-        <div className="flex-1 overflow-hidden">
+        <div className={`flex-1 overflow-hidden ${selectedCase ? 'hidden lg:block' : ''}`}>
           <div className="h-full overflow-auto">
             <table className="w-full">
               <thead className="bg-gray-50 sticky top-0">
@@ -331,17 +331,27 @@ export default function ClosedCases() {
 
         {/* 右側詳情 */}
         {selectedCase && (
-          <div className="w-96 bg-white border-l border-gray-200 overflow-auto">
+          <div className="w-full lg:w-96 bg-white border-l border-gray-200 overflow-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">結案案件詳情</h3>
-                <button
-                  onClick={() => handleExportData(selectedCase)}
-                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>匯出資料</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                  {/* 手機版關閉按鈕 */}
+                  <button
+                    onClick={() => setSelectedCase(null)}
+                    className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    title="關閉詳情"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleExportData(selectedCase)}
+                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>匯出資料</span>
+                  </button>
+                </div>
               </div>
 
               {/* 基本資訊 */}

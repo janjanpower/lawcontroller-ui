@@ -69,12 +69,12 @@ export default function MainLayout() {
 
         {/* 左側導航 - 固定不動 */}
         <nav className={`
-          w-48 bg-[#2c3e50] text-white transition-transform duration-300 ease-in-out z-50
+          w-64 bg-[#2c3e50] text-white transition-transform duration-300 ease-in-out z-50
           lg:translate-x-0 lg:static lg:block
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           fixed lg:relative h-full lg:h-auto
         `}>
-          <div className="p-4">
+          <div className="p-4 h-full overflow-y-auto">
             <div className="space-y-2">
               <div className="text-xs text-gray-300 uppercase tracking-wider mb-3">
                 主選單
@@ -85,13 +85,13 @@ export default function MainLayout() {
                 to="/cases"
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
+                  `flex items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm ${
                     isActive ? 'bg-[#3498db] text-white' : 'text-white hover:bg-[#2980b9]'
                   }`
                 }
               >
                 <FileText className="w-4 h-4" />
-                <span className="text-sm font-medium">案件總覽</span>
+                <span className="font-medium">案件總覽</span>
               </NavLink>
 
               {/* 結案案件 */}
@@ -99,13 +99,13 @@ export default function MainLayout() {
                 to="/closed-cases"
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
+                  `flex items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm ${
                     isActive ? 'bg-[#3498db] text-white' : 'text-white hover:bg-[#2980b9]'
                   }`
                 }
               >
                 <CheckCircle className="w-4 h-4" />
-                <span className="text-sm font-medium">結案案件</span>
+                <span className="font-medium">結案案件</span>
               </NavLink>
 
               {/* 客戶資料 */}
@@ -113,13 +113,13 @@ export default function MainLayout() {
                 to="/customers"
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
+                  `flex items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm ${
                     isActive ? 'bg-[#3498db] text-white' : 'text-white hover:bg-[#2980b9]'
                   }`
                 }
               >
                 <User className="w-4 h-4" />
-                <span className="text-sm font-medium">客戶資料</span>
+                <span className="font-medium">客戶資料</span>
               </NavLink>
 
               {/* 人員權限 */}
@@ -127,20 +127,20 @@ export default function MainLayout() {
                 to="/users"
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
+                  `flex items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm ${
                     isActive ? 'bg-[#3498db] text-white' : 'text-white hover:bg-[#2980b9]'
                   }`
                 }
               >
                 <Users className="w-4 h-4" />
-                <span className="text-sm font-medium">人員權限</span>
+                <span className="font-medium">人員權限</span>
               </NavLink>
             </div>
           </div>
         </nav>
 
         {/* 主要內容區域 - 只有這裡會切換 */}
-        <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <main className="flex-1 flex flex-col overflow-hidden min-w-0 lg:ml-0">
           <Routes>
             <Route path="/cases" element={<CaseOverview />} />
             <Route path="/closed-cases" element={<ClosedCases />} />

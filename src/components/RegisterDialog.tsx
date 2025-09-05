@@ -18,7 +18,7 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
     confirmPassword: '',
     plan: 'basic'
   });
-
+  
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -83,7 +83,7 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
 
       onRegisterSuccess(result);
       onClose();
-
+      
       // 顯示成功訊息
       alert(`註冊成功！\n\n事務所：${formData.firmName}\n帳號：${formData.username}\n方案：${PLANS[formData.plan].name}\n\n請使用帳號和密碼登入系統。`);
 

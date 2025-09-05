@@ -57,7 +57,7 @@ CREATE TABLE law_firms (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT true,
-
+    
     FOREIGN KEY (plan_type) REFERENCES plans(plan_type)
 );
 
@@ -80,7 +80,7 @@ CREATE TABLE firm_users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP WITH TIME ZONE,
     is_active BOOLEAN DEFAULT true,
-
+    
     UNIQUE(firm_id, username),
     UNIQUE(firm_id, employee_id)
 );
@@ -113,7 +113,7 @@ CREATE TABLE customers (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'blocked')),
-
+    
     UNIQUE(firm_id, customer_code),
     UNIQUE(firm_id, id_number),
     UNIQUE(line_user_id)
@@ -133,7 +133,7 @@ CREATE TABLE customer_verifications (
     verified_at TIMESTAMP WITH TIME ZONE,
     verified_by UUID REFERENCES firm_users(id),
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'verified', 'rejected', 'expired')),
-
+    
     UNIQUE(verification_code)
 );
 
@@ -171,7 +171,7 @@ CREATE TABLE cases (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_by UUID REFERENCES firm_users(id),
     notes TEXT,
-
+    
     UNIQUE(firm_id, case_id)
 );
 
@@ -190,7 +190,7 @@ CREATE TABLE case_stages (
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_by UUID REFERENCES firm_users(id),
-
+    
     UNIQUE(case_id, stage_name, stage_date)
 );
 
@@ -201,7 +201,7 @@ CREATE TABLE case_tags (
     tag_name VARCHAR(50) NOT NULL,
     tag_color VARCHAR(7) DEFAULT '#3498db',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-
+    
     UNIQUE(firm_id, tag_name)
 );
 
@@ -210,7 +210,7 @@ CREATE TABLE case_tag_relations (
     case_id UUID NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
     tag_id UUID NOT NULL REFERENCES case_tags(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-
+    
     PRIMARY KEY (case_id, tag_id)
 );
 
@@ -231,7 +231,7 @@ CREATE TABLE case_folders (
     folder_type VARCHAR(20) DEFAULT 'custom' CHECK (folder_type IN ('default', 'custom', 'system')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_by UUID REFERENCES firm_users(id),
-
+    
     UNIQUE(case_id, folder_path)
 );
 
@@ -258,7 +258,7 @@ CREATE TABLE case_files (
     description TEXT,
     tags TEXT[],
     version_number INTEGER DEFAULT 1,
-
+    
     UNIQUE(case_id, file_path)
 );
 
@@ -275,7 +275,7 @@ CREATE TABLE file_versions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_by UUID REFERENCES firm_users(id),
     change_notes TEXT,
-
+    
     UNIQUE(file_id, version_number)
 );
 
@@ -327,7 +327,7 @@ CREATE TABLE line_bot_settings (
     out_of_hours_message TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-
+    
     UNIQUE(firm_id)
 );
 
@@ -347,7 +347,7 @@ CREATE TABLE system_settings (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_by UUID REFERENCES firm_users(id),
-
+    
     UNIQUE(firm_id, setting_key)
 );
 
@@ -444,25 +444,25 @@ CREATE OR REPLACE FUNCTION update_firm_user_count()
 RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
-        UPDATE law_firms
-        SET current_users = current_users + 1
+        UPDATE law_firms 
+        SET current_users = current_users + 1 
         WHERE id = NEW.firm_id;
         RETURN NEW;
     ELSIF TG_OP = 'DELETE' THEN
-        UPDATE law_firms
-        SET current_users = current_users - 1
+        UPDATE law_firms 
+        SET current_users = current_users - 1 
         WHERE id = OLD.firm_id;
         RETURN OLD;
     ELSIF TG_OP = 'UPDATE' THEN
         -- 如果用戶狀態改變
         IF OLD.is_active != NEW.is_active THEN
             IF NEW.is_active THEN
-                UPDATE law_firms
-                SET current_users = current_users + 1
+                UPDATE law_firms 
+                SET current_users = current_users + 1 
                 WHERE id = NEW.firm_id;
             ELSE
-                UPDATE law_firms
-                SET current_users = current_users - 1
+                UPDATE law_firms 
+                SET current_users = current_users - 1 
                 WHERE id = NEW.firm_id;
             END IF;
         END IF;
@@ -479,13 +479,13 @@ DECLARE
     firm_record RECORD;
 BEGIN
     SELECT current_users, max_users INTO firm_record
-    FROM law_firms
+    FROM law_firms 
     WHERE id = NEW.firm_id;
-
+    
     IF firm_record.current_users >= firm_record.max_users THEN
         RAISE EXCEPTION '已達到方案用戶上限 (% 人)', firm_record.max_users;
     END IF;
-
+    
     RETURN NEW;
 END;
 $$ language 'plpgsql';
@@ -500,13 +500,13 @@ CREATE TRIGGER update_system_settings_updated_at BEFORE UPDATE ON system_setting
 CREATE TRIGGER update_line_bot_settings_updated_at BEFORE UPDATE ON line_bot_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- 用戶數量管理觸發器
-CREATE TRIGGER firm_user_count_trigger
-    AFTER INSERT OR DELETE OR UPDATE ON firm_users
+CREATE TRIGGER firm_user_count_trigger 
+    AFTER INSERT OR DELETE OR UPDATE ON firm_users 
     FOR EACH ROW EXECUTE FUNCTION update_firm_user_count();
 
 -- 用戶數量限制觸發器
-CREATE TRIGGER check_user_limit_trigger
-    BEFORE INSERT ON firm_users
+CREATE TRIGGER check_user_limit_trigger 
+    BEFORE INSERT ON firm_users 
     FOR EACH ROW EXECUTE FUNCTION check_user_limit();
 
 -- ================================
@@ -514,21 +514,21 @@ CREATE TRIGGER check_user_limit_trigger
 -- ================================
 
 -- 建立測試事務所
-INSERT INTO law_firms (firm_name, firm_code, plan_type, current_users, max_users) VALUES
+INSERT INTO law_firms (firm_name, firm_code, plan_type, current_users, max_users) VALUES 
 ('測試法律事務所', 'TEST001', 'basic', 1, 5);
 
 -- 建立管理員帳戶
-INSERT INTO firm_users (firm_id, username, password_hash, personal_password_hash, full_name, role, email) VALUES
-((SELECT id FROM law_firms WHERE firm_code = 'TEST001'),
- 'admin',
+INSERT INTO firm_users (firm_id, username, password_hash, personal_password_hash, full_name, role, email) VALUES 
+((SELECT id FROM law_firms WHERE firm_code = 'TEST001'), 
+ 'admin', 
  '$2b$10$rQZ8kHWKQVnqVQZ8kHWKQVnqVQZ8kHWKQVnqVQZ8kHWKQVnqVQZ8k', -- 密碼: Admin123!
  '$2b$10$123456789012345678901234567890123456789012345678901234', -- 個人密碼: 123456
- '系統管理員',
- 'admin',
+ '系統管理員', 
+ 'admin', 
  'admin@testlaw.com.tw');
 
 -- 建立預設案件標籤
-INSERT INTO case_tags (firm_id, tag_name, tag_color) VALUES
+INSERT INTO case_tags (firm_id, tag_name, tag_color) VALUES 
 ((SELECT id FROM law_firms WHERE firm_code = 'TEST001'), '緊急', '#e74c3c'),
 ((SELECT id FROM law_firms WHERE firm_code = 'TEST001'), '重要', '#f39c12'),
 ((SELECT id FROM law_firms WHERE firm_code = 'TEST001'), '一般', '#3498db'),
@@ -558,7 +558,7 @@ GRANT CREATE ON SCHEMA public TO law_app_admin;
 
 -- 事務所用戶統計視圖
 CREATE VIEW firm_user_stats AS
-SELECT
+SELECT 
     lf.id as firm_id,
     lf.firm_name,
     lf.firm_code,
@@ -576,7 +576,7 @@ GROUP BY lf.id, lf.firm_name, lf.firm_code, lf.plan_type, lf.current_users, lf.m
 
 -- 案件統計視圖
 CREATE VIEW case_stats AS
-SELECT
+SELECT 
     c.firm_id,
     COUNT(*) as total_cases,
     COUNT(CASE WHEN c.status = 'active' THEN 1 END) as active_cases,

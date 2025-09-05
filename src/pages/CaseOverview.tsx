@@ -14,6 +14,9 @@ import {
   Trash2,
   CheckCircle,
   Folder,
+  X,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 import CaseForm from '../components/CaseForm';
@@ -541,13 +544,13 @@ export default function CaseOverview() {
   return (
     <div className="flex-1 flex flex-col">
       {/* 頂部工具列 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
+      <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={handleAddCase}
-                className="bg-[#3498db] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-2"
+                className="bg-[#3498db] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <Plus className="w-4 h-4" />
                 <span>新增案件</span>
@@ -555,7 +558,7 @@ export default function CaseOverview() {
 
               <button
                 onClick={() => setShowImportDialog(true)}
-                className="bg-[#27ae60] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#229954] transition-colors flex items-center space-x-2"
+                className="bg-[#27ae60] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#229954] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <Upload className="w-4 h-4" />
                 <span>上傳資料</span>
@@ -563,7 +566,7 @@ export default function CaseOverview() {
 
               <button
                 onClick={() => setShowImportDialog(true)}
-                className="bg-[#8e44ad] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#7d3c98] transition-colors flex items-center space-x-2"
+                className="bg-[#8e44ad] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#7d3c98] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <Download className="w-4 h-4" />
                 <span>匯入資料</span>
@@ -571,7 +574,7 @@ export default function CaseOverview() {
 
               <button
                 onClick={handleTransferToClosed}
-                className="bg-[#f39c12] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#d68910] transition-colors flex items-center space-x-2"
+                className="bg-[#f39c12] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#d68910] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <CheckCircle className="w-4 h-4" />
                 <span>轉移結案</span>
@@ -579,9 +582,9 @@ export default function CaseOverview() {
             </div>
           </div>
 
-          <div className="flex-1 flex items-center justify-end space-x-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-4">
             {/* 跑馬燈：日期提醒 */}
-            <div className="w-[420px] mr-4">
+            <div className="w-full sm:w-[320px] lg:w-[420px] order-2 sm:order-1">
               <DateReminderWidget
                 caseData={reminderData}
                 onCaseSelect={onCaseSelectFromReminder}
@@ -589,19 +592,19 @@ export default function CaseOverview() {
             </div>
 
             {/* 搜尋 */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none order-1 sm:order-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
                 placeholder="搜尋案件..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-sm w-64"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-sm w-full sm:w-64"
               />
             </div>
             <button
               onClick={() => setShowFilters((s) => !s)}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors order-3"
             >
               <Filter className="w-4 h-4" />
             </button>
@@ -618,11 +621,11 @@ export default function CaseOverview() {
 
       {/* 欄位控制區域 */}
       {showFilters && (
-        <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
-          <div className="flex items-center space-x-4">
+        <div className="bg-gray-50 border-b border-gray-200 px-4 lg:px-6 py-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <span className="text-sm font-medium text-gray-700">顯示欄位：</span>
             {Object.entries(visibleColumns).map(([key, visible]) => (
-              <label key={key} className="flex items-center space-x-2 text-sm">
+              <label key={key} className="flex items-center space-x-1 text-xs sm:text-sm whitespace-nowrap">
                 <input
                   type="checkbox"
                   checked={visible}
@@ -634,7 +637,7 @@ export default function CaseOverview() {
                   }
                   className="rounded border-gray-300 text-[#334d6d] focus:ring-[#334d6d]"
                 />
-                <span className="text-gray-600">
+                <span className="text-gray-600 text-xs sm:text-sm">
                   {key === 'caseNumber'
                     ? '案號'
                     : key === 'client'
@@ -662,9 +665,9 @@ export default function CaseOverview() {
       )}
 
       {/* 案件列表 + 右側詳情 */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex flex-col lg:flex-row">
         {/* 列表 */}
-        <div className="flex-1 overflow-hidden">
+        <div className={`flex-1 overflow-hidden ${selectedCase ? 'hidden lg:block' : ''}`}>
           <div className="h-full overflow-auto">
             <table className="w-full">
               <thead className="bg-gray-50 sticky top-0">
@@ -875,13 +878,23 @@ export default function CaseOverview() {
 
         {/* 右側詳情 */}
         {selectedCase && (
-          <div className="w-96 bg-white border-l border-gray-200 overflow-auto">
+          <div className="w-full lg:w-96 bg-white border-l border-gray-200 overflow-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">案件詳情</h3>
-                <button className="text-gray-400 hover:text-gray-600" title="更多">
-                  <MoreHorizontal className="w-5 h-5" />
-                </button>
+                <div className="flex items-center space-x-2">
+                  {/* 手機版關閉按鈕 */}
+                  <button
+                    onClick={() => setSelectedCase(null)}
+                    className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    title="關閉詳情"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                  <button className="text-gray-400 hover:text-gray-600" title="更多">
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
+              </div>
               </div>
 
               {/* 基本資訊 */}
