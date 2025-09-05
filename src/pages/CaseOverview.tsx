@@ -1,6 +1,8 @@
 // src/pages/CaseOverview.tsx
-import { hasClosedStage } from '../utils/caseStage';
+import { useNavigate } from 'react-router-dom'; // 在檔案最上方 import
 
+import { hasClosedStage } from '../utils/caseStage';
+import { NavLink } from 'react-router-dom';
 // 如果已引入就不用重複
 import StageEditDialog, { StageFormData } from '../components/StageEditDialog';
 import { useEffect, useMemo, useState } from 'react';
@@ -197,7 +199,7 @@ function formToTableCase(form: FormCaseData, base?: TableCase): TableCase {
 
 /* ------------------ 主元件 ------------------ */
 export default function CaseOverview() {
-
+  const navigate = useNavigate();
 
   const [cases, setCases] = useState<TableCase[]>(mockCaseData);
   const [filteredCases, setFilteredCases] = useState<TableCase[]>(mockCaseData);
@@ -585,15 +587,17 @@ const handleSaveStage = async (data: StageFormData): Promise<boolean> => {
               </div>
 
               {/* 結案案件 */}
-              <div className="rounded-md hover:bg-[#2980b9]">
-                <a
-                  href="#"
-                  className="flex items-center space-x-3 px-3 py-2 text-white"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="text-sm font-medium">結案案件</span>
-                </a>
-              </div>
+              <NavLink
+                to="/closed-cases"
+                className={({ isActive }) =>
+                  `flex items-center space-x-3 px-3 py-2 rounded-md ${
+                    isActive ? 'bg-[#3498db] text-white' : 'text-white hover:bg-[#2980b9]'
+                  }`
+                }
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">結案案件</span>
+              </NavLink>
             </div>
           </div>
         </nav>
@@ -1060,9 +1064,9 @@ const handleSaveStage = async (data: StageFormData): Promise<boolean> => {
                   </button>
                   <button
                     onClick={() => {
-                      // TODO: 串 API
+                      // TODO: 串 API（可在這裡呼叫 transfer API）
                       setShowTransferConfirm(false);
-                      window.alert("已送出轉移結案請求");
+                      navigate('/closed-cases'); // 導頁到結案案件頁
                     }}
                     className="px-4 py-2 rounded-md bg-[#f39c12] hover:bg-[#d68910] text-white"
                   >
