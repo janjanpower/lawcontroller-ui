@@ -45,27 +45,15 @@ export default function MainLayout() {
                 <div className="w-8 h-8 bg-[#334d6d] rounded-full flex items-center justify-center">
                   <Building className="w-4 h-4 text-white" />
                 </div>
-                <h1 className="text-lg lg:text-xl font-semibold text-[#334d6d]">案件管理系統</h1>
+                <h1 className="text-lg lg:text-xl font-semibold text-[#334d6d]">
+                  {getPageTitle()}
+                </h1>
               </div>
             </div>
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <User className="w-4 h-4" />
               <span>管理員</span>
             </div>
-
-            {/* 人員權限 */}
-            <NavLink
-              to="/users"
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
-                  isActive ? 'bg-[#3498db] text-white' : 'text-white hover:bg-[#2980b9]'
-                }`
-              }
-            >
-              <Users className="w-4 h-4" />
-              <span className="text-sm font-medium">人員權限</span>
-            </NavLink>
           </div>
         </div>
       </header>
@@ -132,6 +120,20 @@ export default function MainLayout() {
               >
                 <User className="w-4 h-4" />
                 <span className="text-sm font-medium">客戶資料</span>
+              </NavLink>
+
+              {/* 人員權限 */}
+              <NavLink
+                to="/users"
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
+                    isActive ? 'bg-[#3498db] text-white' : 'text-white hover:bg-[#2980b9]'
+                  }`
+                }
+              >
+                <Users className="w-4 h-4" />
+                <span className="text-sm font-medium">人員權限</span>
               </NavLink>
             </div>
           </div>
