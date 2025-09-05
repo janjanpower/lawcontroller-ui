@@ -6,7 +6,6 @@ import {
   Upload,
   Download,
   Filter,
-  Calendar,
   FileText,
   User,
   Building,
@@ -426,38 +425,6 @@ export default function CaseOverview() {
             <div className="space-y-2">
               <div className="text-xs text-gray-300 uppercase tracking-wider mb-3">主選單</div>
 
-              <a
-                href="#"
-                className="flex items-center space-x-3 px-3 py-2 rounded-md text-gray-300 hover:bg-[#34495e] hover:text-white transition-colors"
-              >
-                <FileText className="w-4 h-4" />
-                <span className="text-sm">案件</span>
-              </a>
-
-              <a
-                href="#"
-                className="flex items-center space-x-3 px-3 py-2 rounded-md text-gray-300 hover:bg-[#34495e] hover:text-white transition-colors"
-              >
-                <User className="w-4 h-4" />
-                <span className="text-sm">社員</span>
-              </a>
-
-              <a
-                href="#"
-                className="flex items-center space-x-3 px-3 py-2 rounded-md text-gray-300 hover:bg-[#34495e] hover:text-white transition-colors"
-              >
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm">行事曆</span>
-              </a>
-
-              <a
-                href="#"
-                className="flex items-center space-x-3 px-3 py-2 rounded-md text-gray-300 hover:bg-[#34495e] hover:text-white transition-colors"
-              >
-                <Building className="w-4 h-4" />
-                <span className="text-sm">部門</span>
-              </a>
-
               <div className="bg-[#3498db] rounded-md">
                 <a href="#" className="flex items-center space-x-3 px-3 py-2 text-white">
                   <FileText className="w-4 h-4" />
@@ -474,7 +441,7 @@ export default function CaseOverview() {
           <div className="bg-white border-b border-gray-200 px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <h2 className="text-lg font-semibold text-gray-900">案件區分</h2>
+
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={handleAddCase}
@@ -500,12 +467,6 @@ export default function CaseOverview() {
                     <span>匯入資料</span>
                   </button>
 
-                  <button
-                    onClick={() => setShowFilters(v => !v)}
-                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                  >
-                    <Filter className="w-4 h-4" />
-                  </button>
                 </div>
 
               </div>
