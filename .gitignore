@@ -23,3 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+
+
+.git
+Dockerfile
+docker-compose.yml
