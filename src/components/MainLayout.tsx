@@ -52,6 +52,20 @@ export default function MainLayout() {
               <User className="w-4 h-4" />
               <span>管理員</span>
             </div>
+
+            {/* 人員權限 */}
+            <NavLink
+              to="/users"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
+                  isActive ? 'bg-[#3498db] text-white' : 'text-white hover:bg-[#2980b9]'
+                }`
+              }
+            >
+              <Users className="w-4 h-4" />
+              <span className="text-sm font-medium">人員權限</span>
+            </NavLink>
           </div>
         </div>
       </header>
@@ -123,19 +137,6 @@ export default function MainLayout() {
           </div>
         </nav>
 
-              {/* 人員權限 */}
-              <NavLink
-                to="/users"
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${
-                    isActive ? 'bg-[#3498db] text-white' : 'text-white hover:bg-[#2980b9]'
-                  }`
-                }
-              >
-                <Users className="w-4 h-4" />
-                <span className="text-sm font-medium">人員權限</span>
-              </NavLink>
         {/* 主要內容區域 - 只有這裡會切換 */}
         <main className="flex-1 flex flex-col overflow-hidden min-w-0">
           <Routes>
