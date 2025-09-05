@@ -1,22 +1,102 @@
 // 共用型別定義
-export interface User {
-  id: string;
-  username: string;
-  full_name: string;
-  role: 'admin' | 'lawyer' | 'legal_affairs';
-  firm_name: string;
-  firm_code: string;
+
+// 方案型別
+export type PlanType = 'basic' | 'advanced' | 'premium' | 'enterprise';
+
+export interface Plan {
+  type: PlanType;
+  name: string;
+  maxUsers: number;
+  features: string[];
 }
 
+export const PLANS: Record<PlanType, Plan> = {
+  basic: {
+    type: 'basic',
+    name: '基礎方案',
+    maxUsers: 5,
+    features: ['基本案件管理', '客戶管理', '檔案上傳']
+  },
+  advanced: {
+    type: 'advanced',
+    name: '進階方案',
+    maxUsers: 10,
+    features: ['基本案件管理', '客戶管理', '檔案上傳', 'LINE Bot整合', '進度提醒']
+  },
+  premium: {
+    type: 'premium',
+    name: '高階方案',
+    maxUsers: 20,
+    features: ['所有進階功能', '自訂報表', '資料匯出', 'API整合']
+  },
+  enterprise: {
+    type: 'enterprise',
+    name: '企業方案',
+    maxUsers: 50,
+    features: ['所有功能', '無限儲存', '專屬客服', '客製化開發']
+  }
+};
+
+// 事務所型別
+export interface Firm {
+  id: string;
+  firmName: string;
+  firmCode: string;
+  plan: PlanType;
+  currentUsers: number;
+  maxUsers: number;
+  createdAt: string;
+  isActive: boolean;
+}
+
+// 用戶型別
+export interface User {
+  id: string;
+  firmId: string;
+  username: string;
+  fullName: string;
+  role: 'admin' | 'lawyer' | 'legal_affairs';
+  isActive: boolean;
+  createdAt: string;
+  lastLogin?: string;
+}
+
+// 登入相關型別
 export interface LoginCredentials {
+  firmCode: string;
   username: string;
   password: string;
+}
+
+export interface UserLoginCredentials {
+  userId: string;
+  personalPassword: string;
 }
 
 export interface LoginResponse {
   success: boolean;
   token: string;
   user: User;
+  firm: Firm;
+}
+
+// 註冊型別
+export interface RegisterData {
+  firmName: string;
+  firmCode: string;
+  adminUsername: string;
+  adminPassword: string;
+  confirmPassword: string;
+  plan: PlanType;
+}
+
+// 用戶管理型別
+export interface CreateUserData {
+  username: string;
+  fullName: string;
+  role: 'admin' | 'lawyer' | 'legal_affairs';
+  personalPassword: string;
+  confirmPersonalPassword: string;
 }
 
 // 案件相關型別
