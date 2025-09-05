@@ -368,76 +368,84 @@ export default function LoginPage() {
             {loginStep === 'login' ? <Building className="w-6 h-6 text-white" /> :
              loginStep === 'planSelection' ? <CreditCard className="w-6 h-6 text-white" /> :
              loginStep === 'userSelect' ? <Users className="w-6 h-6 text-white" /> :
-      </div>
              <User className="w-6 h-6 text-white" />}
-      {/* 登入表單 */}
-      {loginStep === 'login' && (
-        <form onSubmit={handleAdminLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">帳號</label>
-            <input
-              type="text"
-              value={loginCredentials.username}
-              onChange={(e) => setLoginCredentials(prev => ({ ...prev, username: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-              placeholder="請輸入帳號"
-              required
-            />
           </div>
+          <h1 className="text-xl font-semibold text-gray-900">
+            {loginStep === 'login' ? '管理員登入' :
+             loginStep === 'planSelection' ? '選擇方案' :
+             loginStep === 'userSelect' ? '選擇用戶' :
+             '個人密碼驗證'}
+          </h1>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">密碼</label>
-            <div className="relative">
+        {/* 登入表單 */}
+        {loginStep === 'login' && (
+          <form onSubmit={handleAdminLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">帳號</label>
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={loginCredentials.password}
-                onChange={(e) => setLoginCredentials(prev => ({ ...prev, password: e.target.value }))}
-                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                placeholder="請輸入密碼"
+                type="text"
+                value={loginCredentials.username}
+                onChange={(e) => setLoginCredentials(prev => ({ ...prev, username: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                placeholder="請輸入帳號"
                 required
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">密碼</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={loginCredentials.password}
+                  onChange={(e) => setLoginCredentials(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                  placeholder="請輸入密碼"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                <div className="text-sm text-red-700">{error}</div>
+              </div>
+            )}
+
+            <div className="flex space-x-3">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 bg-[#334d6d] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 flex items-center justify-center"
+              >
+                {loading ? (
+                  <>
+                    <Loader className="w-4 h-4 mr-2 animate-spin" />
+                    登入中...
+                  </>
+                ) : (
+                  '登入'
+                )}
+              </button>
+
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowRegisterDialog(true)}
+                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                註冊
               </button>
             </div>
-          </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3">
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
-          )}
-
-          <div className="flex space-x-3">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 bg-[#334d6d] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 flex items-center justify-center"
-            >
-              {loading ? (
-                <>
-                  <Loader className="w-4 h-4 mr-2 animate-spin" />
-                  登入中...
-                </>
-              ) : (
-                '登入'
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowRegisterDialog(true)}
-              className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors"
-            >
-              註冊
-            </button>
-          </div>
-        </form>
-      )}
+          </form>
+        )}
 
         {/* 方案選擇和付費 */}
         {loginStep === 'planSelection' && selectedFirm && (
