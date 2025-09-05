@@ -48,7 +48,7 @@ function App() {
       } else {
         setError("登入成功，但未收到 token。請稍後再試。");
       }
-    } catch (err) {
+    } catch {
       setError("帳號或密碼錯誤，或伺服器無法連線。");
     } finally {
       setLoading(false);
