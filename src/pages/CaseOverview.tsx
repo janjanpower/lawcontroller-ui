@@ -623,15 +623,14 @@ const handleSaveStage = async (data: StageFormData): Promise<boolean> => {
                 </div>
               </div>
 
-              <div className="flex-1">
-                <div className="h-10 w-full rounded-md border border-gray-300 bg-white flex items-center px-3 overflow-hidden">
-                  <div className="whitespace-nowrap text-sm text-[#334d6d] animate-marquee">
+              <div className="flex-1 flex items-center justify-end space-x-4">
+                {/* 跑馬燈：日期提醒 */}
+                <div className="w-[420px] mr-4">
                   <DateReminderWidget
                     caseData={reminderData}
                     onCaseSelect={onCaseSelectFromReminder}
                   />
-                 </div>
-              </div>
+                </div>
 
 
                 {/* 搜尋 */}
