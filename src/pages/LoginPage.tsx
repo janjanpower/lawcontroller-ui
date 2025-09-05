@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Eye, EyeOff, User, Lock, Loader } from 'lucide-react';
 import axios from 'axios';
-import RegisterDialog from '../pages/RegisterDialog';
+import RegisterDialog from '../components/RegisterDialog';
 
 const API_BASE =
   import.meta.env.VITE_NEXT_PUBLIC_API_BASE || 'https://api.128-199-65-122.sslip.io';
