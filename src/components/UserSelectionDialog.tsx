@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Users, Plus, Trash2, User, Eye, EyeOff, Loader } from 'lucide-react';
 import type { User as UserType, Firm, CreateUserData, PLANS } from '../types';
-import { useNavigate } from 'react-router-dom';
+
 interface UserSelectionDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,7 +28,7 @@ export default function UserSelectionDialog({
 
   // 調試日誌
   console.log('UserSelectionDialog render:', { isOpen, firm: !!firm });
-  const navigate = useNavigate();
+
   // 新增用戶表單
   const [createUserData, setCreateUserData] = useState<CreateUserData>({
     username: '',
@@ -67,8 +67,7 @@ export default function UserSelectionDialog({
       localStorage.setItem('law_user', JSON.stringify(selectedUser));
       localStorage.setItem('law_firm', JSON.stringify(firm));
 
-      // ✅ 改為前端路由跳轉，避免整頁重整造成空白頁/404
-      navigate('/cases', { replace: true });
+      window.location.href = '/cases';
 
     } catch {
       setError('登入失敗，請稍後再試');
