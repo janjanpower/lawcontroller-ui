@@ -584,7 +584,6 @@ SELECT
     COUNT(CASE WHEN c.status = 'closed' THEN 1 END) as closed_cases,
     COUNT(CASE WHEN c.case_type = '民事' THEN 1 END) as civil_cases,
     COUNT(CASE WHEN c.case_type = '刑事' THEN 1 END) as criminal_cases,
-    COUNT(CASE WHEN c.case_type = '行政' THEN 1 END) as administrative_cases
 FROM cases c
 GROUP BY c.firm_id;
 
