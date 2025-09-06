@@ -21,7 +21,7 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
     password: '',
     confirmPassword: ''
   });
-
+  
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -74,6 +74,17 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
     setLoading(true);
 
     try {
+      // 暫時使用模擬 API 回應，直到後端服務啟動
+      console.log('註冊請求:', {
+        firm_name: formData.firmName,
+        account: formData.account,
+        password: formData.password,
+        confirm_password: formData.confirmPassword
+      });
+      
+      // 模擬 API 回應
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 模擬網路延遲
+      
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
@@ -90,8 +101,8 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
       const data = await response.json();
 
       if (response.ok && data.success && data.requires_admin_setup) {
-        onRegisterSuccess({
-          success: true,
+        onRegisterSuccess({ 
+          success: true, 
           account: formData.account,
           firmId: data.firm_id,
           firmName: formData.firmName
@@ -103,7 +114,7 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
 
     } catch (error) {
       console.error('註冊請求失敗:', error);
-      setErrors({ submit: `網路錯誤: ${error.message || '無法連接到伺服器，請確認後端服務是否啟動'}` });
+      setErrors({ submit: `網路錯誤: ${error.message || '無法連接到伺服器'}` });
     } finally {
       setLoading(false);
     }

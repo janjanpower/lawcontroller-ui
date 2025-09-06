@@ -11,7 +11,7 @@ export default function LoginPage() {
     account: '',
     password: ''
   });
-
+  
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ export default function LoginPage() {
   // 對話框狀態
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
   const [showAdminSetupDialog, setShowAdminSetupDialog] = useState(false);
-
+  
   // 註冊後的事務所資訊
   const [registeredFirm, setRegisteredFirm] = useState<{
     firmId: string;
@@ -36,7 +36,7 @@ export default function LoginPage() {
     // 載入記住的帳號
     const savedAccount = localStorage.getItem('law_remembered_account');
     const savedRememberMe = localStorage.getItem('law_remember_me') === 'true';
-
+    
     if (savedRememberMe && savedAccount) {
       setLoginCredentials(prev => ({ ...prev, account: savedAccount }));
       setRememberMe(true);
@@ -48,8 +48,17 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
+    
     try {
+      // 暫時使用模擬 API 回應，直到後端服務啟動
+      console.log('登入請求:', {
+        account: loginCredentials.account,
+        password: loginCredentials.password
+      });
+      
+      // 模擬 API 回應
+      await new Promise(resolve => setTimeout(resolve, 800)); // 模擬網路延遲
+      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -90,22 +99,21 @@ export default function LoginPage() {
       } else {
         setError(data.detail || data.message || '登入失敗');
       }
+
     } catch (error) {
       console.error('登入請求失敗:', error);
-      setError(`網路錯誤: ${error.message || '無法連接到伺服器，請確認後端服務是否啟動'}`);
+      setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
     } finally {
       setLoading(false);
     }
-
-    // 原本的登入邏輯已移除，需要整合真實的後端 API
   };
 
   // 註冊成功回調
-  const handleRegisterSuccess = (result: {
-    success: boolean;
-    account: string;
-    firmId?: string;
-    firmName?: string;
+  const handleRegisterSuccess = (result: { 
+    success: boolean; 
+    account: string; 
+    firmId?: string; 
+    firmName?: string; 
   }) => {
     if (result.success) {
       setLoginCredentials(prev => ({ ...prev, account: result.account }));
@@ -125,7 +133,7 @@ export default function LoginPage() {
     localStorage.setItem('law_token', 'dummy_token');
     localStorage.setItem('law_user_id', adminUserId);
     localStorage.setItem('law_firm_id', registeredFirm?.firmId || '');
-
+    
     // 跳轉到案件總覽
     window.location.replace('/cases');
   };

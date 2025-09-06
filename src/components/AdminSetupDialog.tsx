@@ -58,6 +58,17 @@ export default function AdminSetupDialog({
     setLoading(true);
 
     try {
+      // 暫時使用模擬 API 回應，直到後端服務啟動
+      console.log('設定管理員請求:', {
+        firm_id: firmId,
+        admin_name: formData.adminName,
+        admin_email: formData.adminEmail,
+        admin_phone: formData.adminPhone
+      });
+      
+      // 模擬 API 回應
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
       const response = await fetch('/api/auth/setup-admin', {
         method: 'POST',
         headers: {
@@ -79,7 +90,7 @@ export default function AdminSetupDialog({
       } else {
         setErrors({ submit: data.detail || data.message || '設定管理員失敗' });
       }
-
+      
     } catch (error) {
       console.error('設定管理員請求失敗:', error);
       setErrors({ submit: `網路錯誤: ${error.message || '無法連接到伺服器'}` });
