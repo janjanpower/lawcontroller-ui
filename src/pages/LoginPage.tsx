@@ -1,14 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Eye, EyeOff, User, Lock, Building } from 'lucide-react';
 import RegisterDialog from '../components/RegisterDialog';
-import UserSelectionDialog from '../components/UserSelectionDialog';
-import PlanSelectionDialog from '../components/PlanSelectionDialog';
+import AdminSetupDialog from '../components/AdminSetupDialog';
 import '../styles/login.css';
-import type { 
-  LoginCredentials, 
-  User as UserType, 
-  Firm
-} from '../types';
+import type { LoginCredentials } from '../types';
 
 export default function LoginPage() {
   // 基本狀態
@@ -24,11 +19,13 @@ export default function LoginPage() {
 
   // 對話框狀態
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
-  const [showUserSelectionDialog, setShowUserSelectionDialog] = useState(false);
-  const [showPlanSelectionDialog, setShowPlanSelectionDialog] = useState(false);
+  const [showAdminSetupDialog, setShowAdminSetupDialog] = useState(false);
   
-  // 選中的事務所
-  const [selectedFirm, setSelectedFirm] = useState<(Firm & { users: UserType[]; adminPassword: string; hasPlan: boolean }) | null>(null);
+  // 註冊後的事務所資訊
+  const [registeredFirm, setRegisteredFirm] = useState<{
+    firmId: string;
+    firmName: string;
+  } | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('law_token');
@@ -53,20 +50,20 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('http://localhost:8080/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: `${loginCredentials.username}@example.com`, // 暫時生成 email
+          username: loginCredentials.username,
           password: loginCredentials.password,
         }),
       });
 
       const data = await response.json();
 
-      if (response.ok && data.success) {
+      if (response.ok && data.success && data.has_admin) {
         // 記住帳號
         if (rememberMe) {
           localStorage.setItem('law_remembered_username', loginCredentials.username);
@@ -78,17 +75,24 @@ export default function LoginPage() {
 
         // 儲存登入資訊
         localStorage.setItem('law_token', 'dummy_token'); // 暫時使用假 token
-        localStorage.setItem('law_user_id', data.user_id);
+        localStorage.setItem('law_user_id', data.admin_user_id);
         localStorage.setItem('law_firm_id', data.firm_id);
 
         // 跳轉到案件總覽
         window.location.replace('/cases');
+      } else if (response.ok && data.success && !data.has_admin) {
+        // 需要設定管理員
+        setRegisteredFirm({
+          firmId: data.firm_id,
+          firmName: loginCredentials.username // 暫時使用帳號作為顯示名稱
+        });
+        setShowAdminSetupDialog(true);
       } else {
-        setError(data.detail || '登入失敗');
+        setError(data.detail || data.message || '登入失敗');
       }
     } catch (error) {
       console.error('登入請求失敗:', error);
-      setError('網路錯誤，請稍後重試');
+      setError(`網路錯誤: ${error.message || '無法連接到伺服器，請確認後端服務是否啟動'}`);
     } finally {
       setLoading(false);
     }
@@ -96,29 +100,34 @@ export default function LoginPage() {
     // 原本的登入邏輯已移除，需要整合真實的後端 API
   };
 
-  // 方案選擇完成後的回調
-  const handlePlanSelectionComplete = () => {
-    console.log('方案選擇完成，準備顯示用戶選擇對話框');
-    setShowPlanSelectionDialog(false);
-    // 稍微延遲以確保狀態更新完成
-    setTimeout(() => {
-      setShowUserSelectionDialog(true);
-    }, 100);
-    setShowUserSelectionDialog(true);
-  };
-
-  // 用戶選擇完成後的回調
-  const handleUserSelectionComplete = () => {
-    console.log('用戶選擇完成');
-    setShowUserSelectionDialog(false);
-    // 這裡會在 UserSelectionDialog 內部處理最終登入
-  };
-
   // 註冊成功回調
-  const handleRegisterSuccess = (result: { success: boolean; username: string }) => {
+  const handleRegisterSuccess = (result: { 
+    success: boolean; 
+    username: string; 
+    firmId?: string; 
+    firmName?: string; 
+  }) => {
     if (result.success) {
       setLoginCredentials(prev => ({ ...prev, username: result.username }));
+      if (result.firmId && result.firmName) {
+        setRegisteredFirm({
+          firmId: result.firmId,
+          firmName: result.firmName
+        });
+        setShowAdminSetupDialog(true);
+      }
     }
+  };
+
+  // 管理員設定完成回調
+  const handleAdminSetupComplete = (adminUserId: string) => {
+    // 儲存登入資訊
+    localStorage.setItem('law_token', 'dummy_token');
+    localStorage.setItem('law_user_id', adminUserId);
+    localStorage.setItem('law_firm_id', registeredFirm?.firmId || '');
+    
+    // 跳轉到案件總覽
+    window.location.replace('/cases');
   };
 
   return (
@@ -263,25 +272,19 @@ export default function LoginPage() {
         isOpen={showRegisterDialog}
         onClose={() => setShowRegisterDialog(false)}
         onRegisterSuccess={handleRegisterSuccess}
-        apiBaseUrl=""
       />
 
-      {/* 方案選擇對話框 */}
-      <PlanSelectionDialog
-        isOpen={showPlanSelectionDialog}
-        onClose={() => setShowPlanSelectionDialog(false)}
-        firm={selectedFirm!}
-        onComplete={handlePlanSelectionComplete}
-      />
-
-      {/* 用戶選擇對話框 */}
-      {selectedFirm && (
-        <UserSelectionDialog
-          isOpen={showUserSelectionDialog}
-          onClose={() => setShowUserSelectionDialog(false)}
-          firm={selectedFirm}
-          userPasswords={{}}
-          onComplete={handleUserSelectionComplete}
+      {/* 管理員設定對話框 */}
+      {registeredFirm && (
+        <AdminSetupDialog
+          isOpen={showAdminSetupDialog}
+          onClose={() => {
+            setShowAdminSetupDialog(false);
+            setRegisteredFirm(null);
+          }}
+          firmId={registeredFirm.firmId}
+          firmName={registeredFirm.firmName}
+          onSetupComplete={handleAdminSetupComplete}
         />
       )}
     </div>

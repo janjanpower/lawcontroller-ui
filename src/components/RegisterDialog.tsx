@@ -1,22 +1,25 @@
 import React, { useState } from 'react';
 import { X, Building, User, Lock, Loader, Eye, EyeOff } from 'lucide-react';
-import { PLANS } from '../types';
-import type { RegisterData, PlanType } from '../types';
+
+interface SimpleRegisterData {
+  firmName: string;
+  username: string;
+  password: string;
+  confirmPassword: string;
+}
 
 interface RegisterDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onRegisterSuccess: (result: { success: boolean; username: string }) => void;
-  apiBaseUrl: string;
 }
 
-export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, apiBaseUrl }: RegisterDialogProps) {
-  const [formData, setFormData] = useState<RegisterData>({
+export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: RegisterDialogProps) {
+  const [formData, setFormData] = useState<SimpleRegisterData>({
     firmName: '',
     username: '',
-    adminPassword: '',
-    confirmPassword: '',
-    plan: 'basic'
+    password: '',
+    confirmPassword: ''
   });
   
   const [loading, setLoading] = useState(false);
@@ -42,18 +45,18 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
     }
 
     // 管理員密碼驗證 (8碼+大小寫英文至少各一個)
-    if (!formData.adminPassword) {
-      newErrors.adminPassword = '請輸入密碼';
-    } else if (formData.adminPassword.length < 8) {
-      newErrors.adminPassword = '密碼需至少 8 個字元';
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])/.test(formData.adminPassword)) {
-      newErrors.adminPassword = '密碼需包含至少一個大寫和一個小寫英文字母';
+    if (!formData.password) {
+      newErrors.password = '請輸入密碼';
+    } else if (formData.password.length < 8) {
+      newErrors.password = '密碼需至少 8 個字元';
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])/.test(formData.password)) {
+      newErrors.password = '密碼需包含至少一個大寫和一個小寫英文字母';
     }
 
     // 確認密碼驗證
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = '請確認密碼';
-    } else if (formData.adminPassword !== formData.confirmPassword) {
+    } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = '兩次輸入的密碼不一致';
     }
 
@@ -71,38 +74,41 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('http://localhost:8080/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           firm_name: formData.firmName,
-          firm_code: formData.username, // 使用 username 作為 firm_code
-          admin_email: `${formData.username}@example.com`, // 暫時生成 email
-          admin_password: formData.adminPassword,
-          admin_full_name: '系統管理員'
+          username: formData.username,
+          password: formData.password
         }),
       });
 
       const data = await response.json();
 
-      if (response.ok && data.success) {
-        onRegisterSuccess({ success: true, username: formData.username });
+      if (response.ok && data.success && data.requires_admin_setup) {
+        onRegisterSuccess({ 
+          success: true, 
+          username: formData.username,
+          firmId: data.firm_id,
+          firmName: formData.firmName
+        });
         handleClose();
       } else {
-        setErrors({ submit: data.detail || '註冊失敗' });
+        setErrors({ submit: data.detail || data.message || '註冊失敗' });
       }
 
     } catch (error) {
       console.error('註冊請求失敗:', error);
-      setErrors({ submit: '網路錯誤，請稍後重試' });
+      setErrors({ submit: `網路錯誤: ${error.message || '無法連接到伺服器，請確認後端服務是否啟動'}` });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (field: keyof RegisterData, value: string | PlanType) => {
+  const handleInputChange = (field: keyof SimpleRegisterData, value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -121,9 +127,8 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
     setFormData({
       firmName: '',
       username: '',
-      adminPassword: '',
-      confirmPassword: '',
-      plan: 'basic'
+      password: '',
+      confirmPassword: ''
     });
     setErrors({});
     setLoading(false);
@@ -204,15 +209,15 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <Lock className="w-4 h-4 inline mr-1" />
-                密碼 <span className="text-red-500">*</span>
+                事務所密碼 <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  value={formData.adminPassword}
-                  onChange={(e) => handleInputChange('adminPassword', e.target.value)}
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
                   className={`w-full px-3 py-2 pr-10 border rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none ${
-                    errors.adminPassword ? 'border-red-500' : 'border-gray-300'
+                    errors.password ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="至少8碼，包含大小寫英文"
                   disabled={loading}
@@ -225,8 +230,8 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {errors.adminPassword && (
-                <p className="text-red-500 text-xs mt-1">{errors.adminPassword}</p>
+              {errors.password && (
+                <p className="text-red-500 text-xs mt-1">{errors.password}</p>
               )}
             </div>
 
@@ -259,8 +264,6 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
                 <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>
               )}
             </div>
-
-            {/* 方案選擇 */}
 
             {/* 提交錯誤 */}
             {errors.submit && (

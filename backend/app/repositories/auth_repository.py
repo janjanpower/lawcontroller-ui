@@ -7,12 +7,12 @@ from uuid import UUID
 import bcrypt
 
 class AuthRepository(BaseRepository):
-    def get_firm_by_code(self, firm_code: str) -> Optional[Firm]:
-        """根據事務所代碼取得事務所"""
-        return self.db.query(Firm).filter(Firm.firm_code == firm_code).first()
+    def get_firm_by_username(self, username: str) -> Optional[Firm]:
+        """根據帳號取得事務所"""
+        return self.db.query(Firm).filter(Firm.firm_code == username).first()
     
     def create_firm(self, firm_data: dict) -> Firm:
-        """建立事務所"""
+        """建立事務所（包含密碼）"""
         firm = Firm(**firm_data)
         self.db.add(firm)
         self.db.commit()
@@ -23,49 +23,34 @@ class AuthRepository(BaseRepository):
         
         return firm
     
-    def create_user(self, user_data: dict) -> User:
-        """建立用戶"""
+    def verify_firm_password(self, firm: Firm, password: str) -> bool:
+        """驗證事務所密碼"""
+        return bcrypt.checkpw(password.encode('utf-8'), firm.password_hash.encode('utf-8'))
+    
+    def get_firm_admin(self, firm_id: UUID) -> Optional[User]:
+        """取得事務所管理員"""
+        return self.db.query(User).filter(
+            User.firm_id == firm_id,
+            User.role == 'admin',
+            User.is_active == True
+        ).first()
+    
+    def create_admin_user(self, user_data: dict) -> User:
+        """建立管理員用戶"""
         user = User(**user_data)
         self.db.add(user)
         self.db.commit()
         self.db.refresh(user)
         
         # 記錄操作日誌
-        self.log_action("CREATE_USER", {"user_id": str(user.id), "email": user.email})
+        self.log_action("CREATE_ADMIN", {"user_id": str(user.id), "firm_id": str(user.firm_id)})
         
         return user
     
-    def create_auth_local(self, user_id: UUID, password: str) -> AuthLocal:
-        """建立本地認證記錄"""
-        # 加密密碼
-        password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        
-        auth_local = AuthLocal(
-            user_id=user_id,
-            password_hash=password_hash
-        )
-        self.db.add(auth_local)
-        self.db.commit()
-        self.db.refresh(auth_local)
-        
-        return auth_local
+    def check_username_exists(self, username: str) -> bool:
+        """檢查帳號是否已存在"""
+        return self.db.query(Firm).filter(Firm.firm_code == username).first() is not None
     
-    def get_user_by_email(self, email: str) -> Optional[User]:
-        """根據 email 取得用戶"""
-        return self.db.query(User).filter(User.email == email).first()
-    
-    def verify_password(self, user_id: UUID, password: str) -> bool:
-        """驗證密碼"""
-        auth_local = self.db.query(AuthLocal).filter(AuthLocal.user_id == user_id).first()
-        if not auth_local:
-            return False
-        
-        return bcrypt.checkpw(password.encode('utf-8'), auth_local.password_hash.encode('utf-8'))
-    
-    def check_firm_code_exists(self, firm_code: str) -> bool:
-        """檢查事務所代碼是否已存在"""
-        return self.db.query(Firm).filter(Firm.firm_code == firm_code).first() is not None
-    
-    def check_email_exists(self, email: str) -> bool:
-        """檢查 email 是否已存在"""
-        return self.db.query(User).filter(User.email == email).first() is not None
+    def hash_password(self, password: str) -> str:
+        """加密密碼"""
+        return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')

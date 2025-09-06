@@ -13,6 +13,7 @@ class Firm(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     firm_code = Column(String, unique=True, nullable=False)
     firm_name = Column(String, nullable=False)
+    password_hash = Column(Text, nullable=False)  # 事務所登入密碼
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class User(Base):
@@ -20,9 +21,12 @@ class User(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     firm_id = Column(UUID(as_uuid=True), ForeignKey("firms.id"), nullable=False)
+    full_name = Column(String, nullable=False)
     email = Column(String, nullable=False)
+    phone = Column(String, nullable=True)
     role = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 class Client(Base):
     __tablename__ = "clients"

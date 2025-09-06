@@ -14,21 +14,36 @@ class HealthResponse(BaseModel):
 # 認證相關
 class RegisterRequest(BaseModel):
     firm_name: str = Field(..., min_length=1, max_length=255)
-    firm_code: str = Field(..., min_length=1, max_length=50)
-    admin_email: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
-    admin_password: str = Field(..., min_length=8)
-    admin_full_name: str = Field(..., min_length=1, max_length=100)
+    username: str = Field(..., min_length=8, max_length=16)
+    password: str = Field(..., min_length=8)
 
 class LoginRequest(BaseModel):
-    email: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
+    username: str = Field(..., min_length=1)
     password: str = Field(..., min_length=1)
 
-class AuthResponse(BaseModel):
+class RegisterResponse(BaseModel):
     success: bool
     message: str
-    user_id: Optional[str] = None
     firm_id: Optional[str] = None
+    requires_admin_setup: Optional[bool] = None
 
+class LoginResponse(BaseModel):
+    success: bool
+    message: str
+    firm_id: Optional[str] = None
+    has_admin: Optional[bool] = None
+    admin_user_id: Optional[str] = None
+
+class SetupAdminRequest(BaseModel):
+    firm_id: str
+    admin_name: str = Field(..., min_length=1, max_length=100)
+    admin_email: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
+    admin_phone: Optional[str] = None
+
+class SetupAdminResponse(BaseModel):
+    success: bool
+    message: str
+    admin_user_id: Optional[str] = None
 # 分頁模型
 class PaginatedResponse(BaseModel):
     items: List[dict]
