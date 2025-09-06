@@ -12,18 +12,22 @@ export default function LoginPage() {
     account: '',
     password: ''
   });
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 對話框狀態
+  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
+  const [showPlanSelectionDialog, setShowPlanSelectionDialog] = useState(false);
   const [showUserSelectionDialog, setShowUserSelectionDialog] = useState(false);
-  
+
   // 登入後的事務所和用戶資訊
-  const [currentFirm, setCurrentFirm] = useState<(Firm & { 
-    hasPlan: boolean; 
-    users: UserType[]; 
-    adminPassword: string; 
+  const [currentFirm, setCurrentFirm] = useState<(Firm & {
+    hasPlan: boolean;
+    users: UserType[];
+    adminPassword: string;
   }) | null>(null);
   const [userPasswords, setUserPasswords] = useState<Record<string, string>>({});
 
@@ -36,7 +40,7 @@ export default function LoginPage() {
     // 載入記住的帳號
     const savedAccount = localStorage.getItem('law_remembered_account');
     const savedRememberMe = localStorage.getItem('law_remember_me') === 'true';
-    
+
     if (savedRememberMe && savedAccount) {
       setLoginCredentials(prev => ({ ...prev, account: savedAccount }));
       setRememberMe(true);
@@ -48,17 +52,8 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
+
     try {
-      // 暫時使用模擬 API 回應，直到後端服務啟動
-      console.log('登入請求:', {
-        account: loginCredentials.account,
-        password: loginCredentials.password
-      });
-      
-      // 模擬 API 回應
-      await new Promise(resolve => setTimeout(resolve, 800)); // 模擬網路延遲
-      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -82,28 +77,29 @@ export default function LoginPage() {
           localStorage.removeItem('law_remember_me');
         }
 
-        // 根據登入回應決定下一步
+        // 建立事務所資訊
         const firmInfo = {
           id: data.firm_id,
           firmName: data.firm_name,
           firmCode: loginCredentials.account,
           plan: data.plan_type || 'none',
           currentUsers: data.users?.length || 0,
-          maxUsers: 5, // 預設值
+          maxUsers: data.max_users || 1,
           createdAt: new Date().toISOString(),
           isActive: true,
           hasPlan: data.has_plan || data.can_use_free_plan,
           users: data.users || [],
           adminPassword: 'admin123' // 暫時的管理員密碼
         };
-        
+
+        setCurrentFirm(firmInfo);
+
+        // 根據方案狀態決定顯示哪個對話框
         if (data.has_plan || data.can_use_free_plan) {
-          // 有付費方案，顯示用戶選擇對話框
-          setCurrentFirm(firmInfo);
+          // 有付費方案或可用免費方案 → 顯示用戶選擇
           setShowUserSelectionDialog(true);
         } else {
-          // 沒有付費方案，顯示方案選擇對話框
-          setCurrentFirm(firmInfo);
+          // 沒有方案 → 顯示方案選擇
           setShowPlanSelectionDialog(true);
         }
       } else {
@@ -119,29 +115,30 @@ export default function LoginPage() {
   };
 
   // 註冊成功回調
-  const handleRegisterSuccess = (result: { 
-    success: boolean; 
-    account: string; 
+  const handleRegisterSuccess = (result: {
+    success: boolean;
+    account: string;
   }) => {
     if (result.success) {
       setLoginCredentials(prev => ({ ...prev, account: result.account }));
       // 註冊成功後，用戶需要手動登入
     }
   };
-  // 用戶選擇完成回調
+
   // 方案選擇完成回調
   const handlePlanSelectionComplete = () => {
     setShowPlanSelectionDialog(false);
     // 購買方案後顯示用戶選擇對話框
     setShowUserSelectionDialog(true);
   };
-  
+
+  // 用戶選擇完成回調
   const handleUserSelectionComplete = () => {
     // 儲存登入資訊
     localStorage.setItem('law_token', 'dummy_token');
     localStorage.setItem('law_user_id', 'selected_user_id');
     localStorage.setItem('law_firm_id', currentFirm?.id || '');
-    
+
     // 跳轉到案件總覽
     window.location.replace('/cases');
   };

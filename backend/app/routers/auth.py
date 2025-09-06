@@ -19,33 +19,33 @@ async def register_firm(
 ):
     """註冊事務所"""
     repo = AuthRepository(db)
-    
+
     # 驗證密碼一致性
     if request.password != request.confirm_password:
         raise HTTPException(status_code=422, detail="兩次輸入的密碼不一致")
-    
+
     # 驗證帳號格式（英數字、底線、連字號）
     if not re.match(r'^[A-Za-z0-9_-]+$', request.account):
         raise HTTPException(
-            status_code=422, 
+            status_code=422,
             detail="帳號僅允許英數字、底線與連字號"
         )
-    
+
     # 驗證密碼強度（至少8碼，包含大小寫英文）
     if not re.match(r'^(?=.*[a-z])(?=.*[A-Z]).{8,}$', request.password):
         raise HTTPException(
             status_code=422,
             detail="密碼需至少8碼，包含至少一個大寫和一個小寫英文字母"
         )
-    
+
     # 檢查帳號是否已存在
     if repo.check_account_exists(request.account):
         raise HTTPException(status_code=409, detail="帳號已存在")
-    
+
     try:
         # 加密密碼
         password_hash = repo.hash_password(request.password)
-        
+
         # 建立事務所（預設沒有方案）
         firm = repo.create_firm({
             "firm_name": request.firm_name,
@@ -57,12 +57,12 @@ async def register_firm(
             "max_users": 1,
             "current_users": 0
         })
-        
+
         return RegisterResponse(
             success=True,
             message="事務所註冊成功，請登入系統"
         )
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"註冊失敗: {str(e)}")
 
@@ -73,22 +73,22 @@ async def login_firm(
 ):
     """事務所登入"""
     repo = AuthRepository(db)
-    
+
     # 根據帳號查找事務所
     firm = repo.get_firm_by_account(request.account)
     if not firm:
         raise HTTPException(status_code=401, detail="帳號或密碼錯誤")
-    
+
     # 驗證事務所密碼
     if not repo.verify_firm_password(firm, request.password):
         raise HTTPException(status_code=401, detail="帳號或密碼錯誤")
-    
+
     # 檢查是否有可用方案
     has_plan = repo.check_firm_has_plan(firm)
-    
+
     # 取得事務所用戶列表
     users = repo.get_firm_users(firm.id)
-    
+
     return LoginResponse(
         success=True,
         message="登入成功",
@@ -113,12 +113,12 @@ async def update_firm_plan(
 ):
     """更新事務所方案"""
     repo = AuthRepository(db)
-    
+
     # 檢查事務所是否存在
     firm = repo.get_firm_by_id(UUID(request.firm_id))
     if not firm:
         raise HTTPException(status_code=404, detail="事務所不存在")
-    
+
     try:
         # 根據方案類型設定相關欄位
         plan_data = {
@@ -128,7 +128,7 @@ async def update_firm_plan(
             "plan_start_date": date.today(),
             "plan_end_date": date.today() + timedelta(days=30)  # 30天試用
         }
-        
+
         # 設定最大用戶數
         max_users_map = {
             "basic": 5,
@@ -137,19 +137,19 @@ async def update_firm_plan(
             "enterprise": 50
         }
         plan_data["max_users"] = max_users_map.get(request.plan_type, 1)
-        
+
         updated_firm = repo.update_firm_plan(firm.id, plan_data)
-        
+
         if not updated_firm:
             raise HTTPException(status_code=500, detail="更新方案失敗")
-        
+
         return UpdatePlanResponse(
             success=True,
             message="方案更新成功",
             plan_type=updated_firm.plan_type,
             max_users=updated_firm.max_users
         )
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"更新方案失敗: {str(e)}")
 
@@ -160,12 +160,12 @@ async def enable_free_plan(
 ):
     """啟用免費方案（管理員功能）"""
     repo = AuthRepository(db)
-    
+
     # 檢查事務所是否存在
     firm = repo.get_firm_by_id(UUID(firm_id))
     if not firm:
         raise HTTPException(status_code=404, detail="事務所不存在")
-    
+
     try:
         # 啟用免費方案
         plan_data = {
@@ -176,14 +176,14 @@ async def enable_free_plan(
             "plan_start_date": date.today(),
             "plan_end_date": date.today() + timedelta(days=365)  # 免費方案一年
         }
-        
+
         updated_firm = repo.update_firm_plan(firm.id, plan_data)
-        
+
         return {
             "success": True,
             "message": "免費方案已啟用",
             "plan_type": updated_firm.plan_type
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"啟用免費方案失敗: {str(e)}")
