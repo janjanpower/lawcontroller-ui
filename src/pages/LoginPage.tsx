@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Eye, EyeOff, User, Lock, Building } from 'lucide-react';
 import RegisterDialog from '../components/RegisterDialog';
 import PlanSelectionDialog from '../components/PlanSelectionDialog';
+import UserSelectionDialog from '../components/UserSelectionDialog';
 import '../styles/login.css';
 import type { LoginCredentials, Firm, User as UserType } from '../types';
 
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showUserSelectionDialog, setShowUserSelectionDialog] = useState(false);
   
   // 登入後的事務所和用戶資訊
   const [currentFirm, setCurrentFirm] = useState<(Firm & { 
@@ -80,10 +82,22 @@ export default function LoginPage() {
           localStorage.removeItem('law_remember_me');
         }
 
-        // 模擬取得事務所詳細資訊（包含方案和用戶）
-        const firmInfo = await fetchFirmInfo(data.firm_id);
+        // 根據登入回應決定下一步
+        const firmInfo = {
+          id: data.firm_id,
+          firmName: data.firm_name,
+          firmCode: loginCredentials.account,
+          plan: data.plan_type || 'none',
+          currentUsers: data.users?.length || 0,
+          maxUsers: 5, // 預設值
+          createdAt: new Date().toISOString(),
+          isActive: true,
+          hasPlan: data.has_plan || data.can_use_free_plan,
+          users: data.users || [],
+          adminPassword: 'admin123' // 暫時的管理員密碼
+        };
         
-        if (firmInfo.hasPlan) {
+        if (data.has_plan || data.can_use_free_plan) {
           // 有付費方案，顯示用戶選擇對話框
           setCurrentFirm(firmInfo);
           setShowUserSelectionDialog(true);
@@ -104,35 +118,6 @@ export default function LoginPage() {
     }
   };
 
-  // 模擬取得事務所資訊的函數
-  const fetchFirmInfo = async (firmId: string) => {
-    // TODO: 實際應該呼叫 API 取得事務所詳細資訊
-    // 這裡先返回模擬資料
-    return {
-      id: firmId,
-      firmName: loginCredentials.account, // 暫時使用帳號作為名稱
-      firmCode: loginCredentials.account,
-      plan: 'basic' as const,
-      currentUsers: 1,
-      maxUsers: 5,
-      createdAt: new Date().toISOString(),
-      isActive: true,
-      hasPlan: Math.random() > 0.5, // 隨機決定是否有方案（測試用）
-      users: [
-        {
-          id: '1',
-          firmId: firmId,
-          username: 'admin',
-          fullName: '系統管理員',
-          role: 'admin' as const,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        }
-      ],
-      adminPassword: 'admin123'
-    };
-  };
-
   // 註冊成功回調
   const handleRegisterSuccess = (result: { 
     success: boolean; 
@@ -144,6 +129,13 @@ export default function LoginPage() {
     }
   };
   // 用戶選擇完成回調
+  // 方案選擇完成回調
+  const handlePlanSelectionComplete = () => {
+    setShowPlanSelectionDialog(false);
+    // 購買方案後顯示用戶選擇對話框
+    setShowUserSelectionDialog(true);
+  };
+  
   const handleUserSelectionComplete = () => {
     // 儲存登入資訊
     localStorage.setItem('law_token', 'dummy_token');
@@ -308,6 +300,20 @@ export default function LoginPage() {
           }}
           firm={currentFirm}
           onComplete={handlePlanSelectionComplete}
+        />
+      )}
+
+      {/* 用戶選擇對話框 */}
+      {currentFirm && (
+        <UserSelectionDialog
+          isOpen={showUserSelectionDialog}
+          onClose={() => {
+            setShowUserSelectionDialog(false);
+            setCurrentFirm(null);
+          }}
+          firm={currentFirm}
+          userPasswords={userPasswords}
+          onComplete={handleUserSelectionComplete}
         />
       )}
     </div>

@@ -30,11 +30,29 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
     setLoading(true);
 
     try {
-      // TODO: 實現真實的方案選擇和付費 API 呼叫
-      setError('方案選擇功能尚未實現，請聯繫系統管理員');
+      const response = await fetch('/api/auth/update-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firm_id: firm.id,
+          plan_type: selectedPlan,
+          payment_method: paymentMethod
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        onComplete();
+      } else {
+        setError(data.detail || data.message || '方案選擇失敗');
+      }
       
     } catch {
-      setError('付費處理失敗，請稍後再試');
+      console.error('方案選擇失敗:', error);
+      setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
     } finally {
       setLoading(false);
     }
@@ -104,9 +122,9 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-[#334d6d]">
-                        {key === 'basic' ? '免費' : 
+                        {key === 'basic' ? '月付1999' : 
                          key === 'advanced' ? '月付 $1,999' :
-                         key === 'premium' ? '月付 $3,999' : '月付 $9,999'}
+                         key === 'premium' ? '月付 $3,999' : '月付 $6,999'}
                       </div>
                     </div>
                   </label>

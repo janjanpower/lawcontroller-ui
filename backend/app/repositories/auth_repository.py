@@ -11,6 +11,35 @@ class AuthRepository(BaseRepository):
         """根據帳號取得事務所"""
         return self.db.query(Firm).filter(Firm.firm_code == account).first()
     
+    def update_firm_plan(self, firm_id: UUID, plan_data: dict) -> Optional[Firm]:
+        """更新事務所方案"""
+        firm = self.db.query(Firm).filter(Firm.id == firm_id).first()
+        if not firm:
+            return None
+        
+        for key, value in plan_data.items():
+            if hasattr(firm, key):
+                setattr(firm, key, value)
+        
+        self.db.commit()
+        self.db.refresh(firm)
+        
+        # 記錄操作日誌
+        self.log_action("UPDATE_FIRM_PLAN", {"firm_id": str(firm.id), "plan_data": plan_data})
+        
+        return firm
+    
+    def check_firm_has_plan(self, firm: Firm) -> bool:
+        """檢查事務所是否有可用方案"""
+        return firm.has_paid_plan or firm.can_use_free_plan
+    
+    def get_firm_users(self, firm_id: UUID) -> List[User]:
+        """取得事務所用戶列表"""
+        return self.db.query(User).filter(
+            User.firm_id == firm_id,
+            User.is_active == True
+        ).all()
+    
     def create_firm(self, firm_data: dict) -> Firm:
         """建立事務所（包含密碼）"""
         firm = Firm(**firm_data)

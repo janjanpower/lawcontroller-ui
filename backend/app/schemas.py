@@ -24,9 +24,23 @@ class RegisterResponse(BaseModel):
     success: bool
     message: str
     firm_id: Optional[str] = None
-    requires_admin_setup: Optional[bool] = None
-
+    firm_name: Optional[str] = None
+    has_plan: Optional[bool] = None
+    plan_type: Optional[str] = None
+    can_use_free_plan: Optional[bool] = None
+    users: Optional[List[dict]] = None
 # 分頁模型
+class UpdatePlanRequest(BaseModel):
+    firm_id: str
+    plan_type: str = Field(..., regex="^(basic|advanced|premium|enterprise)$")
+    payment_method: Optional[str] = None
+
+class UpdatePlanResponse(BaseModel):
+    success: bool
+    message: str
+    plan_type: Optional[str] = None
+    max_users: Optional[int] = None
+
 class PaginatedResponse(BaseModel):
     items: List[dict]
     total: int

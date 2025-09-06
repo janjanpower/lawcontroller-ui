@@ -14,6 +14,13 @@ class Firm(Base):
     firm_code = Column(String, unique=True, nullable=False)
     firm_name = Column(String, nullable=False)
     password_hash = Column(Text, nullable=False)  # 事務所登入密碼
+    plan_type = Column(String, default='none')  # 'none', 'basic', 'advanced', 'premium', 'enterprise'
+    has_paid_plan = Column(Boolean, default=False)  # 是否有付費方案
+    can_use_free_plan = Column(Boolean, default=False)  # 是否可使用免費方案
+    max_users = Column(Integer, default=1)  # 最大用戶數
+    current_users = Column(Integer, default=0)  # 當前用戶數
+    plan_start_date = Column(Date, nullable=True)  # 方案開始日期
+    plan_end_date = Column(Date, nullable=True)  # 方案結束日期
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class User(Base):
