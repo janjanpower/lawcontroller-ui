@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Eye, EyeOff, User, Lock, Building } from 'lucide-react';
 import RegisterDialog from '../components/RegisterDialog';
 import PlanSelectionDialog from '../components/PlanSelectionDialog';
-import UserSelectionDialog from '../components/UserSelectionDialog';
 import '../styles/login.css';
 import type { LoginCredentials, Firm, User as UserType } from '../types';
 
@@ -17,11 +16,6 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // 對話框狀態
-  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
-  const [showPlanSelectionDialog, setShowPlanSelectionDialog] = useState(false);
-  const [showUserSelectionDialog, setShowUserSelectionDialog] = useState(false);
   
   // 登入後的事務所和用戶資訊
   const [currentFirm, setCurrentFirm] = useState<(Firm & { 
@@ -143,26 +137,12 @@ export default function LoginPage() {
   const handleRegisterSuccess = (result: { 
     success: boolean; 
     account: string; 
-    firmId?: string; 
-    firmName?: string; 
   }) => {
     if (result.success) {
       setLoginCredentials(prev => ({ ...prev, account: result.account }));
-      // 註冊成功後，自動觸發登入流程來取得事務所資訊
-      // 這樣可以根據事務所狀態決定顯示哪個對話框
+      // 註冊成功後，用戶需要手動登入
     }
   };
-
-  // 方案選擇完成回調
-  const handlePlanSelectionComplete = () => {
-    setShowPlanSelectionDialog(false);
-    // 方案選擇完成後，顯示用戶選擇對話框
-    if (currentFirm) {
-      setCurrentFirm(prev => prev ? { ...prev, hasPlan: true } : null);
-      setShowUserSelectionDialog(true);
-    }
-  };
-
   // 用戶選擇完成回調
   const handleUserSelectionComplete = () => {
     // 儲存登入資訊
@@ -328,20 +308,6 @@ export default function LoginPage() {
           }}
           firm={currentFirm}
           onComplete={handlePlanSelectionComplete}
-        />
-      )}
-
-      {/* 用戶選擇對話框 */}
-      {currentFirm && (
-        <UserSelectionDialog
-          isOpen={showUserSelectionDialog}
-          onClose={() => {
-            setShowUserSelectionDialog(false);
-            setCurrentFirm(null);
-          }}
-          firm={currentFirm}
-          userPasswords={userPasswords}
-          onComplete={handleUserSelectionComplete}
         />
       )}
     </div>

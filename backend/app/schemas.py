@@ -26,20 +26,6 @@ class RegisterResponse(BaseModel):
     firm_id: Optional[str] = None
     requires_admin_setup: Optional[bool] = None
 
-class LoginResponse(BaseModel):
-    success: bool
-    message: str
-
-class SetupAdminRequest(BaseModel):
-    firm_id: str
-    admin_name: str = Field(..., min_length=1, max_length=100)
-    admin_email: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
-    admin_phone: Optional[str] = None
-
-class SetupAdminResponse(BaseModel):
-    success: bool
-    message: str
-    admin_user_id: Optional[str] = None
 # 分頁模型
 class PaginatedResponse(BaseModel):
     items: List[dict]

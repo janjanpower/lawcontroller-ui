@@ -100,12 +100,10 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
 
       const data = await response.json();
 
-      if (response.ok && data.success && data.requires_admin_setup) {
+      if (response.ok && data.success) {
         onRegisterSuccess({ 
           success: true, 
-          account: formData.account,
-          firmId: data.firm_id,
-          firmName: formData.firmName
+          account: formData.account
         });
         handleClose();
       } else {
