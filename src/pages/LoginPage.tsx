@@ -109,7 +109,7 @@ export default function LoginPage() {
   useEffect(() => {
     const token = localStorage.getItem('law_token');
     if (token) {
-      window.location.href = '/cases';
+      window.location.replace('/cases');
     }
 
     // 載入記住的帳號
@@ -151,10 +151,10 @@ export default function LoginPage() {
 
       // 檢查是否有方案
       if (!firm.hasPlan) {
-        console.log('顯示方案選擇對話框');
+        console.log('顯示方案選擇對話框', { firm, hasPlan: firm.hasPlan });
         setShowPlanSelectionDialog(true);
       } else {
-        console.log('顯示用戶選擇對話框');
+        console.log('顯示用戶選擇對話框', { firm, hasPlan: firm.hasPlan });
         setShowUserSelectionDialog(true);
       }
 
@@ -167,12 +167,14 @@ export default function LoginPage() {
 
   // 方案選擇完成後的回調
   const handlePlanSelectionComplete = () => {
+    console.log('方案選擇完成，準備顯示用戶選擇對話框');
     setShowPlanSelectionDialog(false);
     setShowUserSelectionDialog(true);
   };
 
   // 用戶選擇完成後的回調
   const handleUserSelectionComplete = () => {
+    console.log('用戶選擇完成');
     setShowUserSelectionDialog(false);
     // 這裡會在 UserSelectionDialog 內部處理最終登入
   };
@@ -331,7 +333,7 @@ export default function LoginPage() {
 
       {/* 方案選擇對話框 */}
       <PlanSelectionDialog
-        isOpen={showPlanSelectionDialog && selectedFirm !== null}
+        isOpen={showPlanSelectionDialog}
         onClose={() => setShowPlanSelectionDialog(false)}
         firm={selectedFirm}
         onComplete={handlePlanSelectionComplete}
@@ -339,7 +341,7 @@ export default function LoginPage() {
 
       {/* 用戶選擇對話框 */}
       <UserSelectionDialog
-        isOpen={showUserSelectionDialog && selectedFirm !== null}
+        isOpen={showUserSelectionDialog}
         onClose={() => setShowUserSelectionDialog(false)}
         firm={selectedFirm}
         userPasswords={mockUserPasswords}

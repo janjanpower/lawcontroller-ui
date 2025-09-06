@@ -27,7 +27,7 @@ export default function UserSelectionDialog({
   const [error, setError] = useState('');
 
   // 調試日誌
-  console.log('UserSelectionDialog render:', { isOpen, firm: !!firm });
+  console.log('UserSelectionDialog render:', { isOpen, firm: !!firm, firmName: firm?.firmName, usersCount: firm?.users?.length });
 
   // 新增用戶表單
   const [createUserData, setCreateUserData] = useState<CreateUserData>({
@@ -40,6 +40,7 @@ export default function UserSelectionDialog({
 
   // 選擇用戶
   const handleUserSelect = (user: UserType) => {
+    console.log('選擇用戶:', user.fullName);
     setSelectedUser(user);
     setPersonalPassword('');
     setError('');
@@ -50,6 +51,7 @@ export default function UserSelectionDialog({
     e.preventDefault();
     if (!selectedUser) return;
 
+    console.log('開始個人密碼驗證:', selectedUser.fullName);
     setError('');
     setLoading(true);
 
@@ -57,17 +59,21 @@ export default function UserSelectionDialog({
       await new Promise(resolve => setTimeout(resolve, 500));
 
       const correctPassword = userPasswords[selectedUser.id];
+      console.log('密碼驗證:', { input: personalPassword, correct: correctPassword });
+
       if (personalPassword !== correctPassword) {
         setError('個人密碼錯誤');
         return;
       }
 
       // 登入成功
+      console.log('登入成功，設定 token 並跳轉');
       localStorage.setItem('law_token', 'demo_token');
       localStorage.setItem('law_user', JSON.stringify(selectedUser));
       localStorage.setItem('law_firm', JSON.stringify(firm));
 
-      window.location.href = '/cases';
+      // 使用 replace 避免回到登入頁
+      window.location.replace('/cases');
 
     } catch {
       setError('登入失敗，請稍後再試');
@@ -182,7 +188,7 @@ export default function UserSelectionDialog({
   if (!isOpen) return null;
 
   if (!firm) {
-    console.log('UserSelectionDialog: firm is null');
+    console.log('UserSelectionDialog: firm is null, closing dialog');
     return null;
   }
 
