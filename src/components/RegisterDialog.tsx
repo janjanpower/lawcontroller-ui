@@ -3,7 +3,7 @@ import { X, Building, User, Lock, Loader, Eye, EyeOff } from 'lucide-react';
 
 interface SimpleRegisterData {
   firmName: string;
-  username: string;
+  account: string;
   password: string;
   confirmPassword: string;
 }
@@ -17,7 +17,7 @@ interface RegisterDialogProps {
 export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: RegisterDialogProps) {
   const [formData, setFormData] = useState<SimpleRegisterData>({
     firmName: '',
-    username: '',
+    account: '',
     password: '',
     confirmPassword: ''
   });
@@ -36,12 +36,12 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
     }
 
     // 帳號驗證 (8-16位)
-    if (!formData.username.trim()) {
-      newErrors.username = '請輸入帳號';
-    } else if (formData.username.length < 8 || formData.username.length > 16) {
-      newErrors.username = '帳號需為 8~16 個字元';
-    } else if (!/^[A-Za-z0-9_-]+$/.test(formData.username)) {
-      newErrors.username = '帳號僅允許英數字、_ 與 -';
+    if (!formData.account.trim()) {
+      newErrors.account = '請輸入帳號';
+    } else if (formData.account.length < 8 || formData.account.length > 16) {
+      newErrors.account = '帳號需為 8~16 個字元';
+    } else if (!/^[A-Za-z0-9_-]+$/.test(formData.account)) {
+      newErrors.account = '帳號僅允許英數字、_ 與 -';
     }
 
     // 管理員密碼驗證 (8碼+大小寫英文至少各一個)
@@ -81,8 +81,9 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
         },
         body: JSON.stringify({
           firm_name: formData.firmName,
-          username: formData.username,
-          password: formData.password
+          account: formData.account,
+          password: formData.password,
+          confirm_password: formData.confirmPassword
         }),
       });
 
@@ -91,7 +92,7 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
       if (response.ok && data.success && data.requires_admin_setup) {
         onRegisterSuccess({ 
           success: true, 
-          username: formData.username,
+          account: formData.account,
           firmId: data.firm_id,
           firmName: formData.firmName
         });
@@ -126,7 +127,7 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
   const handleClose = () => {
     setFormData({
       firmName: '',
-      username: '',
+      account: '',
       password: '',
       confirmPassword: ''
     });
@@ -188,17 +189,17 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
               </label>
               <input
                 type="text"
-                value={formData.username}
-                onChange={(e) => handleInputChange('username', e.target.value)}
+                value={formData.account}
+                onChange={(e) => handleInputChange('account', e.target.value)}
                 className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none ${
-                  errors.username ? 'border-red-500' : 'border-gray-300'
+                  errors.account ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="8~16個字元，英數字、_ 與 -"
                 disabled={loading}
                 maxLength={16}
               />
-              {errors.username && (
-                <p className="text-red-500 text-xs mt-1">{errors.username}</p>
+              {errors.account && (
+                <p className="text-red-500 text-xs mt-1">{errors.account}</p>
               )}
               <p className="text-gray-500 text-xs mt-1">
                 此帳號將作為登入時的識別碼

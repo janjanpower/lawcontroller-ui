@@ -8,7 +8,7 @@ import type { LoginCredentials } from '../types';
 export default function LoginPage() {
   // 基本狀態
   const [loginCredentials, setLoginCredentials] = useState<LoginCredentials>({
-    username: '',
+    account: '',
     password: ''
   });
   
@@ -34,11 +34,11 @@ export default function LoginPage() {
     }
 
     // 載入記住的帳號
-    const savedUsername = localStorage.getItem('law_remembered_username');
+    const savedAccount = localStorage.getItem('law_remembered_account');
     const savedRememberMe = localStorage.getItem('law_remember_me') === 'true';
     
-    if (savedRememberMe && savedUsername) {
-      setLoginCredentials(prev => ({ ...prev, username: savedUsername }));
+    if (savedRememberMe && savedAccount) {
+      setLoginCredentials(prev => ({ ...prev, account: savedAccount }));
       setRememberMe(true);
     }
   }, []);
@@ -56,7 +56,7 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: loginCredentials.username,
+          account: loginCredentials.account,
           password: loginCredentials.password,
         }),
       });
@@ -66,10 +66,10 @@ export default function LoginPage() {
       if (response.ok && data.success && data.has_admin) {
         // 記住帳號
         if (rememberMe) {
-          localStorage.setItem('law_remembered_username', loginCredentials.username);
+          localStorage.setItem('law_remembered_account', loginCredentials.account);
           localStorage.setItem('law_remember_me', 'true');
         } else {
-          localStorage.removeItem('law_remembered_username');
+          localStorage.removeItem('law_remembered_account');
           localStorage.removeItem('law_remember_me');
         }
 
@@ -103,12 +103,12 @@ export default function LoginPage() {
   // 註冊成功回調
   const handleRegisterSuccess = (result: { 
     success: boolean; 
-    username: string; 
+    account: string; 
     firmId?: string; 
     firmName?: string; 
   }) => {
     if (result.success) {
-      setLoginCredentials(prev => ({ ...prev, username: result.username }));
+      setLoginCredentials(prev => ({ ...prev, account: result.account }));
       if (result.firmId && result.firmName) {
         setRegisteredFirm({
           firmId: result.firmId,
@@ -151,16 +151,16 @@ export default function LoginPage() {
             <form onSubmit={handleLogin} className="form-container">
               {/* 帳號輸入 */}
               <div className="form-group">
-                <label htmlFor="username" className="form-label">帳號</label>
+                <label htmlFor="account" className="form-label">帳號</label>
                 <div className="input-wrapper">
                   <div className="input-icon">
                     <User />
                   </div>
                   <input
-                    id="username"
+                    id="account"
                     type="text"
-                    value={loginCredentials.username}
-                    onChange={(e) => setLoginCredentials(prev => ({ ...prev, username: e.target.value }))}
+                    value={loginCredentials.account}
+                    onChange={(e) => setLoginCredentials(prev => ({ ...prev, account: e.target.value }))}
                     className="form-input"
                     placeholder="請輸入帳號"
                     required

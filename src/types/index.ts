@@ -63,7 +63,7 @@ export interface User {
 
 // 登入相關型別
 export interface LoginCredentials {
-  username: string;
+  account: string;
   password: string;
 }
 
@@ -80,12 +80,11 @@ export interface LoginResponse {
 }
 
 // 註冊型別
-export interface RegisterData {
+export interface SimpleRegisterData {
   firmName: string;
-  username: string;
-  adminPassword: string;
+  account: string;
+  password: string;
   confirmPassword: string;
-  plan: PlanType;
 }
 
 // 方案選擇型別
