@@ -17,7 +17,12 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
   const [error, setError] = useState('');
 
   // 調試日誌
-  console.log('PlanSelectionDialog render:', { isOpen, firm: !!firm, firmName: firm?.firmName });
+  console.log('PlanSelectionDialog render:', {
+    isOpen,
+    firm: !!firm,
+    firmName: firm?.firmName,
+    hasPlan: firm?.hasPlan
+  });
 
   const handlePlanSelection = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +31,7 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
 
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       // 模擬付費成功，更新事務所方案
       if (firm) {
         firm.plan = selectedPlan;
@@ -37,7 +42,7 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
       alert('付費成功！方案已啟用。');
       setLoading(false);
       onComplete();
-      
+
     } catch {
       setError('付費處理失敗，請稍後再試');
       setLoading(false);
@@ -108,7 +113,7 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-[#334d6d]">
-                        {key === 'basic' ? '免費' : 
+                        {key === 'basic' ? '免費' :
                          key === 'advanced' ? '月付 $1,999' :
                          key === 'premium' ? '月付 $3,999' : '月付 $9,999'}
                       </div>
