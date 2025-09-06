@@ -1,13 +1,12 @@
-import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, User, Building, Menu, X, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import CaseOverview from '../pages/CaseOverview';
-import ClosedCases from '../pages/ClosedCases';
-import CustomerData from '../pages/CustomerData';
-import UserManagement from '../pages/UserManagement';
 
-export default function MainLayout() {
+interface MainLayoutProps {
+  children: React.ReactNode;
+}
+
+export default function MainLayout({ children }: MainLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -152,13 +151,7 @@ export default function MainLayout() {
 
         {/* 主要內容區域 - 只有這裡會切換 */}
         <main className="flex-1 flex flex-col overflow-hidden min-w-0 lg:ml-0">
-          <Routes>
-            <Route path="/cases" element={<CaseOverview />} />
-            <Route path="/closed-cases" element={<ClosedCases />} />
-            <Route path="/customers" element={<CustomerData />} />
-            <Route path="/users" element={<UserManagement />} />
-            <Route path="*" element={<CaseOverview />} />
-          </Routes>
+          {children}
         </main>
       </div>
     </div>
