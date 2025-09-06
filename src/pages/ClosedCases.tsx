@@ -1,54 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Search, Filter, FileText, User, Building, Eye, Folder, X } from 'lucide-react';
 
-// 模擬結案案件資料
-const mockClosedCases = [
-  {
-    id: '3',
-    caseNumber: '112年度行訴字第9012號',
-    client: '趙六',
-    caseType: '行政',
-    lawyer: '黃律師',
-    legalAffairs: '吳法務',
-    caseReason: '行政處分撤銷',
-    opposingParty: '市政府',
-    court: '台北高等行政法院',
-    division: '行政庭',
-    progress: '已結案',
-    progressDate: '2024-01-25',
-    closedDate: '2024-01-25',
-    stages: [
-      { name: '委任', date: '2023-12-01', completed: true },
-      { name: '起訴', date: '2023-12-15', completed: true },
-      { name: '開庭', date: '2024-01-10', completed: true },
-      { name: '判決', date: '2024-01-20', completed: true },
-      { name: '已結案', date: '2024-01-25', completed: true },
-    ],
-  },
-  {
-    id: '4',
-    caseNumber: '111年度民訴字第5678號',
-    client: '李四',
-    caseType: '民事',
-    lawyer: '陳律師',
-    legalAffairs: '林法務',
-    caseReason: '契約糾紛',
-    opposingParty: '王五',
-    court: '台北地方法院',
-    division: '民事庭',
-    progress: '已結案',
-    progressDate: '2024-01-20',
-    closedDate: '2024-01-20',
-    stages: [
-      { name: '委任', date: '2023-11-01', completed: true },
-      { name: '起訴', date: '2023-11-15', completed: true },
-      { name: '調解', date: '2023-12-10', completed: true },
-      { name: '和解', date: '2024-01-15', completed: true },
-      { name: '已結案', date: '2024-01-20', completed: true },
-    ],
-  },
-];
-
 // 自訂確認對話框組件
 interface CustomConfirmDialogProps {
   isOpen: boolean;
@@ -134,8 +86,8 @@ const CustomSuccessDialog: React.FC<CustomSuccessDialogProps> = ({
 };
 
 export default function ClosedCases() {
-  const [cases, setCases] = useState(mockClosedCases);
-  const [filteredCases, setFilteredCases] = useState(mockClosedCases);
+  const [cases, setCases] = useState([]);
+  const [filteredCases, setFilteredCases] = useState([]);
   const [selectedCase, setSelectedCase] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);

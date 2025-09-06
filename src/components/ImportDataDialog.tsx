@@ -36,17 +36,11 @@ export default function ImportDataDialog({ isOpen, onClose, onImportComplete }: 
     setIsAnalyzing(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      const mockResult: AnalysisResult = {
-        success: true,
-        message: '檔案分析完成！',
-        civilCount: Math.floor(Math.random() * 10) + 1,
-        criminalCount: Math.floor(Math.random() * 8) + 1,
-        unknownCount: Math.floor(Math.random() * 3)
-      };
-
-      setAnalysisResult(mockResult);
+      // TODO: 實現真實的檔案分析 API 呼叫
+      setAnalysisResult({
+        success: false,
+        message: '檔案分析功能尚未實現，請聯繫系統管理員'
+      });
     } catch {
       setAnalysisResult({
         success: false,
@@ -63,13 +57,8 @@ export default function ImportDataDialog({ isOpen, onClose, onImportComplete }: 
     setIsImporting(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      const totalImported = (analysisResult.civilCount || 0) + (analysisResult.criminalCount || 0);
-
-      alert(`匯入成功！共匯入 ${totalImported} 筆案件資料`);
-      onImportComplete();
-      onClose();
+      // TODO: 實現真實的資料匯入 API 呼叫
+      alert('資料匯入功能尚未實現，請聯繫系統管理員');
     } catch {
       alert('匯入失敗，請稍後再試');
     } finally {

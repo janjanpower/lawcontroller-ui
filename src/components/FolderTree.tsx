@@ -21,101 +21,13 @@ interface FolderTreeProps {
   onDelete?: (path: string, type: 'folder' | 'file') => void;
 }
 
-// 模擬資料夾結構
-const mockFolderStructure: FolderNode = {
+// 預設空的資料夾結構
+const defaultFolderStructure: FolderNode = {
   id: 'root',
   name: '案件資料夾',
   type: 'folder',
   path: '/',
-  children: [
-    {
-      id: 'pleadings',
-      name: '狀紙',
-      type: 'folder',
-      path: '/狀紙',
-      children: [
-        {
-          id: 'complaint',
-          name: '起訴狀.pdf',
-          type: 'file',
-          path: '/狀紙/起訴狀.pdf',
-          size: 1024000,
-          modified: '2024-01-15'
-        },
-        {
-          id: 'response',
-          name: '答辯狀.pdf',
-          type: 'file',
-          path: '/狀紙/答辯狀.pdf',
-          size: 856000,
-          modified: '2024-01-20'
-        }
-      ]
-    },
-    {
-      id: 'case-info',
-      name: '案件資訊',
-      type: 'folder',
-      path: '/案件資訊',
-      children: [
-        {
-          id: 'case-excel',
-          name: '案件資訊.xlsx',
-          type: 'file',
-          path: '/案件資訊/案件資訊.xlsx',
-          size: 45000,
-          modified: '2024-01-10'
-        }
-      ]
-    },
-    {
-      id: 'progress',
-      name: '進度追蹤',
-      type: 'folder',
-      path: '/進度追蹤',
-      children: [
-        {
-          id: 'appointment',
-          name: '委任',
-          type: 'folder',
-          path: '/進度追蹤/委任',
-          children: [
-            {
-              id: 'contract',
-              name: '委任契約書.pdf',
-              type: 'file',
-              path: '/進度追蹤/委任/委任契約書.pdf',
-              size: 234000,
-              modified: '2024-01-05'
-            }
-          ]
-        },
-        {
-          id: 'filing',
-          name: '起訴',
-          type: 'folder',
-          path: '/進度追蹤/起訴',
-          children: []
-        },
-        {
-          id: 'hearing',
-          name: '開庭',
-          type: 'folder',
-          path: '/進度追蹤/開庭',
-          children: [
-            {
-              id: 'court-record',
-              name: '開庭筆錄.pdf',
-              type: 'file',
-              path: '/進度追蹤/開庭/開庭筆錄.pdf',
-              size: 567000,
-              modified: '2024-02-01'
-            }
-          ]
-        }
-      ]
-    }
-  ]
+  children: []
 };
 
 const FolderTreeNode: React.FC<{
@@ -271,7 +183,13 @@ export default function FolderTree({
   onFolderCreate,
   onDelete
 }: FolderTreeProps) {
-  const [folderData, setFolderData] = useState<FolderNode>(mockFolderStructure);
+  const [folderData, setFolderData] = useState<FolderNode>(defaultFolderStructure);
+
+  // TODO: 從 API 載入真實的資料夾結構
+  useEffect(() => {
+    // 這裡應該呼叫 API 載入案件的資料夾結構
+    // setFolderData(apiResponse);
+  }, [caseId]);
 
   const handleFileUpload = (folderPath: string) => {
     console.log(`上傳檔案到: ${folderPath}`);

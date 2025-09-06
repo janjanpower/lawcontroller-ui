@@ -1,65 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Eye, Edit, Trash2, Shield, UserCheck, UserX, X, Plus } from 'lucide-react';
 
-// 模擬用戶資料
-const mockUsers = [
-  {
-    id: '1',
-    username: 'admin',
-    fullName: '系統管理員',
-    role: 'admin',
-    email: 'admin@testlaw.com.tw',
-    phone: '02-1234-5678',
-    department: '管理部',
-    position: '系統管理員',
-    isActive: true,
-    createdAt: '2024-01-01',
-    lastLogin: '2024-01-20 14:30'
-  },
-  {
-    id: '2',
-    username: 'lawyer01',
-    fullName: '張律師',
-    role: 'lawyer',
-    email: 'zhang@testlaw.com.tw',
-    phone: '02-1234-5679',
-    department: '法務部',
-    position: '資深律師',
-    isActive: true,
-    createdAt: '2024-01-02',
-    lastLogin: '2024-01-19 16:45'
-  },
-  {
-    id: '3',
-    username: 'legal01',
-    fullName: '李法務',
-    role: 'legal_affairs',
-    email: 'li@testlaw.com.tw',
-    phone: '02-1234-5680',
-    department: '法務部',
-    position: '法務專員',
-    isActive: true,
-    createdAt: '2024-01-03',
-    lastLogin: '2024-01-18 10:20'
-  },
-  {
-    id: '4',
-    username: 'assistant01',
-    fullName: '王助理',
-    role: 'assistant',
-    email: 'wang@testlaw.com.tw',
-    phone: '02-1234-5681',
-    department: '行政部',
-    position: '行政助理',
-    isActive: false,
-    createdAt: '2024-01-04',
-    lastLogin: '2024-01-15 09:15'
-  }
-];
-
 export default function UserManagement() {
-  const [users, setUsers] = useState(mockUsers);
-  const [filteredUsers, setFilteredUsers] = useState(mockUsers);
+  const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);

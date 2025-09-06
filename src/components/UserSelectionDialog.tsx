@@ -11,12 +11,12 @@ interface UserSelectionDialogProps {
   onComplete: () => void;
 }
 
-export default function UserSelectionDialog({
-  isOpen,
-  onClose,
-  firm,
-  userPasswords,
-  onComplete
+export default function UserSelectionDialog({ 
+  isOpen, 
+  onClose, 
+  firm, 
+  userPasswords, 
+  onComplete 
 }: UserSelectionDialogProps) {
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [personalPassword, setPersonalPassword] = useState('');
@@ -28,12 +28,12 @@ export default function UserSelectionDialog({
   const [error, setError] = useState('');
 
   // 調試日誌
-  console.log('UserSelectionDialog render:', {
-    isOpen,
-    firm: !!firm,
-    firmName: firm?.firmName,
+  console.log('UserSelectionDialog render:', { 
+    isOpen, 
+    firm: !!firm, 
+    firmName: firm?.firmName, 
     usersCount: firm?.users?.length,
-    hasPlan: firm?.hasPlan
+    hasPlan: firm?.hasPlan 
   });
 
   // 新增用戶表單
@@ -58,33 +58,16 @@ export default function UserSelectionDialog({
     e.preventDefault();
     if (!selectedUser) return;
 
-    console.log('開始個人密碼驗證:', selectedUser.fullName);
     setError('');
     setLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const correctPassword = userPasswords[selectedUser.id];
-      console.log('密碼驗證:', { input: personalPassword, correct: correctPassword });
-
-      if (personalPassword !== correctPassword) {
-        setError('個人密碼錯誤');
-        return;
-      }
-
-      // 登入成功
-      console.log('登入成功，設定 token 並跳轉');
-      localStorage.setItem('law_token', 'demo_token');
-      localStorage.setItem('law_user', JSON.stringify(selectedUser));
-      localStorage.setItem('law_firm', JSON.stringify(firm));
-
-      setLoading(false);
-      // 使用 replace 避免回到登入頁
-      window.location.replace('/cases');
-
+      // TODO: 實現真實的個人密碼驗證 API 呼叫
+      setError('個人密碼驗證功能尚未實現，請聯繫系統管理員');
+      
     } catch {
       setError('登入失敗，請稍後再試');
+    } finally {
       setLoading(false);
     }
   };
@@ -95,7 +78,7 @@ export default function UserSelectionDialog({
     setError('');
 
     // 驗證表單
-    if (!createUserData.username || !createUserData.fullName ||
+    if (!createUserData.username || !createUserData.fullName || 
         !createUserData.personalPassword || !createUserData.confirmPersonalPassword) {
       setError('請填寫所有必填欄位');
       return;
@@ -124,37 +107,9 @@ export default function UserSelectionDialog({
     }
 
     try {
-      setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // 模擬新增用戶
-      const newUser: UserType = {
-        id: String(Date.now()),
-        firmId: firm.id,
-        username: createUserData.username,
-        fullName: createUserData.fullName,
-        role: createUserData.role,
-        isActive: true,
-        createdAt: new Date().toISOString()
-      };
-
-      // 更新模擬資料
-      firm.users.push(newUser);
-      firm.currentUsers++;
-      userPasswords[newUser.id] = createUserData.personalPassword;
-
-      // 重置表單
-      setCreateUserData({
-        username: '',
-        fullName: '',
-        role: 'lawyer',
-        personalPassword: '',
-        confirmPersonalPassword: ''
-      });
-
-      setShowCreateUser(false);
-      alert('用戶新增成功！');
-
+      // TODO: 實現真實的新增用戶 API 呼叫
+      setError('新增用戶功能尚未實現，請聯繫系統管理員');
+      
     } catch {
       setError('新增用戶失敗');
     } finally {
@@ -165,26 +120,11 @@ export default function UserSelectionDialog({
   // 刪除用戶確認
   const handleDeleteUserConfirm = async () => {
     if (!deleteUserId) return;
-
-    // 驗證管理員密碼
-    if (deletePassword !== firm.adminPassword) {
-      setError('管理員密碼錯誤');
-      return;
-    }
-
+    
     try {
-      setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // 更新模擬資料
-      firm.users = firm.users.filter(u => u.id !== deleteUserId);
-      firm.currentUsers--;
-      delete userPasswords[deleteUserId];
-
-      setDeleteUserId(null);
-      setDeletePassword('');
-      alert('用戶已刪除');
-
+      // TODO: 實現真實的刪除用戶 API 呼叫
+      setError('刪除用戶功能尚未實現，請聯繫系統管理員');
+      
     } catch {
       setError('刪除用戶失敗');
     } finally {
@@ -314,7 +254,7 @@ export default function UserSelectionDialog({
                         required
                       />
                     </div>
-
+                    
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">姓名</label>
                       <input

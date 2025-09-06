@@ -71,21 +71,8 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
     setLoading(true);
 
     try {
-      // 模擬 API 呼叫
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // 模擬註冊成功
-      const result = {
-        success: true,
-        username: formData.username,
-        message: '事務所註冊成功！'
-      };
-
-      onRegisterSuccess(result);
-      onClose();
-      
-      // 顯示成功訊息
-      alert(`註冊成功！\n\n事務所：${formData.firmName}\n帳號：${formData.username}\n方案：${PLANS[formData.plan].name}\n\n請使用帳號和密碼登入系統。`);
+      // TODO: 實現真實的註冊 API 呼叫
+      setErrors({ submit: '註冊功能尚未實現，請聯繫系統管理員' });
 
     } catch (error) {
       console.error('註冊請求失敗:', error);

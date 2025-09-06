@@ -36,73 +36,6 @@ import type {
   VisibleColumns,
 } from '../types';
 
-/* ------------------ 模擬案件資料 ------------------ */
-const mockCaseData: TableCase[] = [
-  {
-    id: '1',
-    caseNumber: '112年度民訴字第1234號',
-    client: '張三',
-    caseType: '民事',
-    lawyer: '李律師',
-    legalAffairs: '王法務',
-    caseReason: '債務糾紛',
-    opposingParty: '李四',
-    court: '台北地方法院',
-    division: '民事庭',
-    progress: '起訴',
-    progressDate: '2024-01-15',
-    status: 'active',
-    stages: [
-      { name: '委任', date: '2024-01-10', completed: true },
-      { name: '起訴', date: '2024-01-15', completed: true },
-      { name: '開庭', date: '2024-02-20', completed: false },
-      { name: '判決', date: '2024-03-15', completed: false },
-    ],
-  },
-  {
-    id: '2',
-    caseNumber: '112年度刑訴字第5678號',
-    client: '王五',
-    caseType: '刑事',
-    lawyer: '陳律師',
-    legalAffairs: '林法務',
-    caseReason: '詐欺案件',
-    opposingParty: '檢察官',
-    court: '新北地方法院',
-    division: '刑事庭',
-    progress: '偵查',
-    progressDate: '2024-01-20',
-    status: 'urgent',
-    stages: [
-      { name: '委任', date: '2024-01-05', completed: true },
-      { name: '偵查', date: '2024-01-20', completed: true },
-      { name: '起訴', date: '2024-02-10', completed: false },
-    ],
-  },
-  {
-    id: '3',
-    caseNumber: '112年度行訴字第9012號',
-    client: '趙六',
-    caseType: '行政',
-    lawyer: '黃律師',
-    legalAffairs: '吳法務',
-    caseReason: '行政處分撤銷',
-    opposingParty: '市政府',
-    court: '台北高等行政法院',
-    division: '行政庭',
-    progress: '已結案',
-    progressDate: '2024-01-25',
-    status: 'completed',
-    stages: [
-      { name: '委任', date: '2023-12-01', completed: true },
-      { name: '起訴', date: '2023-12-15', completed: true },
-      { name: '開庭', date: '2024-01-10', completed: true },
-      { name: '判決', date: '2024-01-20', completed: true },
-      { name: '已結案', date: '2024-01-25', completed: true },
-    ],
-  },
-];
-
 /* ------------------ 工具：型別轉換 ------------------ */
 function tableToFormCase(c: TableCase): FormCaseData {
   return {
@@ -154,8 +87,8 @@ export default function CaseOverview() {
   const navigate = useNavigate();
 
   // 案件資料狀態
-  const [cases, setCases] = useState<TableCase[]>(mockCaseData);
-  const [filteredCases, setFilteredCases] = useState<TableCase[]>(mockCaseData);
+  const [cases, setCases] = useState<TableCase[]>([]);
+  const [filteredCases, setFilteredCases] = useState<TableCase[]>([]);
   const [selectedCase, setSelectedCase] = useState<TableCase | null>(null);
 
   // 選擇和轉移狀態

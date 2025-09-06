@@ -4,87 +4,11 @@ import RegisterDialog from '../components/RegisterDialog';
 import UserSelectionDialog from '../components/UserSelectionDialog';
 import PlanSelectionDialog from '../components/PlanSelectionDialog';
 import '../styles/login.css';
-import type {
-  LoginCredentials,
-  User as UserType,
+import type { 
+  LoginCredentials, 
+  User as UserType, 
   Firm
 } from '../types';
-
-// 模擬資料
-const mockFirms: Record<string, Firm & { users: UserType[]; adminPassword: string; hasPlan: boolean }> = {
-  'admin': {
-    id: '1',
-    firmName: '測試法律事務所',
-    firmCode: 'TEST001',
-    plan: 'basic',
-    currentUsers: 3,
-    maxUsers: 5,
-    createdAt: '2024-01-01',
-    isActive: true,
-    adminPassword: 'Admin123!',
-    hasPlan: true,
-    users: [
-      {
-        id: '1',
-        firmId: '1',
-        username: 'admin',
-        fullName: '系統管理員',
-        role: 'admin',
-        isActive: true,
-        createdAt: '2024-01-01'
-      },
-      {
-        id: '2',
-        firmId: '1',
-        username: 'lawyer01',
-        fullName: '張律師',
-        role: 'lawyer',
-        isActive: true,
-        createdAt: '2024-01-02'
-      },
-      {
-        id: '3',
-        firmId: '1',
-        username: 'legal01',
-        fullName: '李法務',
-        role: 'legal_affairs',
-        isActive: true,
-        createdAt: '2024-01-03'
-      }
-    ]
-  },
-  'testfirm': {
-    id: '2',
-    firmName: '新註冊事務所',
-    firmCode: 'NEWFIRM',
-    plan: 'basic',
-    currentUsers: 1,
-    maxUsers: 0, // 未付費
-    createdAt: '2024-01-15',
-    isActive: true,
-    adminPassword: 'Test123!',
-    hasPlan: false, // 未選擇方案
-    users: [
-      {
-        id: '4',
-        firmId: '2',
-        username: 'testfirm',
-        fullName: '測試管理員',
-        role: 'admin',
-        isActive: true,
-        createdAt: '2024-01-15'
-      }
-    ]
-  }
-};
-
-// 模擬用戶個人密碼
-const mockUserPasswords: Record<string, string> = {
-  '1': '123456',
-  '2': '234567',
-  '3': '345678',
-  '4': '111111'
-};
 
 export default function LoginPage() {
   // 基本狀態
@@ -92,7 +16,7 @@ export default function LoginPage() {
     username: '',
     password: ''
   });
-
+  
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -102,7 +26,7 @@ export default function LoginPage() {
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
   const [showUserSelectionDialog, setShowUserSelectionDialog] = useState(false);
   const [showPlanSelectionDialog, setShowPlanSelectionDialog] = useState(false);
-
+  
   // 選中的事務所
   const [selectedFirm, setSelectedFirm] = useState<(Firm & { users: UserType[]; adminPassword: string; hasPlan: boolean }) | null>(null);
 
@@ -115,7 +39,7 @@ export default function LoginPage() {
     // 載入記住的帳號
     const savedUsername = localStorage.getItem('law_remembered_username');
     const savedRememberMe = localStorage.getItem('law_remember_me') === 'true';
-
+    
     if (savedRememberMe && savedUsername) {
       setLoginCredentials(prev => ({ ...prev, username: savedUsername }));
       setRememberMe(true);
@@ -127,52 +51,12 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    
+    // TODO: 實現真實的登入 API 呼叫
+    setError('登入功能尚未實現，請聯繫系統管理員');
+    setLoading(false);
 
-    console.log('開始登入流程:', loginCredentials.username);
-
-    try {
-      // 模擬 API 呼叫
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const firm = mockFirms[loginCredentials.username];
-      if (!firm || firm.adminPassword !== loginCredentials.password) {
-        setError('帳號或密碼錯誤');
-        setLoading(false);
-        return;
-      }
-
-      console.log('登入驗證成功，firm 資料:', firm);
-
-      // 處理記住帳號
-      if (rememberMe) {
-        localStorage.setItem('law_remembered_username', loginCredentials.username);
-        localStorage.setItem('law_remember_me', 'true');
-      } else {
-        localStorage.removeItem('law_remembered_username');
-        localStorage.removeItem('law_remember_me');
-      }
-
-      // 設定選中的事務所
-      setSelectedFirm(firm);
-      console.log('設定 selectedFirm 完成');
-
-      // 檢查是否有方案
-      if (!firm.hasPlan) {
-        console.log('需要選擇方案，顯示方案選擇對話框');
-        setShowPlanSelectionDialog(true);
-        setShowUserSelectionDialog(false);
-      } else {
-        console.log('已有方案，直接顯示用戶選擇對話框');
-        setShowPlanSelectionDialog(false);
-        setShowUserSelectionDialog(true);
-      }
-
-    } catch {
-      setError('登入失敗，請稍後再試');
-      setLoading(false);
-    } finally {
-      setLoading(false);
-    }
+    // 原本的登入邏輯已移除，需要整合真實的後端 API
   };
 
   // 方案選擇完成後的回調
@@ -354,13 +238,15 @@ export default function LoginPage() {
       />
 
       {/* 用戶選擇對話框 */}
-      <UserSelectionDialog
-        isOpen={showUserSelectionDialog}
-        onClose={() => setShowUserSelectionDialog(false)}
-        firm={selectedFirm!}
-        userPasswords={mockUserPasswords}
-        onComplete={handleUserSelectionComplete}
-      />
+      {selectedFirm && (
+        <UserSelectionDialog
+          isOpen={showUserSelectionDialog}
+          onClose={() => setShowUserSelectionDialog(false)}
+          firm={selectedFirm}
+          userPasswords={{}}
+          onComplete={handleUserSelectionComplete}
+        />
+      )}
     </div>
   );
 }

@@ -17,11 +17,11 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
   const [error, setError] = useState('');
 
   // 調試日誌
-  console.log('PlanSelectionDialog render:', {
-    isOpen,
-    firm: !!firm,
+  console.log('PlanSelectionDialog render:', { 
+    isOpen, 
+    firm: !!firm, 
     firmName: firm?.firmName,
-    hasPlan: firm?.hasPlan
+    hasPlan: firm?.hasPlan 
   });
 
   const handlePlanSelection = async (e: React.FormEvent) => {
@@ -30,21 +30,12 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
     setLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // 模擬付費成功，更新事務所方案
-      if (firm) {
-        firm.plan = selectedPlan;
-        firm.maxUsers = PLANS[selectedPlan].maxUsers;
-        firm.hasPlan = true;
-      }
-
-      alert('付費成功！方案已啟用。');
-      setLoading(false);
-      onComplete();
-
+      // TODO: 實現真實的方案選擇和付費 API 呼叫
+      setError('方案選擇功能尚未實現，請聯繫系統管理員');
+      
     } catch {
       setError('付費處理失敗，請稍後再試');
+    } finally {
       setLoading(false);
     }
   };
@@ -113,7 +104,7 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-[#334d6d]">
-                        {key === 'basic' ? '免費' :
+                        {key === 'basic' ? '免費' : 
                          key === 'advanced' ? '月付 $1,999' :
                          key === 'premium' ? '月付 $3,999' : '月付 $9,999'}
                       </div>

@@ -1,49 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Eye, Edit, X } from 'lucide-react';
 
-// 模擬客戶資料
-const mockCustomers = [
-  {
-    id: '1',
-    name: '張三',
-    phone: '0912-345-678',
-    email: 'zhang@example.com',
-    lineId: '@zhang123',
-    joinDate: '2024-01-15',
-    status: 'active',
-    caseCount: 2,
-    lastContact: '2024-01-20',
-    notes: '積極配合，回應迅速',
-  },
-  {
-    id: '2',
-    name: '李四',
-    phone: '0923-456-789',
-    email: 'li@example.com',
-    lineId: '@li456',
-    joinDate: '2024-01-10',
-    status: 'active',
-    caseCount: 1,
-    lastContact: '2024-01-18',
-    notes: '需要定期提醒',
-  },
-  {
-    id: '3',
-    name: '王五',
-    phone: '0934-567-890',
-    email: 'wang@example.com',
-    lineId: '@wang789',
-    joinDate: '2024-01-05',
-    status: 'inactive',
-    caseCount: 3,
-    lastContact: '2024-01-12',
-    notes: '案件已結案，保持聯繫',
-  },
-];
-
 export default function CustomerData() {
-  const [customers, setCustomers] = useState(mockCustomers);
-  const [filteredCustomers, setFilteredCustomers] = useState(mockCustomers);
+  const [customers, setCustomers] = useState([]);
+  const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
