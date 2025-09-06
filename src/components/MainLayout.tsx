@@ -1,4 +1,4 @@
-import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
+import { Routes, Route, NavLink, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, User, Building, Menu, X, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import CaseOverview from '../pages/CaseOverview';
@@ -8,16 +8,17 @@ import UserManagement from '../pages/UserManagement';
 
 export default function MainLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // 檢查登入狀態
   useEffect(() => {
     const token = localStorage.getItem('law_token');
     if (!token) {
-      window.location.replace('/login');
+      navigate('/login', { replace: true });
       return;
     }
-  }, []);
+  }, [navigate]);
 
   // 根據當前路徑決定頁面標題
   const getPageTitle = () => {
@@ -151,11 +152,11 @@ export default function MainLayout() {
         {/* 主要內容區域 - 只有這裡會切換 */}
         <main className="flex-1 flex flex-col overflow-hidden min-w-0 lg:ml-0">
           <Routes>
-            <Route path="/" element={<CaseOverview />} />
-            <Route path="/cases" element={<CaseOverview />} />
-            <Route path="/closed-cases" element={<ClosedCases />} />
-            <Route path="/customers" element={<CustomerData />} />
-            <Route path="/users" element={<UserManagement />} />
+            <Route path="cases" element={<CaseOverview />} />
+            <Route path="closed-cases" element={<ClosedCases />} />
+            <Route path="customers" element={<CustomerData />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="*" element={<Navigate to="cases" replace />} />
           </Routes>
         </main>
       </div>
