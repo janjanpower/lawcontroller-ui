@@ -4,9 +4,9 @@ import RegisterDialog from '../components/RegisterDialog';
 import UserSelectionDialog from '../components/UserSelectionDialog';
 import PlanSelectionDialog from '../components/PlanSelectionDialog';
 import '../styles/login.css';
-import type {
-  LoginCredentials,
-  User as UserType,
+import type { 
+  LoginCredentials, 
+  User as UserType, 
   Firm
 } from '../types';
 
@@ -34,7 +34,7 @@ const mockFirms: Record<string, Firm & { users: UserType[]; adminPassword: strin
         createdAt: '2024-01-01'
       },
       {
-        id: '2',
+        id: '2', 
         firmId: '1',
         username: 'lawyer01',
         fullName: '張律師',
@@ -44,7 +44,7 @@ const mockFirms: Record<string, Firm & { users: UserType[]; adminPassword: strin
       },
       {
         id: '3',
-        firmId: '1',
+        firmId: '1', 
         username: 'legal01',
         fullName: '李法務',
         role: 'legal_affairs',
@@ -81,7 +81,7 @@ const mockFirms: Record<string, Firm & { users: UserType[]; adminPassword: strin
 // 模擬用戶個人密碼
 const mockUserPasswords: Record<string, string> = {
   '1': '123456',
-  '2': '234567',
+  '2': '234567', 
   '3': '345678',
   '4': '111111'
 };
@@ -92,7 +92,7 @@ export default function LoginPage() {
     username: '',
     password: ''
   });
-
+  
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -102,7 +102,7 @@ export default function LoginPage() {
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
   const [showUserSelectionDialog, setShowUserSelectionDialog] = useState(false);
   const [showPlanSelectionDialog, setShowPlanSelectionDialog] = useState(false);
-
+  
   // 選中的事務所
   const [selectedFirm, setSelectedFirm] = useState<(Firm & { users: UserType[]; adminPassword: string; hasPlan: boolean }) | null>(null);
 
@@ -115,7 +115,7 @@ export default function LoginPage() {
     // 載入記住的帳號
     const savedUsername = localStorage.getItem('law_remembered_username');
     const savedRememberMe = localStorage.getItem('law_remember_me') === 'true';
-
+    
     if (savedRememberMe && savedUsername) {
       setLoginCredentials(prev => ({ ...prev, username: savedUsername }));
       setRememberMe(true);
@@ -131,7 +131,7 @@ export default function LoginPage() {
     try {
       // 模擬 API 呼叫
       await new Promise(resolve => setTimeout(resolve, 1000));
-
+      
       const firm = mockFirms[loginCredentials.username];
       if (!firm || firm.adminPassword !== loginCredentials.password) {
         setError('帳號或密碼錯誤');
@@ -148,7 +148,7 @@ export default function LoginPage() {
       }
 
       setSelectedFirm(firm);
-
+      
       // 檢查是否有方案
       if (!firm.hasPlan) {
         console.log('顯示方案選擇對話框', { firm, hasPlan: firm.hasPlan });
@@ -157,7 +157,7 @@ export default function LoginPage() {
         console.log('顯示用戶選擇對話框', { firm, hasPlan: firm.hasPlan });
         setShowUserSelectionDialog(true);
       }
-
+      
     } catch {
       setError('登入失敗，請稍後再試');
     } finally {

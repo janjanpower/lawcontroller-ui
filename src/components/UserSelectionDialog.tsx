@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Users, Plus, Trash2, User, Eye, EyeOff, Loader } from 'lucide-react';
-import type { User as UserType, Firm, CreateUserData, PLANS } from '../types';
+import type { User as UserType, Firm, CreateUserData } from '../types';
+import { PLANS } from '../types';
 
 interface UserSelectionDialogProps {
   isOpen: boolean;
@@ -10,12 +11,12 @@ interface UserSelectionDialogProps {
   onComplete: () => void;
 }
 
-export default function UserSelectionDialog({
-  isOpen,
-  onClose,
-  firm,
-  userPasswords,
-  onComplete
+export default function UserSelectionDialog({ 
+  isOpen, 
+  onClose, 
+  firm, 
+  userPasswords, 
+  onComplete 
 }: UserSelectionDialogProps) {
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [personalPassword, setPersonalPassword] = useState('');
@@ -57,10 +58,10 @@ export default function UserSelectionDialog({
 
     try {
       await new Promise(resolve => setTimeout(resolve, 500));
-
+      
       const correctPassword = userPasswords[selectedUser.id];
       console.log('密碼驗證:', { input: personalPassword, correct: correctPassword });
-
+      
       if (personalPassword !== correctPassword) {
         setError('個人密碼錯誤');
         return;
@@ -71,10 +72,10 @@ export default function UserSelectionDialog({
       localStorage.setItem('law_token', 'demo_token');
       localStorage.setItem('law_user', JSON.stringify(selectedUser));
       localStorage.setItem('law_firm', JSON.stringify(firm));
-
+      
       // 使用 replace 避免回到登入頁
       window.location.replace('/cases');
-
+      
     } catch {
       setError('登入失敗，請稍後再試');
     } finally {
@@ -88,7 +89,7 @@ export default function UserSelectionDialog({
     setError('');
 
     // 驗證表單
-    if (!createUserData.username || !createUserData.fullName ||
+    if (!createUserData.username || !createUserData.fullName || 
         !createUserData.personalPassword || !createUserData.confirmPersonalPassword) {
       setError('請填寫所有必填欄位');
       return;
@@ -144,10 +145,10 @@ export default function UserSelectionDialog({
         personalPassword: '',
         confirmPersonalPassword: ''
       });
-
+      
       setShowCreateUser(false);
       alert('用戶新增成功！');
-
+      
     } catch {
       setError('新增用戶失敗');
     } finally {
@@ -158,7 +159,7 @@ export default function UserSelectionDialog({
   // 刪除用戶確認
   const handleDeleteUserConfirm = async () => {
     if (!deleteUserId) return;
-
+    
     // 驗證管理員密碼
     if (deletePassword !== firm.adminPassword) {
       setError('管理員密碼錯誤');
@@ -177,7 +178,7 @@ export default function UserSelectionDialog({
       setDeleteUserId(null);
       setDeletePassword('');
       alert('用戶已刪除');
-
+      
     } catch {
       setError('刪除用戶失敗');
     } finally {
@@ -307,7 +308,7 @@ export default function UserSelectionDialog({
                         required
                       />
                     </div>
-
+                    
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">姓名</label>
                       <input

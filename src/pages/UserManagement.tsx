@@ -134,7 +134,7 @@ export default function UserManagement() {
   };
 
   const handleToggleStatus = (userId) => {
-    setUsers(prev => prev.map(u =>
+    setUsers(prev => prev.map(u => 
       u.id === userId ? { ...u, isActive: !u.isActive } : u
     ));
   };
@@ -311,8 +311,8 @@ export default function UserManagement() {
                           <button
                             onClick={() => handleToggleStatus(user.id)}
                             className={`transition-colors ${
-                              user.isActive
-                                ? 'text-gray-400 hover:text-red-600'
+                              user.isActive 
+                                ? 'text-gray-400 hover:text-red-600' 
                                 : 'text-gray-400 hover:text-green-600'
                             }`}
                             title={user.isActive ? '停用' : '啟用'}
