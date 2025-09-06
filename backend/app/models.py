@@ -117,3 +117,10 @@ class AuditLog(Base):
     action = Column(String, nullable=False)
     details = Column(JSONB, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class AuthLocal(Base):
+    __tablename__ = "auth_local"
+    
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    password_hash = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

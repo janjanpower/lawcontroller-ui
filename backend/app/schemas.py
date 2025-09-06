@@ -11,6 +11,24 @@ class HealthResponse(BaseModel):
     ok: bool
     db: str
 
+# 認證相關
+class RegisterRequest(BaseModel):
+    firm_name: str = Field(..., min_length=1, max_length=255)
+    firm_code: str = Field(..., min_length=1, max_length=50)
+    admin_email: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
+    admin_password: str = Field(..., min_length=8)
+    admin_full_name: str = Field(..., min_length=1, max_length=100)
+
+class LoginRequest(BaseModel):
+    email: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
+    password: str = Field(..., min_length=1)
+
+class AuthResponse(BaseModel):
+    success: bool
+    message: str
+    user_id: Optional[str] = None
+    firm_id: Optional[str] = None
+
 # 分頁模型
 class PaginatedResponse(BaseModel):
     items: List[dict]

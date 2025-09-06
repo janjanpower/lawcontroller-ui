@@ -52,6 +52,31 @@ curl -sS http://127.0.0.1:8080/healthz
 curl -sS http://127.0.0.1:8080/healthz
 ```
 
+### 認證功能
+
+**註冊事務所**
+```bash
+curl -X POST http://127.0.0.1:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firm_name": "測試法律事務所",
+    "firm_code": "TEST001",
+    "admin_email": "admin@testlaw.com",
+    "admin_password": "Admin123!",
+    "admin_full_name": "系統管理員"
+  }'
+```
+
+**用戶登入**
+```bash
+curl -X POST http://127.0.0.1:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@testlaw.com",
+    "password": "Admin123!"
+  }'
+```
+
 ### 客戶管理
 
 **建立客戶**

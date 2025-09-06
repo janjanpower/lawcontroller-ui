@@ -71,12 +71,32 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess, api
     setLoading(true);
 
     try {
-      // TODO: 實現真實的註冊 API 呼叫
-      setErrors({ submit: '註冊功能尚未實現，請聯繫系統管理員' });
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firm_name: formData.firmName,
+          firm_code: formData.username, // 使用 username 作為 firm_code
+          admin_email: `${formData.username}@example.com`, // 暫時生成 email
+          admin_password: formData.adminPassword,
+          admin_full_name: '系統管理員'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        onRegisterSuccess({ success: true, username: formData.username });
+        handleClose();
+      } else {
+        setErrors({ submit: data.detail || '註冊失敗' });
+      }
 
     } catch (error) {
       console.error('註冊請求失敗:', error);
-      setErrors({ submit: '註冊失敗，請稍後重試' });
+      setErrors({ submit: '網路錯誤，請稍後重試' });
     } finally {
       setLoading(false);
     }

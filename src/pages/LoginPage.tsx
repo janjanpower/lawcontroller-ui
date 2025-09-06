@@ -52,9 +52,46 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     
-    // TODO: 實現真實的登入 API 呼叫
-    setError('登入功能尚未實現，請聯繫系統管理員');
-    setLoading(false);
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: `${loginCredentials.username}@example.com`, // 暫時生成 email
+          password: loginCredentials.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // 記住帳號
+        if (rememberMe) {
+          localStorage.setItem('law_remembered_username', loginCredentials.username);
+          localStorage.setItem('law_remember_me', 'true');
+        } else {
+          localStorage.removeItem('law_remembered_username');
+          localStorage.removeItem('law_remember_me');
+        }
+
+        // 儲存登入資訊
+        localStorage.setItem('law_token', 'dummy_token'); // 暫時使用假 token
+        localStorage.setItem('law_user_id', data.user_id);
+        localStorage.setItem('law_firm_id', data.firm_id);
+
+        // 跳轉到案件總覽
+        window.location.replace('/cases');
+      } else {
+        setError(data.detail || '登入失敗');
+      }
+    } catch (error) {
+      console.error('登入請求失敗:', error);
+      setError('網路錯誤，請稍後重試');
+    } finally {
+      setLoading(false);
+    }
 
     // 原本的登入邏輯已移除，需要整合真實的後端 API
   };

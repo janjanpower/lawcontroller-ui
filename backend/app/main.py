@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import health, clients, cases, stages, reminders, files
+from app.routers import health, auth, clients, cases, stages, reminders, files
 
 app = FastAPI(
     title="法律案件管理系統 API",
@@ -20,6 +20,7 @@ app.add_middleware(
 
 # 註冊路由
 app.include_router(health.router)
+app.include_router(auth.router, prefix="/api/auth", tags=["認證"])
 app.include_router(clients.router, prefix="/api")
 app.include_router(cases.router, prefix="/api")
 app.include_router(stages.router, prefix="/api")
