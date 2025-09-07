@@ -63,9 +63,18 @@ export default function UserSelectionDialog({
     setLoading(true);
 
     try {
-      // TODO: 實現真實的個人密碼驗證 API 呼叫
-      setError('個人密碼驗證功能尚未實現，請聯繫系統管理員');
+      const response = await fetch('/api/auth/verify-user-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: selectedUser.id,
+          personal_password: personalPassword
+        }),
+      });
 
+      const data = await response.json();
     } catch {
       setError('登入失敗，請稍後再試');
     } finally {
@@ -188,6 +197,16 @@ export default function UserSelectionDialog({
     }
   };
 
+      if (response.ok && data.success) {
+        // 個人密碼驗證成功，完成登入流程
+        localStorage.setItem('law_token', data.token || 'dummy_token');
+        localStorage.setItem('law_user_id', selectedUser.id);
+        localStorage.setItem('law_firm_id', firm.id);
+        
+        onComplete();
+      } else {
+        setError(data.detail || data.message || '個人密碼錯誤');
+      }
 
   // 刪除用戶確認
   const handleDeleteUserConfirm = async () => {

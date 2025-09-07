@@ -96,7 +96,7 @@ export default function CaseOverview() {
     try {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
       const response = await fetch(`/api/cases?firm_code=${firmCode}&status=open`);
-
+      
       if (response.ok) {
         const data = await response.json();
         // 轉換API資料格式為前端格式
@@ -227,7 +227,7 @@ export default function CaseOverview() {
 
   const handleDeleteStage = (idx: number) => {
     if (!selectedCase) return;
-
+    
     const stage = selectedCase.stages[idx];
     setDialogConfig({
       title: '確認刪除階段',
@@ -236,7 +236,7 @@ export default function CaseOverview() {
       onConfirm: () => {
         const updatedStages = selectedCase.stages.filter((_, index) => index !== idx);
         const updatedCase = { ...selectedCase, stages: updatedStages };
-
+        
         setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updatedCase : c)));
         setSelectedCase(updatedCase);
         setShowUnifiedDialog(false);
@@ -948,7 +948,7 @@ export default function CaseOverview() {
 
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
-                            <span
+                            <span 
                               className="text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600"
                               onClick={() => openEditStage(idx)}
                               title="點擊編輯此進度"
