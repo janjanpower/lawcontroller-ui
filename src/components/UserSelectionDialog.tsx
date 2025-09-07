@@ -43,13 +43,22 @@ export default function UserSelectionDialog({
     try {
       setLoading(true);
       setError('');
+
+      console.log('DEBUG: 開始載入用戶列表，firm_code:', firm.firmCode);
+
       const res = await fetch(`/api/users?firm_code=${encodeURIComponent(firm.firmCode)}`, {
         method: 'GET'
       });
+
+      console.log('DEBUG: API 回應狀態:', res.status, res.statusText);
+
       const raw = await res.text();
+      console.log('DEBUG: API 原始回應:', raw);
+
       let data: any = null;
       try {
         data = raw ? JSON.parse(raw) : null;
+        console.log('DEBUG: 解析後的資料:', data);
       } catch {
         console.error('Users API 非 JSON 回應：', raw);
       }
@@ -57,7 +66,11 @@ export default function UserSelectionDialog({
         throw new Error(data?.detail || data?.message || `HTTP ${res.status}`);
       }
 
-      const mapped: UserType[] = (data?.items ?? []).map((u: any) => ({
+      console.log('DEBUG: 開始轉換用戶資料，items 數量:', data?.items?.length || 0);
+
+      const mapped: UserType[] = (data?.items ?? []).map((u: any, index: number) => {
+        console.log(`DEBUG: 轉換用戶 ${index}:`, u);
+        return {
         id: u.id,
         username: u.username,
         fullName: u.full_name,
@@ -67,8 +80,10 @@ export default function UserSelectionDialog({
         phone: u.phone,
         createdAt: u.created_at,
         lastLogin: u.last_login,
-      }));
+        };
+      });
 
+      console.log('DEBUG: 轉換完成的用戶列表:', mapped);
       setUsers(mapped);
     } catch (e: any) {
       console.error('載入用戶列表失敗：', e);
