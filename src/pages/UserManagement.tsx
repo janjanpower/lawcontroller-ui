@@ -207,7 +207,7 @@ export default function UserManagement() {
 
     // 驗證表單
     if (!createUserData.username || !createUserData.fullName || 
-        !createUserData.email || !createUserData.personalPassword || 
+        !createUserData.personalPassword || 
         !createUserData.confirmPersonalPassword) {
       setError('請填寫所有必填欄位');
       setLoading(false);

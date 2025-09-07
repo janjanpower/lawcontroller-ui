@@ -73,13 +73,13 @@ export default function LoginPage() {
       // 檢查回應狀態
       if (!response.ok) {
         console.error('HTTP錯誤:', response.status, response.statusText);
-
+        
         // 嘗試讀取錯誤訊息
         let errorMessage = `伺服器錯誤 (${response.status})`;
         try {
           const errorText = await response.text();
           console.error('錯誤回應內容:', errorText);
-
+          
           // 嘗試解析為 JSON
           try {
             const errorData = JSON.parse(errorText);
@@ -91,7 +91,7 @@ export default function LoginPage() {
         } catch {
           // 無法讀取回應內容
         }
-
+        
         setError(errorMessage);
         setLoading(false);
         return;
@@ -102,11 +102,11 @@ export default function LoginPage() {
       try {
         const responseText = await response.text();
         console.log('登入回應原始內容:', responseText);
-
+        
         if (!responseText.trim()) {
           throw new Error('伺服器回傳空白回應');
         }
-
+        
         data = JSON.parse(responseText);
       } catch (parseError) {
         console.error('JSON 解析錯誤:', parseError);
@@ -162,7 +162,7 @@ export default function LoginPage() {
         setCurrentFirm(firmInfo);
 
         console.log('Firm Info:', firmInfo);
-
+        
         // 判斷邏輯：如果有付費方案或免費方案通行證，直接顯示用戶選擇對話框
         if (data.has_plan || data.can_use_free_plan) {
             console.log('Condition met: Showing UserSelectionDialog');
@@ -177,10 +177,10 @@ export default function LoginPage() {
 
     } catch (error) {
       console.error('登入請求失敗:', error);
-
+      
       // 根據錯誤類型提供更具體的錯誤訊息
       let errorMessage = '登入失敗';
-
+      
       if (error instanceof TypeError && error.message.includes('fetch')) {
         errorMessage = '無法連接到伺服器，請檢查網路連線';
       } else if (error instanceof SyntaxError) {
@@ -188,7 +188,7 @@ export default function LoginPage() {
       } else if (error.message) {
         errorMessage = error.message;
       }
-
+      
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -217,7 +217,7 @@ export default function LoginPage() {
   // 用戶選擇完成回調
   const handleUserSelectionComplete = () => {
     console.log('用戶選擇完成，準備跳轉到案件總覽');
-
+    
     // 跳轉到案件總覽
     window.location.replace('/cases');
   };

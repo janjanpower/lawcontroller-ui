@@ -469,14 +469,27 @@ export default function CaseOverview() {
   };
 
   const confirmDeleteCase = (row: TableCase) => {
+    // 檢查案件是否已被勾選
+    if (!selectedIds.includes(row.id)) {
+      setDialogConfig({
+        title: '無法刪除',
+        message: '請先勾選要刪除的案件',
+        type: 'warning',
+      });
+      setShowUnifiedDialog(true);
+      return;
+    }
+
     setDialogConfig({
       title: '確認刪除',
       message: `確定要刪除案件「${row.client} - ${row.caseNumber}」嗎？此操作無法復原。`,
       type: 'warning',
       onConfirm: () => {
         setCases((prev) => prev.filter((c) => c.id !== row.id));
+        setSelectedIds((prev) => prev.filter((id) => id !== row.id));
         if (selectedCase?.id === row.id) setSelectedCase(null);
         setShowUnifiedDialog(false);
+        showSuccess('案件已刪除');
       },
     });
     setShowUnifiedDialog(true);
