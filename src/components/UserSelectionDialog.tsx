@@ -204,7 +204,7 @@ export default function UserSelectionDialog({
     try {
       
       // 檢查是否為第一個用戶，如果是則設為管理員
-      const existingUsersResponse = await fetch(`/api/users?firm_code=${firmCode}`);
+      const existingUsersResponse = await fetch(`/api/users?firm_code=${firm.firmCode}`);
       const existingUsersData = await existingUsersResponse.json();
       const isFirstUser = !existingUsersData.items || existingUsersData.items.length === 0;
       
