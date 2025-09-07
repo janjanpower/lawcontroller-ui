@@ -114,6 +114,11 @@ export default function UserSelectionDialog({
     e.preventDefault();
     if (!selectedUser) return;
 
+    // 驗證密碼格式
+    if (!/^\d{6}$/.test(personalPassword)) {
+      setError('個人密碼必須為 6 位數字');
+      return;
+    }
     setError('');
     setLoading(true);
 
@@ -319,13 +324,14 @@ export default function UserSelectionDialog({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">個人密碼</label>
                   <input
-                    type="password"
+                    type="number"
                     value={personalPassword}
                     onChange={(e) => setPersonalPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
                     placeholder="請輸入 6 位數字密碼"
                     pattern="\\d{6}"
                     maxLength={6}
+                    minLength={6}
                     required
                   />
                 </div>
@@ -419,13 +425,14 @@ export default function UserSelectionDialog({
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">個人密碼 (6位數字)</label>
                       <input
-                        type="password"
+                        type="number"
                         value={createUserData.personalPassword}
                         onChange={(e) => setCreateUserData(prev => ({ ...prev, personalPassword: e.target.value }))}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-[#334d6d] outline-none"
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-[#334d6d] outline-none text-center tracking-widest"
                         placeholder="請輸入 6 位數字密碼"
                         pattern="\\d{6}"
                         maxLength={6}
+                        minLength={6}
                         required
                       />
                     </div>
@@ -433,13 +440,14 @@ export default function UserSelectionDialog({
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">確認個人密碼</label>
                       <input
-                        type="password"
+                        type="number"
                         value={createUserData.confirmPersonalPassword}
                         onChange={(e) => setCreateUserData(prev => ({ ...prev, confirmPersonalPassword: e.target.value }))}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-[#334d6d] outline-none"
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-[#334d6d] outline-none text-center tracking-widest"
                         placeholder="請再次輸入密碼"
                         pattern="\\d{6}"
                         maxLength={6}
+                        minLength={6}
                         required
                       />
                     </div>

@@ -29,7 +29,7 @@ export default function UserManagement() {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
       const response = await fetch(`/api/users?firm_code=${firmCode}`);
       const data = await response.json();
-      
+
       if (response.ok) {
         setUsers(data.items || []);
       } else {
@@ -125,7 +125,7 @@ export default function UserManagement() {
 
       if (response.ok && data.success) {
         // 更新本地狀態
-        setUsers(prev => prev.map(u => 
+        setUsers(prev => prev.map(u =>
           u.id === userId ? { ...u, isActive: data.is_active } : u
         ));
       } else {
@@ -174,8 +174,8 @@ export default function UserManagement() {
     setLoading(true);
 
     // 驗證表單
-    if (!createUserData.username || !createUserData.fullName || 
-        !createUserData.email || !createUserData.personalPassword || 
+    if (!createUserData.username || !createUserData.fullName ||
+        !createUserData.email || !createUserData.personalPassword ||
         !createUserData.confirmPersonalPassword) {
       setError('請填寫所有必填欄位');
       setLoading(false);
@@ -235,7 +235,7 @@ export default function UserManagement() {
       if (response.ok) {
         // 重新載入用戶列表
         await loadUsers();
-        
+
         // 重置表單
         setCreateUserData({
           username: '',
@@ -248,12 +248,12 @@ export default function UserManagement() {
         });
         setShowCreateUser(false);
         setError('');
-        
+
         alert('用戶新增成功！');
       } else {
         setError(data.detail || data.message || '新增用戶失敗');
       }
-      
+
     } catch (error) {
       console.error('新增用戶錯誤:', error);
       setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
@@ -425,8 +425,8 @@ export default function UserManagement() {
                           <button
                             onClick={() => handleToggleStatus(user.id)}
                             className={`transition-colors ${
-                              user.isActive 
-                                ? 'text-gray-400 hover:text-red-600' 
+                              user.isActive
+                                ? 'text-gray-400 hover:text-red-600'
                                 : 'text-gray-400 hover:text-green-600'
                             }`}
                             title={user.isActive ? '停用' : '啟用'}
@@ -710,13 +710,14 @@ export default function UserManagement() {
                       個人密碼 (6位數字) <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="password"
+                      type="number"
                       value={createUserData.personalPassword}
                       onChange={(e) => setCreateUserData(prev => ({ ...prev, personalPassword: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
                       placeholder="請輸入6位數字密碼"
                       pattern="\d{6}"
                       maxLength={6}
+                      minLength={6}
                       required
                     />
                   </div>
@@ -726,13 +727,14 @@ export default function UserManagement() {
                       確認個人密碼 <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="password"
+                      type="number"
                       value={createUserData.confirmPersonalPassword}
                       onChange={(e) => setCreateUserData(prev => ({ ...prev, confirmPersonalPassword: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
                       placeholder="請再次輸入密碼"
                       pattern="\d{6}"
                       maxLength={6}
+                      minLength={6}
                       required
                     />
                   </div>
