@@ -149,7 +149,17 @@ export default function LoginPage() {
           createdAt: new Date().toISOString(),
           isActive: true,
           hasPlan: data.has_plan || data.can_use_free_plan,
-          users: data.users || [],
+          users: (data.users || []).map((apiUser: any) => ({
+            id: apiUser.id,
+            username: apiUser.username,
+            fullName: apiUser.full_name,
+            role: apiUser.role,
+            isActive: apiUser.is_active,
+            email: apiUser.email || '',
+            phone: apiUser.phone || '',
+            createdAt: apiUser.created_at || new Date().toISOString(),
+            lastLogin: apiUser.last_login
+          })),
           adminPassword: 'admin123' // 暫時的管理員密碼
         };
 

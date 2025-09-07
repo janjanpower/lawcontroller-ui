@@ -28,14 +28,16 @@ export default function UserSelectionDialog({
   const [error, setError] = useState('');
 
   // 調試日誌
-  console.log('UserSelectionDialog render:', {
-    isOpen,
-    firm: !!firm,
-    firmName: firm?.firmName,
-    usersCount: firm?.users?.length,
-    hasPlan: firm?.hasPlan,
-    canUseFree: firm?.canUseFree
-  });
+  useEffect(() => {
+    console.log('UserSelectionDialog render:', {
+      isOpen,
+      firm: !!firm,
+      firmName: firm?.firmName,
+      usersCount: firm?.users?.length,
+      hasPlan: firm?.hasPlan,
+      canUseFree: firm?.canUseFree
+    });
+  }, [isOpen, firm]);
 
   // 新增用戶表單
   const [createUserData, setCreateUserData] = useState<CreateUserData>({
@@ -45,6 +47,44 @@ export default function UserSelectionDialog({
     personalPassword: '',
     confirmPersonalPassword: ''
   });
+
+  // 載入用戶列表的函數
+  const loadUsers = async () => {
+    if (!firm?.firmCode) return;
+    
+    try {
+      console.log('載入用戶列表，事務所代碼:', firm.firmCode);
+      const response = await fetch(`/api/users?firm_code=${firm.firmCode}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('用戶列表載入成功:', data);
+        
+        // 更新 firm 中的用戶列表
+        if (firm && data.items) {
+          firm.users = data.items.map((apiUser: any) => ({
+            id: apiUser.id,
+            username: apiUser.username,
+            fullName: apiUser.full_name,
+            role: apiUser.role,
+            isActive: apiUser.is_active
+          }));
+          firm.currentUsers = data.items.length;
+        }
+      } else {
+        console.error('載入用戶列表失敗:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('載入用戶列表錯誤:', error);
+    }
+  };
+
+  // 當對話框開啟時載入用戶列表
+  useEffect(() => {
+    if (isOpen && firm) {
+      loadUsers();
+    }
+  }, [isOpen, firm?.firmCode]);
 
   // 選擇用戶
   const handleUserSelect = (user: UserType) => {
@@ -165,17 +205,23 @@ export default function UserSelectionDialog({
       }
 
       // 新增成功：從 data 取回使用者欄位
-      const newUser = {
+      const newUser: UserType = {
         id: data.id,
         username: data.username,
         fullName: data.full_name,
         role: data.role,
-        isActive: data.is_active
+        isActive: data.is_active,
+        email: data.email,
+        phone: data.phone,
+        createdAt: data.created_at,
+        lastLogin: data.last_login
       };
 
       // 更新本地狀態
-      firm.users.push(newUser);
-      firm.currentUsers += 1;
+      if (firm.users) {
+        firm.users.push(newUser);
+        firm.currentUsers += 1;
+      }
 
       // 重置表單 & UI
       setCreateUserData({
@@ -244,9 +290,6 @@ export default function UserSelectionDialog({
       }
 
       // 刪除成功，更新本地狀態
-      console.log('用戶刪除成功，重新載入用戶列表');
-      
-      // 重新載入用戶列表以確保資料同步
       await loadUsers();
 
       setDeleteUserId(null);

@@ -52,7 +52,7 @@ export interface Firm {
 // 用戶型別
 export interface User {
   id: string;
-  firmId: string;
+  firmId?: string;
   username: string;
   fullName: string;
   email?: string;
