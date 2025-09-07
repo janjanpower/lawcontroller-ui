@@ -19,11 +19,17 @@ app = FastAPI(
 # CORS 設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://128.199.65.122:3100",   # Droplet IP + port
+        "https://ui.128-199-65-122.sslip.io"  # 你的正式網域
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # 註冊路由
 app.include_router(health.router)
