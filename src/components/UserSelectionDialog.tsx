@@ -212,7 +212,7 @@ export default function UserSelectionDialog({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          firm_code: firm.firmCode,
+          firm_code: firm.firmCode || firm.firm_code,
           username: createUserData.username,
           full_name: createUserData.fullName,
           email: `${createUserData.username}@${firm.firmName}.com`,
@@ -596,9 +596,9 @@ export default function UserSelectionDialog({
                 ) : activeUsers.length === 0 ? (
                   <div className="text-sm text-gray-400">尚無啟用中的使用者</div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="space-y-2">
                     {activeUsers.map(user => (
-                      <div key={user.id} className="flex items-center justify-between p-3 border border-gray-300 rounded-md hover:bg-gray-50">
+                      <div key={user.id} className="w-full flex items-center justify-between p-3 border border-gray-300 rounded-md hover:bg-gray-50">
                         <button onClick={() => handleUserSelect(user)} className="flex-1 text-center">
                           <div className="font-medium text-gray-900 text-center">{user.fullName || user.username}</div>
                           <div className="text-sm text-gray-500 text-center">

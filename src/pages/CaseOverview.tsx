@@ -114,13 +114,7 @@ export default function CaseOverview() {
           progress: apiCase.progress || '',
           progressDate: apiCase.progress_date || '',
           status: apiCase.is_closed ? 'completed' : 'active',
-          stages: [
-            {
-              name: '委任',
-              date: apiCase.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
-              completed: true,
-            },
-          ],
+          stages: [], // 初始為空，從 API 載入真實階段資料
         }));
         setCases(transformedCases);
       } else {
@@ -853,6 +847,13 @@ export default function CaseOverview() {
                               onFileUpload={(folderPath) => handleFileUpload(row.id, folderPath)}
                               onFolderCreate={(parentPath) => handleFolderCreate(row.id, parentPath)}
                               onDelete={(path, type) => handleFileDelete(row.id, path, type)}
+                              s3Config={{
+                                endpoint: 'https://sgp1.digitaloceanspaces.com', // 請替換為您的 Spaces 端點
+                                accessKey: '', // 請提供您的 Access Key
+                                secretKey: '', // 請提供您的 Secret Key
+                                bucket: '', // 請提供您的 Bucket 名稱
+                                region: 'sgp1'
+                              }}
                             />
                           </div>
                         </td>

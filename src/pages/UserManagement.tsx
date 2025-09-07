@@ -499,7 +499,7 @@ export default function UserManagement() {
                   }`}
                   onClick={() => setSelectedUser(user)}
                 >
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="space-y-3">
                     <div className="flex items-center">
                       <div className="w-8 h-8 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-sm font-medium">
                         {user.fullName.charAt(0)}
@@ -509,19 +509,19 @@ export default function UserManagement() {
                         <div className="text-xs text-gray-500">{user.username}</div>
                       </div>
                     </div>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
-                      {getRoleText(user.role)}
-                    </span>
-                  </div>
-                  <div className="text-xs text-gray-600 mb-2">
-                    {user.department} - {user.position}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.isActive)}`}>
-                      {getStatusText(user.isActive)}
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
+                        {getRoleText(user.role)}
+                      </span>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.isActive)}`}>
+                        {getStatusText(user.isActive)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {user.department} - {user.position}
+                    </div>
                     <div className="text-xs text-gray-500">
-                      {user.lastLogin || '從未登入'}
+                      最後登入：{user.lastLogin ? new Date(user.lastLogin).toLocaleString('zh-TW') : '從未登入'}
                     </div>
                   </div>
                 </div>
@@ -547,12 +547,20 @@ export default function UserManagement() {
                   </button>
                   <button
                     onClick={() => {
+                      setEditUserData({
+                        fullName: user.fullName,
+                        email: user.email,
+                        phone: user.phone || '',
+                        role: user.role
+                      });
                       setShowEditUser(true);
                     }}
                     className="bg-[#334d6d] text-white px-3 py-1.5 rounded-md hover:bg-[#3f5a7d] transition-colors flex items-center space-x-1 text-sm"
                   >
-                    <Edit className="w-3 h-3" />
-                    <span>編輯</span>
+                    <>
+                      <Edit className="w-3 h-3" />
+                      <span>編輯</span>
+                    </>
                   </button>
                 </div>
               </div>
@@ -864,7 +872,7 @@ export default function UserManagement() {
                 setLoading(true);
 
                 try {
-                  const response = await fetch(`/api/users/${editUserData.id}`, {
+                  const response = await fetch(`/api/users/${selectedUser.id}`, {
                     method: 'PATCH',
                     headers: {
                       'Content-Type': 'application/json',

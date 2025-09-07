@@ -181,22 +181,161 @@ export default function FolderTree({
   onToggle,
   onFileUpload,
   onFolderCreate,
-  onDelete
+  onDelete,
+  s3Config
 }: FolderTreeProps) {
   const [folderData, setFolderData] = useState<FolderNode>(defaultFolderStructure);
 
-  // TODO: 從 API 載入真實的資料夾結構
+  // 從 API 載入真實的資料夾結構
   useEffect(() => {
-    // 這裡應該呼叫 API 載入案件的資料夾結構
-    // setFolderData(apiResponse);
+    if (isExpanded && s3Config) {
+      loadFolderStructure();
+    }
   }, [caseId]);
 
+  const loadFolderStructure = async () => {
+    try {
+      const response = await fetch(`/api/cases/${caseId}/files`);
+      if (response.ok) {
+        const files = await response.json();
+        // 轉換檔案列表為樹狀結構
+        const treeData = buildFolderTree(files);
+        setFolderData(treeData);
+      }
+    } catch (error) {
+      console.error('載入資料夾結構失敗:', error);
+    }
+  };
+
+  const buildFolderTree = (files: any[]): FolderNode => {
+    // 建立基本的資料夾結構
+    const rootNode: FolderNode = {
+      id: 'root',
+      name: '案件資料夾',
+      type: 'folder',
+      path: '/',
+      children: [
+        {
+          id: 'pleadings',
+          name: '狀紙',
+          type: 'folder',
+          path: '/狀紙',
+          children: []
+        },
+        {
+          id: 'evidence',
+          name: '證據',
+          type: 'folder',
+          path: '/證據',
+          children: []
+        },
+        {
+          id: 'correspondence',
+          name: '往來函件',
+          type: 'folder',
+          path: '/往來函件',
+          children: []
+        }
+      ]
+    };
+
+    // 將檔案加入對應的資料夾
+    files.forEach(file => {
+      const fileNode: FolderNode = {
+        id: file.id,
+        name: file.name,
+        type: 'file',
+        path: file.path || `/${file.name}`,
+        size: file.size_bytes,
+        modified: file.created_at
+      };
+
+      // 根據檔案路徑決定放在哪個資料夾
+      // 這裡可以根據實際需求調整邏輯
+      if (rootNode.children && rootNode.children[0].children) {
+        rootNode.children[0].children.push(fileNode);
+      }
+    });
+
+    return rootNode;
+  };
+
   const handleFileUpload = (folderPath: string) => {
-    console.log(`上傳檔案到: ${folderPath}`);
+    if (!s3Config) {
+      alert('S3 設定未提供，無法上傳檔案');
+      return;
+    }
+
+    // 建立檔案選擇器
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.onchange = async (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files) {
+        for (let i = 0; i < files.length; i++) {
+          await uploadFileToS3(files[i], folderPath);
+        }
+        // 重新載入資料夾結構
+        loadFolderStructure();
+      }
+    };
+    input.click();
+
     if (onFileUpload) {
       onFileUpload(folderPath);
     }
-    // 這裡可以實現檔案上傳邏輯
+  };
+
+  const uploadFileToS3 = async (file: File, folderPath: string) => {
+    try {
+      // 1. 取得預簽名 URL
+      const presignResponse = await fetch(`/api/cases/${caseId}/files/presign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: file.name,
+          folder_slug: folderPath.replace('/', ''),
+          content_type: file.type
+        })
+      });
+
+      if (!presignResponse.ok) {
+        throw new Error('取得上傳 URL 失敗');
+      }
+
+      const presignData = await presignResponse.json();
+
+      // 2. 上傳檔案到 S3
+      const uploadResponse = await fetch(presignData.upload_url, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type
+        }
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('檔案上傳失敗');
+      }
+
+      // 3. 確認上傳
+      const confirmResponse = await fetch('/api/files/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: presignData.key
+        })
+      });
+
+      if (confirmResponse.ok) {
+        console.log(`檔案 ${file.name} 上傳成功`);
+      }
+
+    } catch (error) {
+      console.error(`檔案 ${file.name} 上傳失敗:`, error);
+      alert(`檔案 ${file.name} 上傳失敗: ${error.message}`);
+    }
   };
 
   const handleFolderCreate = (parentPath: string) => {
@@ -206,7 +345,7 @@ export default function FolderTree({
       if (onFolderCreate) {
         onFolderCreate(parentPath);
       }
-      // 這裡可以實現資料夾建立邏輯
+      // TODO: 實現資料夾建立邏輯
     }
   };
 
