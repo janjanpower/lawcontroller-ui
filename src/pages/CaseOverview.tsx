@@ -114,7 +114,7 @@ export default function CaseOverview() {
           progress: apiCase.progress || '',
           progressDate: apiCase.progress_date || '',
           status: apiCase.is_closed ? 'completed' : 'active',
-          stages: [], // 初始為空，從 API 載入真實階段資料
+          stages: [], // 初始為空陣列
         }));
         setCases(transformedCases);
       } else {
@@ -243,6 +243,34 @@ export default function CaseOverview() {
   const handleSaveStage = async (data: StageFormData): Promise<boolean> => {
     if (!selectedCase) return false;
 
+    try {
+      // 先同步到後端
+      const response = await fetch(`/api/cases/${selectedCase.id}/stages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: data.stageName,
+          stage_date: data.date,
+          completed: false,
+          sort_order: selectedCase.stages.length
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('新增階段到後端失敗:', errorData);
+        showError('新增階段失敗: ' + (errorData.detail || '未知錯誤'));
+        return false;
+      }
+
+      // 後端成功後更新前端狀態
+    } catch (error) {
+      console.error('新增階段請求失敗:', error);
+      showError('新增階段失敗: 無法連接到伺服器');
+      return false;
+    }
     const updateCase = (c: typeof selectedCase) => {
       const nextStages = [...c.stages];
 
@@ -658,9 +686,6 @@ export default function CaseOverview() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
                     選擇
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                    ID
-                  </th>
                   {visibleColumns.caseNumber && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       案號
@@ -737,9 +762,6 @@ export default function CaseOverview() {
                         />
                       </td>
 
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {row.id}
-                      </td>
                       {visibleColumns.caseNumber && (
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {row.caseNumber}
@@ -837,7 +859,7 @@ export default function CaseOverview() {
                     {/* 資料夾樹展開區域 - 緊接在對應案件下方 */}
                     {expandedCaseId === row.id && (
                       <tr key={`folder-${row.id}`} className="bg-gray-50">
-                        <td colSpan={11} className="px-0 py-0">
+                        <td colSpan={10} className="px-0 py-0">
                           <div className="px-6 py-4">
                             <FolderTree
                               caseId={row.id}
@@ -848,11 +870,11 @@ export default function CaseOverview() {
                               onFolderCreate={(parentPath) => handleFolderCreate(row.id, parentPath)}
                               onDelete={(path, type) => handleFileDelete(row.id, path, type)}
                               s3Config={{
-                                endpoint: 'https://sgp1.digitaloceanspaces.com', // 請替換為您的 Spaces 端點
-                                accessKey: '', // 請提供您的 Access Key
-                                secretKey: '', // 請提供您的 Secret Key
-                                bucket: '', // 請提供您的 Bucket 名稱
-                                region: 'sgp1'
+                                endpoint: process.env.VITE_SPACES_ENDPOINT || 'https://sgp1.digitaloceanspaces.com',
+                                accessKey: process.env.VITE_SPACES_ACCESS_KEY || '',
+                                secretKey: process.env.VITE_SPACES_SECRET_KEY || '',
+                                bucket: process.env.VITE_SPACES_BUCKET || '',
+                                region: process.env.VITE_SPACES_REGION || 'sgp1'
                               }}
                             />
                           </div>

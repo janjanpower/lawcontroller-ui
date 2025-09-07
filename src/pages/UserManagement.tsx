@@ -494,13 +494,15 @@ export default function UserManagement() {
               {filteredUsers.map((user) => (
                 <div
                   key={user.id}
-                  className={`bg-white rounded-lg border p-4 cursor-pointer transition-colors ${
+                  className={`bg-white rounded-lg border p-4 transition-colors ${
                     selectedUser?.id === user.id ? 'border-[#334d6d] bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
                   }`}
-                  onClick={() => setSelectedUser(user)}
                 >
                   <div className="space-y-3">
-                    <div className="flex items-center">
+                    <div 
+                      className="flex items-center cursor-pointer"
+                      onClick={() => setSelectedUser(user)}
+                    >
                       <div className="w-8 h-8 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-sm font-medium">
                         {user.fullName.charAt(0)}
                       </div>
@@ -509,19 +511,76 @@ export default function UserManagement() {
                         <div className="text-xs text-gray-500">{user.username}</div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
-                        {getRoleText(user.role)}
-                      </span>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.isActive)}`}>
-                        {getStatusText(user.isActive)}
-                      </span>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-gray-500">角色：</span>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
+                          {getRoleText(user.role)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">狀態：</span>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.isActive)}`}>
+                          {getStatusText(user.isActive)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-600">
-                      {user.department} - {user.position}
+                    
+                    <div className="grid grid-cols-1 gap-1 text-xs text-gray-600">
+                      <div><span className="text-gray-500">部門：</span>{user.department}</div>
+                      <div><span className="text-gray-500">職位：</span>{user.position}</div>
+                      <div><span className="text-gray-500">Email：</span>{user.email}</div>
+                      <div><span className="text-gray-500">電話：</span>{user.phone || '未設定'}</div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      最後登入：{user.lastLogin ? new Date(user.lastLogin).toLocaleString('zh-TW') : '從未登入'}
+                    
+                    <div className="text-xs text-gray-500 border-t pt-2">
+                      <div><span className="text-gray-500">最後登入：</span>{user.lastLogin ? new Date(user.lastLogin).toLocaleString('zh-TW') : '從未登入'}</div>
+                    </div>
+                    
+                    <div className="flex justify-end space-x-2 border-t pt-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditUserData({
+                            fullName: user.fullName,
+                            email: user.email,
+                            phone: user.phone || '',
+                            role: user.role
+                          });
+                          setShowEditUser(true);
+                          setSelectedUser(user);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 text-xs"
+                      >
+                        編輯
+                      </button>
+                      {getCurrentUserRole() === 'admin' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleStatus(user.id);
+                          }}
+                          className={`text-xs ${
+                            user.isActive 
+                              ? 'text-red-600 hover:text-red-800' 
+                              : 'text-green-600 hover:text-green-800'
+                          }`}
+                        >
+                          {user.isActive ? '停用' : '啟用'}
+                        </button>
+                      )}
+                      {user.role !== 'admin' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteUser(user.id);
+                          }}
+                          className="text-red-600 hover:text-red-800 text-xs"
+                        >
+                          刪除
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
