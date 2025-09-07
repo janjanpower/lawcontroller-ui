@@ -11,12 +11,12 @@ interface UserSelectionDialogProps {
   onComplete: () => void;
 }
 
-export default function UserSelectionDialog({ 
-  isOpen, 
-  onClose, 
-  firm, 
-  userPasswords, 
-  onComplete 
+export default function UserSelectionDialog({
+  isOpen,
+  onClose,
+  firm,
+  userPasswords,
+  onComplete
 }: UserSelectionDialogProps) {
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [personalPassword, setPersonalPassword] = useState('');
@@ -28,10 +28,10 @@ export default function UserSelectionDialog({
   const [error, setError] = useState('');
 
   // 調試日誌
-  console.log('UserSelectionDialog render:', { 
-    isOpen, 
-    firm: !!firm, 
-    firmName: firm?.firmName, 
+  console.log('UserSelectionDialog render:', {
+    isOpen,
+    firm: !!firm,
+    firmName: firm?.firmName,
     usersCount: firm?.users?.length,
     hasPlan: firm?.hasPlan,
     canUseFree: firm?.canUseFree
@@ -65,7 +65,7 @@ export default function UserSelectionDialog({
     try {
       // TODO: 實現真實的個人密碼驗證 API 呼叫
       setError('個人密碼驗證功能尚未實現，請聯繫系統管理員');
-      
+
     } catch {
       setError('登入失敗，請稍後再試');
     } finally {
@@ -80,7 +80,7 @@ export default function UserSelectionDialog({
     setLoading(true);
 
     // 驗證表單
-    if (!createUserData.username || !createUserData.fullName || 
+    if (!createUserData.username || !createUserData.fullName ||
         !createUserData.personalPassword || !createUserData.confirmPersonalPassword) {
       setError('請填寫所有必填欄位');
       setLoading(false);
@@ -130,7 +130,17 @@ export default function UserSelectionDialog({
         }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        // 如果回應不是JSON格式，嘗試取得文字內容
+        const text = await response.text();
+        console.error('非JSON回應:', text);
+        setError(`伺服器錯誤: ${response.status} ${response.statusText}`);
+        setLoading(false);
+        return;
+      }
 
       if (response.ok) {
         // 新增成功，重新載入用戶列表
@@ -141,11 +151,11 @@ export default function UserSelectionDialog({
           role: data.role,
           isActive: data.is_active
         };
-        
+
         // 更新本地狀態
         firm.users.push(newUser);
         firm.currentUsers += 1;
-        
+
         // 重置表單
         setCreateUserData({
           username: '',
@@ -156,12 +166,12 @@ export default function UserSelectionDialog({
         });
         setShowCreateUser(false);
         setError('');
-        
+
         alert('用戶新增成功！');
       } else {
         setError(data.detail || data.message || '新增用戶失敗');
       }
-      
+
     } catch (error) {
       console.error('新增用戶請求失敗:', error);
       setError(`網路錯誤: ${error instanceof Error ? error.message : '無法連接到伺服器'}`);
@@ -174,7 +184,7 @@ export default function UserSelectionDialog({
   const handleDeleteUserConfirm = async () => {
     if (!deleteUserId) return;
     setLoading(true);
-    
+
     try {
       const response = await fetch(`/api/users/${deleteUserId}?admin_password=${encodeURIComponent(deletePassword)}`, {
         method: 'DELETE',
@@ -186,16 +196,16 @@ export default function UserSelectionDialog({
         // 刪除成功，更新本地狀態
         firm.users = firm.users.filter(u => u.id !== deleteUserId);
         firm.currentUsers -= 1;
-        
+
         setDeleteUserId(null);
         setDeletePassword('');
         setError('');
-        
+
         alert('用戶已刪除');
       } else {
         setError(data.detail || data.message || '刪除用戶失敗');
       }
-      
+
     } catch (error) {
       console.error('刪除用戶請求失敗:', error);
       setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
@@ -326,7 +336,7 @@ export default function UserSelectionDialog({
                         required
                       />
                     </div>
-                    
+
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">姓名</label>
                       <input

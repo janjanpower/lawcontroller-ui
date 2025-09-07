@@ -29,7 +29,7 @@ export default function UserManagement() {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
       const response = await fetch(`/api/users?firm_code=${firmCode}`);
       const data = await response.json();
-      
+
       if (response.ok) {
         setUsers(data.items || []);
       } else {
@@ -125,7 +125,7 @@ export default function UserManagement() {
 
       if (response.ok && data.success) {
         // 更新本地狀態
-        setUsers(prev => prev.map(u => 
+        setUsers(prev => prev.map(u =>
           u.id === userId ? { ...u, isActive: data.is_active } : u
         ));
       } else {
@@ -174,8 +174,8 @@ export default function UserManagement() {
     setLoading(true);
 
     // 驗證表單
-    if (!createUserData.username || !createUserData.fullName || 
-        !createUserData.email || !createUserData.personalPassword || 
+    if (!createUserData.username || !createUserData.fullName ||
+        !createUserData.email || !createUserData.personalPassword ||
         !createUserData.confirmPersonalPassword) {
       setError('請填寫所有必填欄位');
       setLoading(false);
@@ -220,12 +220,22 @@ export default function UserManagement() {
         }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        // 如果回應不是JSON格式，嘗試取得文字內容
+        const text = await response.text();
+        console.error('非JSON回應:', text);
+        setError(`伺服器錯誤: ${response.status} ${response.statusText}`);
+        setLoading(false);
+        return;
+      }
 
       if (response.ok) {
         // 重新載入用戶列表
         await loadUsers();
-        
+
         // 重置表單
         setCreateUserData({
           username: '',
@@ -238,12 +248,12 @@ export default function UserManagement() {
         });
         setShowCreateUser(false);
         setError('');
-        
+
         alert('用戶新增成功！');
       } else {
         setError(data.detail || data.message || '新增用戶失敗');
       }
-      
+
     } catch (error) {
       console.error('新增用戶錯誤:', error);
       setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
@@ -415,8 +425,8 @@ export default function UserManagement() {
                           <button
                             onClick={() => handleToggleStatus(user.id)}
                             className={`transition-colors ${
-                              user.isActive 
-                                ? 'text-gray-400 hover:text-red-600' 
+                              user.isActive
+                                ? 'text-gray-400 hover:text-red-600'
                                 : 'text-gray-400 hover:text-green-600'
                             }`}
                             title={user.isActive ? '停用' : '啟用'}
