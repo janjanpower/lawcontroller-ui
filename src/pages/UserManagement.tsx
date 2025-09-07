@@ -864,12 +864,17 @@ export default function UserManagement() {
                 setLoading(true);
 
                 try {
-                  const response = await fetch(`/api/users/${selectedUser.id}`, {
+                  const response = await fetch(`/api/users/${editUserData.id}`, {
                     method: 'PATCH',
                     headers: {
                       'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(editUserData),
+                    body: JSON.stringify({
+                      full_name: editUserData.fullName,
+                      email: editUserData.email,
+                      phone: editUserData.phone,
+                      role: editUserData.role
+                    }),
                   });
 
                   const data = await response.json();

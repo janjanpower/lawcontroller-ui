@@ -469,27 +469,14 @@ export default function CaseOverview() {
   };
 
   const confirmDeleteCase = (row: TableCase) => {
-    // 檢查案件是否已被勾選
-    if (!selectedIds.includes(row.id)) {
-      setDialogConfig({
-        title: '無法刪除',
-        message: '請先勾選要刪除的案件',
-        type: 'warning',
-      });
-      setShowUnifiedDialog(true);
-      return;
-    }
-
     setDialogConfig({
       title: '確認刪除',
       message: `確定要刪除案件「${row.client} - ${row.caseNumber}」嗎？此操作無法復原。`,
       type: 'warning',
       onConfirm: () => {
         setCases((prev) => prev.filter((c) => c.id !== row.id));
-        setSelectedIds((prev) => prev.filter((id) => id !== row.id));
         if (selectedCase?.id === row.id) setSelectedCase(null);
         setShowUnifiedDialog(false);
-        showSuccess('案件已刪除');
       },
     });
     setShowUnifiedDialog(true);
@@ -856,7 +843,7 @@ export default function CaseOverview() {
                     {/* 資料夾樹展開區域 - 緊接在對應案件下方 */}
                     {expandedCaseId === row.id && (
                       <tr key={`folder-${row.id}`} className="bg-gray-50">
-                        <td colSpan={12} className="px-0 py-0">
+                        <td colSpan={11} className="px-0 py-0">
                           <div className="px-6 py-4">
                             <FolderTree
                               caseId={row.id}

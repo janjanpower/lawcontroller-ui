@@ -596,25 +596,27 @@ export default function UserSelectionDialog({
                 ) : activeUsers.length === 0 ? (
                   <div className="text-sm text-gray-400">尚無啟用中的使用者</div>
                 ) : (
-                  activeUsers.map(user => (
-                    <div key={user.id} className="flex items-center justify-between p-3 border border-gray-300 rounded-md hover:bg-gray-50">
-                      <button onClick={() => handleUserSelect(user)} className="flex-1 text-center">
-                        <div className="font-medium text-gray-900 text-center">{user.fullName || user.username}</div>
-                        <div className="text-sm text-gray-500 text-center">
-                          {user.username} - {user.role === 'admin' ? '管理員' : user.role === 'lawyer' ? '律師' : '法務'}
-                        </div>
-                      </button>
-                      {user.role !== 'admin' && (
-                        <button
-                          onClick={() => setDeleteUserId(user.id)}
-                          className="text-red-600 hover:text-red-800 p-1 ml-2"
-                          title="刪除用戶"
-                        >
-                          <Trash2 className="w-4 h-4" />
+                  <div className="grid grid-cols-1 gap-2">
+                    {activeUsers.map(user => (
+                      <div key={user.id} className="flex items-center justify-between p-3 border border-gray-300 rounded-md hover:bg-gray-50">
+                        <button onClick={() => handleUserSelect(user)} className="flex-1 text-center">
+                          <div className="font-medium text-gray-900 text-center">{user.fullName || user.username}</div>
+                          <div className="text-sm text-gray-500 text-center">
+                            {user.username} - {user.role === 'admin' ? '管理員' : user.role === 'lawyer' ? '律師' : '法務'}
+                          </div>
                         </button>
-                      )}
-                    </div>
-                  ))
+                        {user.role !== 'admin' && (
+                          <button
+                            onClick={() => setDeleteUserId(user.id)}
+                            className="text-red-600 hover:text-red-800 p-1 ml-2"
+                            title="刪除用戶"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
                 
                 {/* 顯示用戶數量限制 */}
