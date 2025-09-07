@@ -11,6 +11,12 @@ export default function UserManagement() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showEditUser, setShowEditUser] = useState(false);
+  const [editUserData, setEditUserData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    role: 'lawyer'
+  });
   const [createUserData, setCreateUserData] = useState({
     username: '',
     fullName: '',
@@ -22,6 +28,13 @@ export default function UserManagement() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 取得當前用戶角色
+  const getCurrentUserRole = () => {
+    // 這裡應該從 localStorage 或其他地方取得當前用戶的角色
+    // 暫時返回 'admin'，實際應用中需要正確實現
+    return localStorage.getItem('law_user_role') || 'admin';
+  };
 
   // 載入用戶列表
   const loadUsers = async () => {
@@ -417,7 +430,7 @@ export default function UserManagement() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.lastLogin || '從未登入'}
+                        {user.lastLogin ? new Date(user.lastLogin).toLocaleString('zh-TW') : '從未登入'}
                       </td>
                       <td
                         className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
@@ -433,8 +446,14 @@ export default function UserManagement() {
                           </button>
                           <button
                             onClick={() => {
-                              setSelectedUser(user);
+                              setEditUserData({
+                                fullName: user.fullName,
+                                email: user.email,
+                                phone: user.phone || '',
+                                role: user.role
+                              });
                               setShowEditUser(true);
+                              setSelectedUser(user);
                             }}
                             className="text-gray-400 hover:text-blue-600 transition-colors"
                             title="編輯"
@@ -449,6 +468,7 @@ export default function UserManagement() {
                                 : 'text-gray-400 hover:text-green-600'
                             }`}
                             title={user.isActive ? '停用' : '啟用'}
+                            style={{ display: getCurrentUserRole() === 'admin' ? 'block' : 'none' }}
                           >
                             {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                           </button>
@@ -581,7 +601,9 @@ export default function UserManagement() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">最後登入</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedUser.lastLogin || '從未登入'}</p>
+                    <p className="text-sm text-gray-900 mt-1">
+                      {selectedUser.lastLogin ? new Date(selectedUser.lastLogin).toLocaleString('zh-TW') : '從未登入'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -618,6 +640,19 @@ export default function UserManagement() {
                     <div className="flex items-center text-green-600">
                       <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                       檔案管理權限
+                    </div>
+                  )}
+                  {selectedUser.role === 'admin' && (
+                    <div className="mt-4">
+                      <button
+                        onClick={() => {
+                          // TODO: 實現轉讓管理員功能
+                          alert('轉讓管理員功能開發中');
+                        }}
+                        className="bg-orange-600 text-white px-3 py-1 rounded text-xs hover:bg-orange-700"
+                      >
+                        轉讓管理員
+                      </button>
                     </div>
                   )}
                 </div>
@@ -798,6 +833,152 @@ export default function UserManagement() {
                       </>
                     ) : (
                       '新增用戶'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* 編輯用戶對話框 */}
+        {showEditUser && selectedUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+              <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+                <h2 className="text-lg font-semibold">編輯用戶</h2>
+                <button
+                  onClick={() => {
+                    setShowEditUser(false);
+                    setError('');
+                  }}
+                  className="text-white hover:text-gray-300 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setError('');
+                setLoading(true);
+
+                try {
+                  const response = await fetch(`/api/users/${selectedUser.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(editUserData),
+                  });
+
+                  const data = await response.json();
+
+                  if (response.ok) {
+                    await loadUsers();
+                    setShowEditUser(false);
+                    setError('');
+                    alert('用戶資料更新成功！');
+                  } else {
+                    setError(data.detail || data.message || '更新用戶失敗');
+                  }
+                } catch (error) {
+                  console.error('更新用戶錯誤:', error);
+                  setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
+                } finally {
+                  setLoading(false);
+                }
+              }} className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      姓名 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editUserData.fullName}
+                      onChange={(e) => setEditUserData(prev => ({ ...prev, fullName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={editUserData.email}
+                      onChange={(e) => setEditUserData(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      電話
+                    </label>
+                    <input
+                      type="tel"
+                      value={editUserData.phone}
+                      onChange={(e) => setEditUserData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      角色 <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={editUserData.role}
+                      onChange={(e) => setEditUserData(prev => ({ ...prev, role: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      disabled={selectedUser.role === 'admin'} // 管理員角色不能更改
+                    >
+                      <option value="admin">管理員</option>
+                      <option value="lawyer">律師</option>
+                      <option value="legal_affairs">法務</option>
+                      <option value="assistant">助理</option>
+                    </select>
+                    {selectedUser.role === 'admin' && (
+                      <p className="text-xs text-gray-500 mt-1">管理員角色無法更改</p>
+                    )}
+                  </div>
+
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                      <p className="text-red-700 text-sm">{error}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditUser(false);
+                      setError('');
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                    disabled={loading}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        更新中...
+                      </>
+                    ) : (
+                      '更新'
                     )}
                   </button>
                 </div>

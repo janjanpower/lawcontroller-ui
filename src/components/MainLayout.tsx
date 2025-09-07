@@ -14,8 +14,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   // 檢查登入狀態
   useEffect(() => {
-    const token = localStorage.getItem('law_token');
-    if (!token) {
+    const userId = localStorage.getItem('law_user_id');
+    if (!userId) {
       navigate('/login', { replace: true });
       return;
     }
@@ -43,11 +43,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   const confirmLogout = () => {
     // 清除所有登入資訊
-    localStorage.removeItem('law_token');
     localStorage.removeItem('law_user_id');
     localStorage.removeItem('law_user_name');
     localStorage.removeItem('law_firm_id');
     localStorage.removeItem('law_firm_code');
+    localStorage.removeItem('law_last_login');
     
     // 跳轉到登入頁面
     navigate('/login', { replace: true });
@@ -102,7 +102,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           fixed lg:relative h-full lg:h-auto
           flex flex-col
         `}>
-          <div className="p-4 flex-1 overflow-y-auto">
+          <div className="p-4 flex-1 overflow-y-auto flex flex-col">
             <div className="space-y-2">
               <div className="text-xs text-gray-300 uppercase tracking-wider mb-3">
                 主選單
@@ -164,17 +164,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 <span className="font-medium">人員權限</span>
               </NavLink>
             </div>
-          </div>
           
-          {/* 登出按鈕 - 固定在左下角 */}
-          <div className="p-4 border-t border-[#34495e]">
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm text-white hover:bg-[#e74c3c] hover:text-white"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="font-medium">登出</span>
-            </button>
+            {/* 登出按鈕 - 放在導覽頁最下面 */}
+            <div className="mt-auto pt-4 border-t border-[#34495e]">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm text-white hover:bg-[#e74c3c] hover:text-white"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="font-medium">登出</span>
+              </button>
+            </div>
           </div>
         </nav>
 

@@ -153,11 +153,11 @@ export default function UserSelectionDialog({
       }
 
       // 成功：寫入 localStorage 並完成登入
-      localStorage.setItem('law_token', data?.token || 'dummy_token');
       localStorage.setItem('law_user_id', selectedUser.id);
       localStorage.setItem('law_user_name', selectedUser.fullName || selectedUser.username);
       localStorage.setItem('law_firm_id', firm.id);
       localStorage.setItem('law_firm_code', firm.firmCode);
+      localStorage.setItem('law_last_login', new Date().toISOString());
 
       onComplete();
     } catch (e: any) {
@@ -202,6 +202,12 @@ export default function UserSelectionDialog({
 
     setLoading(true);
     try {
+      
+      // 檢查是否為第一個用戶，如果是則設為管理員
+      const existingUsersResponse = await fetch(`/api/users?firm_code=${firmCode}`);
+      const existingUsersData = await existingUsersResponse.json();
+      const isFirstUser = !existingUsersData.items || existingUsersData.items.length === 0;
+      
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -210,7 +216,7 @@ export default function UserSelectionDialog({
           username: createUserData.username,
           full_name: createUserData.fullName,
           email: `${createUserData.username}@${firm.firmName}.com`,
-          role: createUserData.role,
+          role: isFirstUser ? 'admin' : createUserData.role,
           personal_password: createUserData.personalPassword,
           confirm_personal_password: createUserData.confirmPersonalPassword
         })
@@ -246,6 +252,10 @@ export default function UserSelectionDialog({
       setShowCreateUser(false);
       setError('');
       alert('用戶新增成功！');
+      
+      if (isFirstUser) {
+        alert('第一個用戶已設為管理員！');
+      }
     } catch (e: any) {
       console.error('新增用戶失敗：', e);
       setError(e?.message || '新增用戶失敗');
@@ -380,30 +390,36 @@ export default function UserSelectionDialog({
           {selectedUser ? (
             // 個人密碼驗證
             <div className="space-y-4 text-center">
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <h3 className="font-medium text-blue-900">{selectedUser.fullName || selectedUser.username}</h3>
-                <p className="text-sm text-blue-700">{selectedUser.username}</p>
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                <div className="text-center space-y-2">
+                  <h3 className="font-medium text-blue-900 text-lg">{selectedUser.fullName || selectedUser.username}</h3>
+                  <p className="text-sm text-blue-700">暱稱：{selectedUser.username}</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-blue-700">
+                    <p>部門：法務部</p>
+                    <p>職位：{selectedUser.role === 'admin' ? '管理員' : selectedUser.role === 'lawyer' ? '律師' : '法務'}</p>
+                  </div>
+                </div>
               </div>
 
               <form onSubmit={handlePersonalPasswordLogin} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">個人密碼</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-center">個人密碼</label>
                   <div className="relative">
                     <input
-                      type={showPersonalPassword ? 'text' : 'password'}
+                      type="text"
                       value={personalPassword}
                       onChange={(e) => {
                         const value = e.target.value.replace(/\D/g, '').slice(0, 6);
                         setPersonalPassword(value);
                       }}
                       className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
+                      style={{ 
+                        WebkitTextSecurity: showPersonalPassword ? 'none' : 'disc',
+                        MozAppearance: 'textfield'
+                      }}
                       placeholder="請輸入 6 位數字密碼"
                       maxLength={6}
                       required
-                      style={{ 
-                        MozAppearance: 'textfield',
-                        WebkitAppearance: 'none'
-                      }}
                       onWheel={(e) => e.preventDefault()}
                     />
                     <button
@@ -435,14 +451,14 @@ export default function UserSelectionDialog({
                   <button
                     type="button"
                     onClick={() => setSelectedUser(null)}
-                    className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-400"
+                    className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-400 text-center"
                   >
                     返回上一步
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 bg-[#334d6d] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 flex items-center justify-center"
+                    className="flex-1 bg-[#334d6d] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 flex items-center justify-center text-center"
                   >
                     {loading ? (<><Loader className="w-4 h-4 mr-2 animate-spin" />登入中...</>) : '登入系統'}
                   </button>
@@ -453,17 +469,17 @@ export default function UserSelectionDialog({
             // 用戶選擇
             <div className="space-y-4 text-center">
               <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <h3 className="font-medium text-blue-900 mb-1">{firm.firmName}</h3>
-                <p className="text-sm text-blue-700">
+                <h3 className="font-medium text-blue-900 mb-1 text-center">{firm.firmName}</h3>
+                <p className="text-sm text-blue-700 text-center">
                   {PLANS[firm.plan].name} - {users.length}/{firm.maxUsers} 用戶
                 </p>
               </div>
 
               <div className="flex justify-between items-center">
-                <h3 className="font-medium text-gray-900">選擇登入用戶</h3>
+                <h3 className="font-medium text-gray-900 text-center flex-1">選擇登入用戶</h3>
                 <button
                   onClick={() => setShowCreateUser(true)}
-                  disabled={activeUsers.length >= firm.maxUsers}
+                  disabled={users.length >= firm.maxUsers}
                   className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 disabled:opacity-50 flex items-center"
                 >
                   <Plus className="w-3 h-3 mr-1" />
@@ -514,14 +530,20 @@ export default function UserSelectionDialog({
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">個人密碼 (6位數字)</label>
                       <input
-                        type="number"
+                        type="text"
                         value={createUserData.personalPassword}
-                        onChange={(e) => setCreateUserData(prev => ({ ...prev, personalPassword: e.target.value }))}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                          setCreateUserData(prev => ({ ...prev, personalPassword: value }));
+                        }}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-[#334d6d] outline-none text-center tracking-widest"
+                        style={{ 
+                          WebkitAppearance: 'none',
+                          MozAppearance: 'textfield'
+                        }}
                         placeholder="請輸入 6 位數字密碼"
-                        pattern="\\d{6}"
                         maxLength={6}
-                        minLength={6}
+                        onWheel={(e) => e.preventDefault()}
                         required
                       />
                     </div>
@@ -529,14 +551,20 @@ export default function UserSelectionDialog({
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">確認個人密碼</label>
                       <input
-                        type="number"
+                        type="text"
                         value={createUserData.confirmPersonalPassword}
-                        onChange={(e) => setCreateUserData(prev => ({ ...prev, confirmPersonalPassword: e.target.value }))}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                          setCreateUserData(prev => ({ ...prev, confirmPersonalPassword: value }));
+                        }}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-[#334d6d] outline-none text-center tracking-widest"
+                        style={{ 
+                          WebkitAppearance: 'none',
+                          MozAppearance: 'textfield'
+                        }}
                         placeholder="請再次輸入密碼"
-                        pattern="\\d{6}"
                         maxLength={6}
-                        minLength={6}
+                        onWheel={(e) => e.preventDefault()}
                         required
                       />
                     </div>
@@ -570,9 +598,9 @@ export default function UserSelectionDialog({
                 ) : (
                   activeUsers.map(user => (
                     <div key={user.id} className="flex items-center justify-between p-3 border border-gray-300 rounded-md hover:bg-gray-50">
-                      <button onClick={() => handleUserSelect(user)} className="flex-1 text-left">
-                        <div className="font-medium text-gray-900">{user.fullName || user.username}</div>
-                        <div className="text-sm text-gray-500">
+                      <button onClick={() => handleUserSelect(user)} className="flex-1 text-center">
+                        <div className="font-medium text-gray-900 text-center">{user.fullName || user.username}</div>
+                        <div className="text-sm text-gray-500 text-center">
                           {user.username} - {user.role === 'admin' ? '管理員' : user.role === 'lawyer' ? '律師' : '法務'}
                         </div>
                       </button>
@@ -590,10 +618,10 @@ export default function UserSelectionDialog({
                 )}
                 
                 {/* 顯示用戶數量限制 */}
-                {activeUsers.length >= firm.maxUsers && (
+                {users.length >= firm.maxUsers && (
                   <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                    <div className="text-sm text-red-700">
-                      已達到方案用戶上限 ({activeUsers.length}/{firm.maxUsers} 人)
+                    <div className="text-sm text-red-700 text-center">
+                      已達到方案用戶上限 ({users.length}/{firm.maxUsers} 人)
                     </div>
                   </div>
                 )}
@@ -601,7 +629,7 @@ export default function UserSelectionDialog({
 
               {error && !selectedUser && (
                 <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                  <div className="text-sm text-red-700">{error}</div>
+                  <div className="text-sm text-red-700 text-center">{error}</div>
                 </div>
               )}
             </div>

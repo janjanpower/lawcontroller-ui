@@ -100,12 +100,74 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
 
     setLoading(true);
     try {
-      const success = await onSave(formData);
-      if (success) {
-        onClose();
+      // 準備要發送到後端的資料
+      const caseDataForAPI = {
+        firm_code: localStorage.getItem('law_firm_code') || 'default',
+        case_type: formData.case_type,
+        case_reason: formData.case_reason,
+        case_number: formData.case_number,
+        opposing_party: formData.opposing_party,
+        court: formData.court,
+        division: formData.division,
+        progress: formData.progress || '委任',
+        progress_date: formData.progress_date || new Date().toISOString().split('T')[0]
+      };
+
+      if (mode === 'add') {
+        // 新增案件 - 呼叫後端 API
+        const response = await fetch('/api/cases', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(caseDataForAPI),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // 成功後呼叫前端的 onSave 回調
+          const success = await onSave(formData);
+          if (success) {
+            onClose();
+          }
+        } else {
+          throw new Error(data.detail || data.message || '新增案件失敗');
+        }
+      } else {
+        // 編輯案件 - 呼叫後端 API
+        const response = await fetch(`/api/cases/${formData.case_id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            case_type: formData.case_type,
+            case_reason: formData.case_reason,
+            case_number: formData.case_number,
+            opposing_party: formData.opposing_party,
+            court: formData.court,
+            division: formData.division,
+            progress: formData.progress,
+            progress_date: formData.progress_date
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // 成功後呼叫前端的 onSave 回調
+          const success = await onSave(formData);
+          if (success) {
+            onClose();
+          }
+        } else {
+          throw new Error(data.detail || data.message || '更新案件失敗');
+        }
       }
     } catch (error) {
       console.error('保存案件失敗:', error);
+      alert(`操作失敗: ${error.message}`);
     } finally {
       setLoading(false);
     }

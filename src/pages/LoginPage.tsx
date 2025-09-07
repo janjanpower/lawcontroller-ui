@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
   const [showPlanSelectionDialog, setShowPlanSelectionDialog] = useState(false);
   const [showUserSelectionDialog, setShowUserSelectionDialog] = useState(false);
+  const [justRegistered, setJustRegistered] = useState(false);
 
   // 登入後的事務所和用戶資訊
   const [currentFirm, setCurrentFirm] = useState<(Firm & {
@@ -32,11 +33,6 @@ export default function LoginPage() {
   const [userPasswords, setUserPasswords] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const token = localStorage.getItem('law_token');
-    if (token) {
-      window.location.replace('/cases');
-    }
-
     // 載入記住的帳號
     const savedAccount = localStorage.getItem('law_remembered_account');
     const savedRememberMe = localStorage.getItem('law_remember_me') === 'true';
@@ -210,6 +206,7 @@ export default function LoginPage() {
     }
   };
 
+      setJustRegistered(true);
   // 方案選擇完成回調
   const handlePlanSelectionComplete = () => {
     setShowPlanSelectionDialog(false);
