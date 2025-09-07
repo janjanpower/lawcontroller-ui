@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, CheckCircle, User, Building, Menu, X, Users } from 'lucide-react';
+import { FileText, CheckCircle, User, Building, Menu, X, Users, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface MainLayoutProps {
@@ -10,6 +10,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // 檢查登入狀態
   useEffect(() => {
@@ -34,6 +35,22 @@ export default function MainLayout({ children }: MainLayoutProps) {
       default:
         return '案件管理系統';
     }
+  };
+
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    // 清除所有登入資訊
+    localStorage.removeItem('law_token');
+    localStorage.removeItem('law_user_id');
+    localStorage.removeItem('law_user_name');
+    localStorage.removeItem('law_firm_id');
+    localStorage.removeItem('law_firm_code');
+    
+    // 跳轉到登入頁面
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -83,8 +100,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
           lg:translate-x-0 lg:static lg:block
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           fixed lg:relative h-full lg:h-auto
+          flex flex-col
         `}>
-          <div className="p-4 h-full overflow-y-auto">
+          <div className="p-4 flex-1 overflow-y-auto">
             <div className="space-y-2">
               <div className="text-xs text-gray-300 uppercase tracking-wider mb-3">
                 主選單
@@ -147,6 +165,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
               </NavLink>
             </div>
           </div>
+          
+          {/* 登出按鈕 - 固定在左下角 */}
+          <div className="p-4 border-t border-[#34495e]">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm text-white hover:bg-[#e74c3c] hover:text-white"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="font-medium">登出</span>
+            </button>
+          </div>
         </nav>
 
         {/* 主要內容區域 - 只有這裡會切換 */}
@@ -154,6 +183,36 @@ export default function MainLayout({ children }: MainLayoutProps) {
           {children}
         </main>
       </div>
+      
+      {/* 登出確認對話框 */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+              <h2 className="text-lg font-semibold">確認登出</h2>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-800 mb-6">
+                確定要登出系統嗎？您需要重新登入才能繼續使用。
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={confirmLogout}
+                  className="px-6 py-2 bg-[#e74c3c] text-white rounded-md hover:bg-[#c0392b] transition-colors"
+                >
+                  確定登出
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

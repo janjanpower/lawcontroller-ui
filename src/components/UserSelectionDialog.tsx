@@ -22,9 +22,12 @@ export default function UserSelectionDialog({
 
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [personalPassword, setPersonalPassword] = useState('');
+  const [showPersonalPassword, setShowPersonalPassword] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
+  const [deletePasswordType, setDeletePasswordType] = useState<'admin' | 'personal'>('admin');
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -43,18 +46,18 @@ export default function UserSelectionDialog({
     try {
       setLoading(true);
       setError('');
-
+      
       console.log('DEBUG: 開始載入用戶列表，firm_code:', firm.firmCode);
-
+      
       const res = await fetch(`/api/users?firm_code=${encodeURIComponent(firm.firmCode)}`, {
         method: 'GET'
       });
-
+      
       console.log('DEBUG: API 回應狀態:', res.status, res.statusText);
-
+      
       const raw = await res.text();
       console.log('DEBUG: API 原始回應:', raw);
-
+      
       let data: any = null;
       try {
         data = raw ? JSON.parse(raw) : null;
@@ -67,7 +70,7 @@ export default function UserSelectionDialog({
       }
 
       console.log('DEBUG: 開始轉換用戶資料，items 數量:', data?.items?.length || 0);
-
+      
       const mapped: UserType[] = (data?.items ?? []).map((u: any, index: number) => {
         console.log(`DEBUG: 轉換用戶 ${index}:`, u);
         return {
@@ -254,6 +257,14 @@ export default function UserSelectionDialog({
   // 刪除用戶確認
   const handleDeleteUserConfirm = async () => {
     if (!deleteUserId) return;
+    
+    if (deletePasswordType === 'personal') {
+      // 使用個人密碼刪除
+      await handleDeleteWithPersonalPassword();
+      return;
+    }
+    
+    // 使用管理員密碼刪除
     setLoading(true);
     setError('');
     try {
@@ -293,6 +304,60 @@ export default function UserSelectionDialog({
     }
   };
 
+  // 使用個人密碼刪除用戶
+  const handleDeleteWithPersonalPassword = async () => {
+    if (!deleteUserId) return;
+    setLoading(true);
+    setError('');
+    try {
+      // 先驗證個人密碼
+      const verifyRes = await fetch('/api/auth/verify-user-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: deleteUserId,
+          personal_password: deletePassword
+        }),
+      });
+
+      if (!verifyRes.ok) {
+        throw new Error('個人密碼錯誤');
+      }
+
+      // 密碼驗證成功，執行刪除
+      const deleteRes = await fetch(`/api/users/${encodeURIComponent(deleteUserId)}/delete-self`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personal_password: deletePassword })
+      });
+
+      const raw = await deleteRes.text();
+      let data: any = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        console.error('Delete User 非 JSON 回應：', raw);
+      }
+
+      const ok = deleteRes.ok && (data?.success === true || data?.deleted === true || !data);
+      if (!ok) {
+        const msg = data?.detail || data?.message || data?.error || `刪除用戶失敗: ${deleteRes.status}`;
+        throw new Error(msg);
+      }
+
+      await loadUsers();
+      setDeleteUserId(null);
+      setDeletePassword('');
+      setError('');
+      alert('用戶已刪除');
+    } catch (e: any) {
+      console.error('使用個人密碼刪除用戶失敗：', e);
+      setError(e?.message || '刪除用戶失敗');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen || !firm) return null;
 
   const activeUsers = users.filter(u => u.isActive);
@@ -314,7 +379,7 @@ export default function UserSelectionDialog({
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
           {selectedUser ? (
             // 個人密碼驗證
-            <div className="space-y-4">
+            <div className="space-y-4 text-center">
               <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                 <h3 className="font-medium text-blue-900">{selectedUser.fullName || selectedUser.username}</h3>
                 <p className="text-sm text-blue-700">{selectedUser.username}</p>
@@ -323,17 +388,41 @@ export default function UserSelectionDialog({
               <form onSubmit={handlePersonalPasswordLogin} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">個人密碼</label>
-                  <input
-                    type="number"
-                    value={personalPassword}
-                    onChange={(e) => setPersonalPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
-                    placeholder="請輸入 6 位數字密碼"
-                    pattern="\\d{6}"
-                    maxLength={6}
-                    minLength={6}
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPersonalPassword ? 'text' : 'password'}
+                      value={personalPassword}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setPersonalPassword(value);
+                      }}
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
+                      placeholder="請輸入 6 位數字密碼"
+                      maxLength={6}
+                      required
+                      style={{ 
+                        MozAppearance: 'textfield',
+                        WebkitAppearance: 'none'
+                      }}
+                      onWheel={(e) => e.preventDefault()}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPersonalPassword(!showPersonalPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                    >
+                      {showPersonalPassword ? (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {error && (
@@ -362,7 +451,7 @@ export default function UserSelectionDialog({
             </div>
           ) : (
             // 用戶選擇
-            <div className="space-y-4">
+            <div className="space-y-4 text-center">
               <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                 <h3 className="font-medium text-blue-900 mb-1">{firm.firmName}</h3>
                 <p className="text-sm text-blue-700">
@@ -374,7 +463,7 @@ export default function UserSelectionDialog({
                 <h3 className="font-medium text-gray-900">選擇登入用戶</h3>
                 <button
                   onClick={() => setShowCreateUser(true)}
-                  disabled={users.length >= firm.maxUsers}
+                  disabled={activeUsers.length >= firm.maxUsers}
                   className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 disabled:opacity-50 flex items-center"
                 >
                   <Plus className="w-3 h-3 mr-1" />
@@ -499,6 +588,15 @@ export default function UserSelectionDialog({
                     </div>
                   ))
                 )}
+                
+                {/* 顯示用戶數量限制 */}
+                {activeUsers.length >= firm.maxUsers && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <div className="text-sm text-red-700">
+                      已達到方案用戶上限 ({activeUsers.length}/{firm.maxUsers} 人)
+                    </div>
+                  </div>
+                )}
               </div>
 
               {error && !selectedUser && (
@@ -515,19 +613,83 @@ export default function UserSelectionDialog({
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-sm">
               <h3 className="text-lg font-semibold mb-4">確認刪除用戶</h3>
+              
+              {/* 密碼類型選擇 */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">驗證方式</label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="admin"
+                      checked={deletePasswordType === 'admin'}
+                      onChange={(e) => {
+                        setDeletePasswordType(e.target.value as 'admin' | 'personal');
+                        setDeletePassword('');
+                      }}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">管理員密碼</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="personal"
+                      checked={deletePasswordType === 'personal'}
+                      onChange={(e) => {
+                        setDeletePasswordType(e.target.value as 'admin' | 'personal');
+                        setDeletePassword('');
+                      }}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">個人密碼</span>
+                  </label>
+                </div>
+              </div>
+              
               <p className="text-sm text-gray-600 mb-4">
-                請輸入管理員密碼以確認刪除用戶：
+                請輸入{deletePasswordType === 'admin' ? '管理員' : '個人'}密碼以確認刪除用戶：
                 <strong className="ml-1">
                   {users.find(u => u.id === deleteUserId)?.fullName || users.find(u => u.id === deleteUserId)?.username}
                 </strong>
               </p>
-              <input
-                type="password"
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none mb-4"
-                placeholder="請輸入管理員密碼"
-              />
+              
+              <div className="relative mb-4">
+                <input
+                  type={showDeletePassword ? 'text' : 'password'}
+                  value={deletePassword}
+                  onChange={(e) => {
+                    if (deletePasswordType === 'personal') {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setDeletePassword(value);
+                    } else {
+                      setDeletePassword(e.target.value);
+                    }
+                  }}
+                  className={`w-full px-3 py-2 pr-10 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none ${
+                    deletePasswordType === 'personal' ? 'text-center tracking-widest' : ''
+                  }`}
+                  placeholder={deletePasswordType === 'admin' ? '請輸入管理員密碼' : '請輸入 6 位數字密碼'}
+                  maxLength={deletePasswordType === 'personal' ? 6 : undefined}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDeletePassword(!showDeletePassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                >
+                  {showDeletePassword ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-md p-2 mb-4">
                   <div className="text-sm text-red-700">{error}</div>
@@ -538,6 +700,8 @@ export default function UserSelectionDialog({
                   onClick={() => {
                     setDeleteUserId(null);
                     setDeletePassword('');
+                    setDeletePasswordType('admin');
+                    setShowDeletePassword(false);
                     setError('');
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-400"
