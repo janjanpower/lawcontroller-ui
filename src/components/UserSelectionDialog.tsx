@@ -80,8 +80,12 @@ export default function UserSelectionDialog({
     setLoading(true);
 
     // 驗證表單
-    if (!createUserData.username || !createUserData.fullName ||
-        !createUserData.personalPassword || !createUserData.confirmPersonalPassword) {
+    if (
+      !createUserData.username ||
+      !createUserData.fullName ||
+      !createUserData.personalPassword ||
+      !createUserData.confirmPersonalPassword
+    ) {
       setError('請填寫所有必填欄位');
       setLoading(false);
       return;
@@ -107,7 +111,7 @@ export default function UserSelectionDialog({
     }
 
     // 檢查用戶名是否重複
-    if (firm.users.some(u => u.username === createUserData.username)) {
+    if (firm.users.some((u) => u.username === createUserData.username)) {
       setError('用戶名已存在');
       setLoading(false);
       return;
@@ -116,99 +120,122 @@ export default function UserSelectionDialog({
     try {
       const response = await fetch('/api/users', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           firm_code: firm.firmCode,
           username: createUserData.username,
           full_name: createUserData.fullName,
-          email: `${createUserData.username}@${firm.firmName}.com`, // 自動生成email
+          email: `${createUserData.username}@${firm.firmName}.com`,
           role: createUserData.role,
           personal_password: createUserData.personalPassword,
           confirm_personal_password: createUserData.confirmPersonalPassword
-        }),
+        })
       });
 
-      let data;
+      // 只讀一次 body：先拿文字，再嘗試 parse JSON
+      const raw = await response.text();
+      let data: any = null;
       try {
-        data = await response.json();
-      } catch (jsonError) {
-        // 如果回應不是JSON格式，嘗試取得文字內容
-        const text = await response.text();
-        console.error('非JSON回應:', text);
-        setError(`伺服器錯誤: ${response.status} ${response.statusText}`);
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        // 非 JSON 回應時，raw 會保留給除錯用
+        console.error('非JSON回應:', raw);
+      }
+
+      // 成功條件：HTTP 2xx 且（若 data 存在）沒有顯示的失敗旗標
+      const isSuccess = response.ok && (!data || data.success !== false);
+
+      if (!isSuccess) {
+        const msg =
+          (data && (data.detail || data.message || data.error)) ||
+          (raw && raw.slice(0, 200)) ||
+          `伺服器錯誤: ${response.status} ${response.statusText}`;
+        setError(msg);
         setLoading(false);
         return;
       }
 
-      if (response.ok) {
-        // 新增成功，重新載入用戶列表
-        const newUser = {
-          id: data.id,
-          username: data.username,
-          fullName: data.full_name,
-          role: data.role,
-          isActive: data.is_active
-        };
+      // 新增成功：從 data 取回使用者欄位
+      const newUser = {
+        id: data.id,
+        username: data.username,
+        fullName: data.full_name,
+        role: data.role,
+        isActive: data.is_active
+      };
 
-        // 更新本地狀態
-        firm.users.push(newUser);
-        firm.currentUsers += 1;
+      // 更新本地狀態
+      firm.users.push(newUser);
+      firm.currentUsers += 1;
 
-        // 重置表單
-        setCreateUserData({
-          username: '',
-          fullName: '',
-          role: 'lawyer',
-          personalPassword: '',
-          confirmPersonalPassword: ''
-        });
-        setShowCreateUser(false);
-        setError('');
+      // 重置表單 & UI
+      setCreateUserData({
+        username: '',
+        fullName: '',
+        role: 'lawyer',
+        personalPassword: '',
+        confirmPersonalPassword: ''
+      });
+      setShowCreateUser(false);
+      setError('');
 
-        alert('用戶新增成功！');
-      } else {
-        setError(data.detail || data.message || '新增用戶失敗');
-      }
-
-    } catch (error) {
-      console.error('新增用戶請求失敗:', error);
-      setError(`網路錯誤: ${error instanceof Error ? error.message : '無法連接到伺服器'}`);
+      alert('用戶新增成功！');
+    } catch (err) {
+      console.error('新增用戶請求失敗:', err);
+      setError(`網路錯誤: ${err instanceof Error ? err.message : '無法連接到伺服器'}`);
     } finally {
       setLoading(false);
     }
   };
 
+
   // 刪除用戶確認
   const handleDeleteUserConfirm = async () => {
     if (!deleteUserId) return;
     setLoading(true);
+    setError('');
 
     try {
-      const response = await fetch(`/api/users/${deleteUserId}?admin_password=${encodeURIComponent(deletePassword)}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `/api/users/${deleteUserId}?admin_password=${encodeURIComponent(deletePassword)}`,
+        { method: 'DELETE' }
+      );
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        // 刪除成功，更新本地狀態
-        firm.users = firm.users.filter(u => u.id !== deleteUserId);
-        firm.currentUsers -= 1;
-
-        setDeleteUserId(null);
-        setDeletePassword('');
-        setError('');
-
-        alert('用戶已刪除');
-      } else {
-        setError(data.detail || data.message || '刪除用戶失敗');
+      // 只讀一次 body
+      const raw = await response.text();
+      let data: any = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        console.error('非JSON回應:', raw);
       }
 
-    } catch (error) {
-      console.error('刪除用戶請求失敗:', error);
-      setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
+      const isSuccess =
+        response.ok &&
+        ((data && (data.success === true || data.deleted === true)) || !data); // 盡量相容不同後端回應
+
+      if (!isSuccess) {
+        const msg =
+          (data && (data.detail || data.message || data.error)) ||
+          (raw && raw.slice(0, 200)) ||
+          `刪除用戶失敗: ${response.status} ${response.statusText}`;
+        setError(msg);
+        setLoading(false);
+        return;
+      }
+
+      // 刪除成功，更新本地狀態
+      firm.users = firm.users.filter((u) => u.id !== deleteUserId);
+      firm.currentUsers = Math.max(0, firm.currentUsers - 1);
+
+      setDeleteUserId(null);
+      setDeletePassword('');
+      setError('');
+
+      alert('用戶已刪除');
+    } catch (err) {
+      console.error('刪除用戶請求失敗:', err);
+      setError(`網路錯誤: ${err instanceof Error ? err.message : '無法連接到伺服器'}`);
     } finally {
       setLoading(false);
     }
