@@ -11,6 +11,41 @@ export default function UserManagement() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showEditUser, setShowEditUser] = useState(false);
+  const [createUserData, setCreateUserData] = useState({
+    username: '',
+    fullName: '',
+    email: '',
+    phone: '',
+    role: 'lawyer',
+    personalPassword: '',
+    confirmPersonalPassword: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // 載入用戶列表
+  const loadUsers = async () => {
+    try {
+      const firmCode = localStorage.getItem('law_firm_code') || 'default';
+      const response = await fetch(`/api/users?firm_code=${firmCode}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setUsers(data.items || []);
+      } else {
+        console.error('載入用戶列表失敗:', data.detail);
+        setError('載入用戶列表失敗');
+      }
+    } catch (error) {
+      console.error('載入用戶列表錯誤:', error);
+      setError('無法連接到伺服器');
+    }
+  };
+
+  // 初始載入
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
   // 搜尋和過濾功能
   useEffect(() => {
@@ -77,18 +112,143 @@ export default function UserManagement() {
     return isActive ? '啟用' : '停用';
   };
 
-  const handleToggleStatus = (userId) => {
-    setUsers(prev => prev.map(u => 
-      u.id === userId ? { ...u, isActive: !u.isActive } : u
-    ));
+  const handleToggleStatus = async (userId) => {
+    try {
+      const response = await fetch(`/api/users/${userId}/toggle-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // 更新本地狀態
+        setUsers(prev => prev.map(u => 
+          u.id === userId ? { ...u, isActive: data.is_active } : u
+        ));
+      } else {
+        setError(data.detail || data.message || '切換用戶狀態失敗');
+      }
+    } catch (error) {
+      console.error('切換用戶狀態錯誤:', error);
+      setError('無法連接到伺服器');
+    }
   };
 
-  const handleDeleteUser = (userId) => {
-    if (confirm('確定要刪除此用戶嗎？此操作無法復原。')) {
-      setUsers(prev => prev.filter(u => u.id !== userId));
-      if (selectedUser?.id === userId) {
-        setSelectedUser(null);
+  const handleDeleteUser = async (userId) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+
+    const adminPassword = prompt('請輸入管理員密碼以確認刪除：');
+    if (!adminPassword) return;
+
+    if (confirm(`確定要刪除用戶「${user.fullName}」嗎？此操作無法復原。`)) {
+      try {
+        const response = await fetch(`/api/users/${userId}?admin_password=${encodeURIComponent(adminPassword)}`, {
+          method: 'DELETE',
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setUsers(prev => prev.filter(u => u.id !== userId));
+          if (selectedUser?.id === userId) {
+            setSelectedUser(null);
+          }
+          alert('用戶已刪除');
+        } else {
+          setError(data.detail || data.message || '刪除用戶失敗');
+        }
+      } catch (error) {
+        console.error('刪除用戶錯誤:', error);
+        setError('無法連接到伺服器');
       }
+    }
+  };
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    // 驗證表單
+    if (!createUserData.username || !createUserData.fullName || 
+        !createUserData.email || !createUserData.personalPassword || 
+        !createUserData.confirmPersonalPassword) {
+      setError('請填寫所有必填欄位');
+      setLoading(false);
+      return;
+    }
+
+    if (createUserData.personalPassword !== createUserData.confirmPersonalPassword) {
+      setError('個人密碼確認不一致');
+      setLoading(false);
+      return;
+    }
+
+    if (!/^\d{6}$/.test(createUserData.personalPassword)) {
+      setError('個人密碼必須為6位數字');
+      setLoading(false);
+      return;
+    }
+
+    // 檢查用戶名是否重複
+    if (users.some(u => u.username === createUserData.username)) {
+      setError('用戶名已存在');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const firmCode = localStorage.getItem('law_firm_code') || 'default';
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firm_code: firmCode,
+          username: createUserData.username,
+          full_name: createUserData.fullName,
+          email: createUserData.email,
+          phone: createUserData.phone || null,
+          role: createUserData.role,
+          personal_password: createUserData.personalPassword,
+          confirm_personal_password: createUserData.confirmPersonalPassword
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // 重新載入用戶列表
+        await loadUsers();
+        
+        // 重置表單
+        setCreateUserData({
+          username: '',
+          fullName: '',
+          email: '',
+          phone: '',
+          role: 'lawyer',
+          personalPassword: '',
+          confirmPersonalPassword: ''
+        });
+        setShowCreateUser(false);
+        setError('');
+        
+        alert('用戶新增成功！');
+      } else {
+        setError(data.detail || data.message || '新增用戶失敗');
+      }
+      
+    } catch (error) {
+      console.error('新增用戶錯誤:', error);
+      setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -433,6 +593,184 @@ export default function UserManagement() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 新增用戶對話框 */}
+        {showCreateUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+              <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+                <h2 className="text-lg font-semibold">新增用戶</h2>
+                <button
+                  onClick={() => {
+                    setShowCreateUser(false);
+                    setError('');
+                    setCreateUserData({
+                      username: '',
+                      fullName: '',
+                      email: '',
+                      phone: '',
+                      role: 'lawyer',
+                      personalPassword: '',
+                      confirmPersonalPassword: ''
+                    });
+                  }}
+                  className="text-white hover:text-gray-300 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateUser} className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      用戶名 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={createUserData.username}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, username: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      placeholder="請輸入用戶名"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      姓名 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={createUserData.fullName}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, fullName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      placeholder="請輸入真實姓名"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={createUserData.email}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      placeholder="請輸入Email"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      電話
+                    </label>
+                    <input
+                      type="tel"
+                      value={createUserData.phone}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      placeholder="請輸入電話號碼"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      角色 <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={createUserData.role}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, role: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    >
+                      <option value="lawyer">律師</option>
+                      <option value="legal_affairs">法務</option>
+                      <option value="assistant">助理</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      個人密碼 (6位數字) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={createUserData.personalPassword}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, personalPassword: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      placeholder="請輸入6位數字密碼"
+                      pattern="\d{6}"
+                      maxLength={6}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      確認個人密碼 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={createUserData.confirmPersonalPassword}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, confirmPersonalPassword: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      placeholder="請再次輸入密碼"
+                      pattern="\d{6}"
+                      maxLength={6}
+                      required
+                    />
+                  </div>
+
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                      <p className="text-red-700 text-sm">{error}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateUser(false);
+                      setError('');
+                      setCreateUserData({
+                        username: '',
+                        fullName: '',
+                        email: '',
+                        phone: '',
+                        role: 'lawyer',
+                        personalPassword: '',
+                        confirmPersonalPassword: ''
+                      });
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                    disabled={loading}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        新增中...
+                      </>
+                    ) : (
+                      '新增用戶'
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

@@ -77,42 +77,94 @@ export default function UserSelectionDialog({
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     // 驗證表單
     if (!createUserData.username || !createUserData.fullName || 
         !createUserData.personalPassword || !createUserData.confirmPersonalPassword) {
       setError('請填寫所有必填欄位');
+      setLoading(false);
       return;
     }
 
     if (createUserData.personalPassword !== createUserData.confirmPersonalPassword) {
       setError('個人密碼確認不一致');
+      setLoading(false);
       return;
     }
 
     if (!/^\d{6}$/.test(createUserData.personalPassword)) {
       setError('個人密碼必須為6位數字');
+      setLoading(false);
       return;
     }
 
     // 檢查用戶數量限制
     if (firm.currentUsers >= firm.maxUsers) {
       setError(`已達到方案用戶上限 (${firm.maxUsers} 人)`);
+      setLoading(false);
       return;
     }
 
     // 檢查用戶名是否重複
     if (firm.users.some(u => u.username === createUserData.username)) {
       setError('用戶名已存在');
+      setLoading(false);
       return;
     }
 
     try {
-      // TODO: 實現真實的新增用戶 API 呼叫
-      setError('新增用戶功能尚未實現，請聯繫系統管理員');
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firm_code: firm.firmCode,
+          username: createUserData.username,
+          full_name: createUserData.fullName,
+          email: `${createUserData.username}@${firm.firmName}.com`, // 自動生成email
+          role: createUserData.role,
+          personal_password: createUserData.personalPassword,
+          confirm_personal_password: createUserData.confirmPersonalPassword
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // 新增成功，重新載入用戶列表
+        const newUser = {
+          id: data.id,
+          username: data.username,
+          fullName: data.full_name,
+          role: data.role,
+          isActive: data.is_active
+        };
+        
+        // 更新本地狀態
+        firm.users.push(newUser);
+        firm.currentUsers += 1;
+        
+        // 重置表單
+        setCreateUserData({
+          username: '',
+          fullName: '',
+          role: 'lawyer',
+          personalPassword: '',
+          confirmPersonalPassword: ''
+        });
+        setShowCreateUser(false);
+        setError('');
+        
+        alert('用戶新增成功！');
+      } else {
+        setError(data.detail || data.message || '新增用戶失敗');
+      }
       
-    } catch {
-      setError('新增用戶失敗');
+    } catch (error) {
+      console.error('新增用戶請求失敗:', error);
+      setError(`網路錯誤: ${error instanceof Error ? error.message : '無法連接到伺服器'}`);
     } finally {
       setLoading(false);
     }
@@ -121,13 +173,32 @@ export default function UserSelectionDialog({
   // 刪除用戶確認
   const handleDeleteUserConfirm = async () => {
     if (!deleteUserId) return;
+    setLoading(true);
     
     try {
-      // TODO: 實現真實的刪除用戶 API 呼叫
-      setError('刪除用戶功能尚未實現，請聯繫系統管理員');
+      const response = await fetch(`/api/users/${deleteUserId}?admin_password=${encodeURIComponent(deletePassword)}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // 刪除成功，更新本地狀態
+        firm.users = firm.users.filter(u => u.id !== deleteUserId);
+        firm.currentUsers -= 1;
+        
+        setDeleteUserId(null);
+        setDeletePassword('');
+        setError('');
+        
+        alert('用戶已刪除');
+      } else {
+        setError(data.detail || data.message || '刪除用戶失敗');
+      }
       
-    } catch {
-      setError('刪除用戶失敗');
+    } catch (error) {
+      console.error('刪除用戶請求失敗:', error);
+      setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
     } finally {
       setLoading(false);
     }

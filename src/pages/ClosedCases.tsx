@@ -96,6 +96,28 @@ export default function ClosedCases() {
   const [dialogMessage, setDialogMessage] = useState('');
   const [selectedCaseForExport, setSelectedCaseForExport] = useState(null);
 
+  // 載入結案案件列表
+  const loadClosedCases = async () => {
+    try {
+      const firmCode = localStorage.getItem('law_firm_code') || 'default';
+      const response = await fetch(`/api/cases?firm_code=${firmCode}&status=closed`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setCases(data.items || []);
+      } else {
+        console.error('載入結案案件失敗:', data.detail);
+      }
+    } catch (error) {
+      console.error('載入結案案件錯誤:', error);
+    }
+  };
+
+  // 初始載入
+  useEffect(() => {
+    loadClosedCases();
+  }, []);
+
   // 搜尋功能
   useEffect(() => {
     if (!searchTerm.trim()) {

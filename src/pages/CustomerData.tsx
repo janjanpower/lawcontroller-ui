@@ -9,6 +9,28 @@ export default function CustomerData() {
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
 
+  // 載入客戶資料列表
+  const loadCustomers = async () => {
+    try {
+      const firmCode = localStorage.getItem('law_firm_code') || 'default';
+      const response = await fetch(`/api/clients?firm_code=${firmCode}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setCustomers(data.items || []);
+      } else {
+        console.error('載入客戶資料失敗:', data.detail);
+      }
+    } catch (error) {
+      console.error('載入客戶資料錯誤:', error);
+    }
+  };
+
+  // 初始載入
+  useEffect(() => {
+    loadCustomers();
+  }, []);
+
   // 搜尋和過濾功能
   useEffect(() => {
     let filtered = customers;

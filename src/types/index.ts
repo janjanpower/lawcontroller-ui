@@ -55,6 +55,8 @@ export interface User {
   firmId: string;
   username: string;
   fullName: string;
+  email?: string;
+  phone?: string;
   role: 'admin' | 'lawyer' | 'legal_affairs';
   isActive: boolean;
   createdAt: string;

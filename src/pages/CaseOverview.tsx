@@ -91,6 +91,53 @@ export default function CaseOverview() {
   const [filteredCases, setFilteredCases] = useState<TableCase[]>([]);
   const [selectedCase, setSelectedCase] = useState<TableCase | null>(null);
 
+  // 載入案件列表
+  const loadCases = async () => {
+    try {
+      const firmCode = localStorage.getItem('law_firm_code') || 'default';
+      const response = await fetch(`/api/cases?firm_code=${firmCode}&status=open`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        // 轉換API資料格式為前端格式
+        const transformedCases = (data.items || []).map((apiCase: any) => ({
+          id: apiCase.id,
+          caseNumber: apiCase.case_number || '',
+          client: apiCase.client?.name || '',
+          caseType: apiCase.case_type || '',
+          lawyer: '', // 需要從用戶資料中取得
+          legalAffairs: '', // 需要從用戶資料中取得
+          caseReason: apiCase.case_reason || '',
+          opposingParty: apiCase.opposing_party || '',
+          court: apiCase.court || '',
+          division: apiCase.division || '',
+          progress: apiCase.progress || '',
+          progressDate: apiCase.progress_date || '',
+          status: apiCase.is_closed ? 'completed' : 'active',
+          stages: [
+            {
+              name: '委任',
+              date: apiCase.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+              completed: true,
+            },
+          ],
+        }));
+        setCases(transformedCases);
+      } else {
+        console.error('載入案件列表失敗:', data.detail);
+        showError('載入案件列表失敗');
+      }
+    } catch (error) {
+      console.error('載入案件列表錯誤:', error);
+      showError('無法連接到伺服器');
+    }
+  };
+
+  // 初始載入
+  useEffect(() => {
+    loadCases();
+  }, []);
+
   // 選擇和轉移狀態
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showTransferConfirm, setShowTransferConfirm] = useState(false);
