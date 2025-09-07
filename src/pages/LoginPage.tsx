@@ -66,9 +66,6 @@ export default function LoginPage() {
       });
 
       const data = await response.json();
-      console.log('Login Response Data:', data); // <-- 確保這行存在
-      console.log('data.has_plan:', data.has_plan); // <-- 確保這行存在
-      console.log('data.can_use_free_plan:', data.can_use_free_plan); // <-- 確保這行存在
 
       if (response.ok && data.success) {
         // 記住帳號
@@ -97,14 +94,12 @@ export default function LoginPage() {
 
         setCurrentFirm(firmInfo);
 
-
-
-        console.log('Firm Info:', firmInfo); // <-- 確保這行存在
+        // 根據方案狀態決定顯示哪個對話框
         if (data.has_plan || data.can_use_free_plan) {
-            console.log('Condition met: Showing UserSelectionDialog'); // <-- 確保這行存在
-            setShowUserSelectionDialog(true);
+          // 有付費方案或可用免費方案 → 顯示用戶選擇
+          setShowUserSelectionDialog(true);
         } else {
-            console.log('Condition not met: Showing PlanSelectionDialog'); // <-- 確保這行存在
+          // 沒有方案 → 顯示方案選擇
           setShowPlanSelectionDialog(true);
         }
       } else {
