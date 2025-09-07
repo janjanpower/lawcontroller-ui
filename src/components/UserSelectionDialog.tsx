@@ -33,7 +33,8 @@ export default function UserSelectionDialog({
     firm: !!firm, 
     firmName: firm?.firmName, 
     usersCount: firm?.users?.length,
-    hasPlan: firm?.hasPlan 
+    hasPlan: firm?.hasPlan,
+    canUseFree: firm?.canUseFree
   });
 
   // 新增用戶表單

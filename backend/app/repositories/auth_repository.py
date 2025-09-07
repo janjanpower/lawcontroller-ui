@@ -30,7 +30,7 @@ class AuthRepository(BaseRepository):
         return firm
     
     def check_firm_has_plan(self, firm: Firm) -> bool:
-        """檢查事務所是否有可用方案"""
+        """檢查事務所是否有可用方案（付費方案或免費方案通行證）"""
         return firm.has_paid_plan or firm.can_use_free_plan
     
     def get_firm_users(self, firm_id: UUID) -> List[User]:

@@ -21,7 +21,8 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
     isOpen, 
     firm: !!firm, 
     firmName: firm?.firmName,
-    hasPlan: firm?.hasPlan 
+    hasPlan: firm?.hasPlan,
+    canUseFree: firm?.canUseFree
   });
 
   const handlePlanSelection = async (e: React.FormEvent) => {
