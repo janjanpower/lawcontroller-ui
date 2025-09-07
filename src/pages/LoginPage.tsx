@@ -188,73 +188,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          account: loginCredentials.account,
-          password: loginCredentials.password,
-        }),
-      });
-
-      const data = await response.json();
-      console.log('Login Response Data:', data); // <-- 確保這行存在
-      console.log('data.has_plan:', data.has_plan); // <-- 確保這行存在
-      console.log('data.can_use_free_plan:', data.can_use_free_plan); // <-- 確保這行存在
-
-      if (response.ok && data.success) {
-        // 記住帳號
-        if (rememberMe) {
-          localStorage.setItem('law_remembered_account', loginCredentials.account);
-          localStorage.setItem('law_remember_me', 'true');
-        } else {
-          localStorage.removeItem('law_remembered_account');
-          localStorage.removeItem('law_remember_me');
-        }
-        console.log('data.has_plan:', data.has_plan);
-        console.log('data.can_use_free_plan:', data.can_use_free_plan);
-        console.log('data.plan_type:', data.plan_type);
-        console.log('data.users:', data.users);
-
-        // 建立事務所資訊
-        const firmInfo = {
-          id: data.firm_id,
-          firmName: data.firm_name,
-          firmCode: loginCredentials.account,
-          plan: data.plan_type || 'none',
-          currentUsers: data.users?.length || 0,
-          maxUsers: data.max_users || 1,
-          createdAt: new Date().toISOString(),
-          isActive: true,
-          hasPlan: data.has_plan || data.can_use_free_plan,
-          users: data.users || [],
-          adminPassword: 'admin123' // 暫時的管理員密碼
-        };
-
-        setCurrentFirm(firmInfo);
-
-        console.log('Firm Info:', firmInfo); // <-- 確保這行存在
-        
-        // 判斷邏輯：如果有付費方案或免費方案通行證，直接顯示用戶選擇對話框
-        if (data.has_plan || data.can_use_free_plan) {
-            console.log('Condition met: Showing UserSelectionDialog'); // <-- 確保這行存在
-            setShowUserSelectionDialog(true);
-        } else {
-            console.log('Condition not met: Showing PlanSelectionDialog'); // <-- 確保這行存在
-          setShowPlanSelectionDialog(true);
-        }
-      } else {
-        setError(data.detail || data.message || '登入失敗');
-      }
-
-    } catch (error) {
-      console.error('登入請求失敗:', error);
-      setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // 註冊成功回調
   const handleRegisterSuccess = (result: {
@@ -276,11 +209,8 @@ export default function LoginPage() {
 
   // 用戶選擇完成回調
   const handleUserSelectionComplete = () => {
-    // 儲存登入資訊
-    localStorage.setItem('law_token', 'dummy_token');
-    localStorage.setItem('law_user_id', 'selected_user_id');
-    localStorage.setItem('law_firm_id', currentFirm?.id || '');
-
+    console.log('用戶選擇完成，準備跳轉到案件總覽');
+    
     // 跳轉到案件總覽
     window.location.replace('/cases');
   };

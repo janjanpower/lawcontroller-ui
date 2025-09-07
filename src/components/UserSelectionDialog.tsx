@@ -244,8 +244,10 @@ export default function UserSelectionDialog({
       }
 
       // 刪除成功，更新本地狀態
-      firm.users = firm.users.filter((u) => u.id !== deleteUserId);
-      firm.currentUsers = Math.max(0, firm.currentUsers - 1);
+      console.log('用戶刪除成功，重新載入用戶列表');
+      
+      // 重新載入用戶列表以確保資料同步
+      await loadUsers();
 
       setDeleteUserId(null);
       setDeletePassword('');

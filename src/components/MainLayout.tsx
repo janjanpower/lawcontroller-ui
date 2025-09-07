@@ -62,7 +62,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             </div>
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <User className="w-4 h-4" />
-              <span>管理員</span>
+              <span>{localStorage.getItem('law_user_name') || '用戶'}</span>
             </div>
           </div>
         </div>
