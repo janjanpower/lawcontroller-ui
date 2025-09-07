@@ -56,12 +56,18 @@ export default function UserSelectionDialog({
       console.log('載入用戶列表，事務所代碼:', firm.firmCode);
       const response = await fetch(`/api/users?firm_code=${firm.firmCode}`);
       
+      console.log('用戶列表 API 回應狀態:', response.status);
+      
+      const responseText = await response.text();
+      console.log('用戶列表 API 原始回應:', responseText);
+      
       if (response.ok) {
-        const data = await response.json();
+        const data = JSON.parse(responseText);
         console.log('用戶列表載入成功:', data);
         
         // 更新 firm 中的用戶列表
         if (firm && data.items) {
+          console.log('轉換用戶資料，原始數量:', data.items.length);
           firm.users = data.items.map((apiUser: any) => ({
             id: apiUser.id,
             username: apiUser.username,
@@ -70,9 +76,11 @@ export default function UserSelectionDialog({
             isActive: apiUser.is_active
           }));
           firm.currentUsers = data.items.length;
+          console.log('轉換後用戶數量:', firm.users.length);
+          console.log('用戶列表:', firm.users);
         }
       } else {
-        console.error('載入用戶列表失敗:', response.status, response.statusText);
+        console.error('載入用戶列表失敗:', response.status, response.statusText, responseText);
       }
     } catch (error) {
       console.error('載入用戶列表錯誤:', error);
@@ -102,6 +110,11 @@ export default function UserSelectionDialog({
     setError('');
     setLoading(true);
 
+    console.log('開始個人密碼驗證:', {
+      userId: selectedUser.id,
+      username: selectedUser.username,
+      passwordLength: personalPassword.length
+    });
     try {
       const response = await fetch('/api/auth/verify-user-password', {
         method: 'POST',
@@ -114,7 +127,13 @@ export default function UserSelectionDialog({
         }),
       });
 
+      console.log('密碼驗證 API 回應狀態:', response.status);
+      
+      const responseText = await response.text();
+      console.log('密碼驗證 API 原始回應:', responseText);
+      
       const data = await response.json();
+      console.log('密碼驗證解析後資料:', data);
     } catch {
       setError('登入失敗，請稍後再試');
     } finally {
@@ -244,6 +263,18 @@ export default function UserSelectionDialog({
   };
 
       if (response.ok && data.success) {
+        console.log('個人密碼驗證成功，準備登入系統');
+        
+        // 儲存登入資訊
+        localStorage.setItem('law_token', data.token || 'dummy_token');
+        localStorage.setItem('law_user_id', selectedUser.id);
+        localStorage.setItem('law_user_name', selectedUser.fullName);
+        localStorage.setItem('law_firm_id', firm.id);
+        localStorage.setItem('law_firm_code', firm.firmCode);
+        
+        console.log('登入資訊已儲存到 localStorage');
+        
+        onComplete();
         // 個人密碼驗證成功，完成登入流程
         localStorage.setItem('law_token', data.token || 'dummy_token');
         localStorage.setItem('law_user_id', selectedUser.id);
@@ -251,9 +282,11 @@ export default function UserSelectionDialog({
         
         onComplete();
       } else {
+        console.error('密碼驗證失敗:', data);
         setError(data.detail || data.message || '個人密碼錯誤');
       }
 
+      console.error('密碼驗證請求錯誤:', error);
   // 刪除用戶確認
   const handleDeleteUserConfirm = async () => {
     if (!deleteUserId) return;
