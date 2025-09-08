@@ -101,7 +101,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
     setLoading(true);
     try {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
-      
+
       // 準備要發送到後端的資料
       const caseDataForAPI = {
         firm_code: firmCode,
@@ -132,15 +132,22 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
 
         const data = await response.json();
 
-        if (response.ok) {
-          // 成功後呼叫前端的 onSave 回調
-          const success = await onSave(formData);
-          if (success) {
-            onClose();
-          }
-        } else {
+        if (!response.ok) {
           throw new Error(data.detail || data.message || '新增案件失敗');
         }
+
+        // 將後端真正建立的案件 UUID 帶回父層
+        const enrichedFormData = {
+          ...formData,
+          case_id: data.id,                              // ★ 關鍵：使用後端回傳的 id
+          client: data?.client?.name ?? formData.client, // 若後端建立/對應了 Client，順便同步顯示名
+        };
+
+        const success = await onSave(enrichedFormData);
+        if (success) {
+          onClose();
+        }
+
       } else {
         // 編輯案件 - 呼叫後端 API
         const response = await fetch(`/api/cases/${formData.case_id}`, {
