@@ -1,3 +1,4 @@
+// src/components/FolderTree.tsx
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2 } from 'lucide-react';
 import { FolderManager } from '../utils/folderManager';
@@ -62,21 +63,21 @@ const FolderTreeNode: React.FC<{
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleFileUpload = (e: React.MouseEvent) => {
+  const handleUploadClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (node.type === 'folder' && onFileUpload) {
       onFileUpload(node.path);
     }
   };
 
-  const handleFolderCreate = (e: React.MouseEvent) => {
+  const handleFolderCreateClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (node.type === 'folder' && onFolderCreate) {
       onFolderCreate(node.path);
     }
   };
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onDelete) {
       onDelete(node.path, node.type);
@@ -126,7 +127,7 @@ const FolderTreeNode: React.FC<{
         {/* 檔案資訊 */}
         {node.type === 'file' && (
           <div className="flex items-center space-x-2 text-xs text-gray-500 ml-2">
-            {node.size && <span>{formatFileSize(node.size)}</span>}
+            {typeof node.size === 'number' && <span>{formatFileSize(node.size)}</span>}
             {node.modified && <span>{node.modified}</span>}
           </div>
         )}
@@ -137,14 +138,14 @@ const FolderTreeNode: React.FC<{
             {node.type === 'folder' && (
               <>
                 <button
-                  onClick={handleFileUpload}
+                  onClick={handleUploadClick}
                   className="p-1 hover:bg-gray-200 rounded"
                   title="上傳檔案"
                 >
                   <Plus className="w-3 h-3 text-green-600" />
                 </button>
                 <button
-                  onClick={handleFolderCreate}
+                  onClick={handleFolderCreateClick}
                   className="p-1 hover:bg-gray-200 rounded"
                   title="新增資料夾"
                 >
@@ -153,7 +154,7 @@ const FolderTreeNode: React.FC<{
               </>
             )}
             <button
-              onClick={handleDelete}
+              onClick={handleDeleteClick}
               className="p-1 hover:bg-gray-200 rounded"
               title="刪除"
             >
@@ -199,6 +200,7 @@ export default function FolderTree({
     if (isExpanded && s3Config) {
       loadFolderStructure();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId, isExpanded]);
 
   const loadFolderStructure = async () => {
@@ -217,7 +219,7 @@ export default function FolderTree({
         const responseText = await response.text();
         console.log('API 原始回應:', responseText);
 
-        let filesData;
+        let filesData: any;
         try {
           filesData = JSON.parse(responseText);
         } catch (parseError) {
@@ -293,9 +295,9 @@ export default function FolderTree({
 
       // 處理檔案資料：{ pleadings: [...], info: [...], progress: [...] }
       const folderMapping: Record<string, string> = {
-        'pleadings': '狀紙',
-        'info': '案件資訊',
-        'progress': '案件進度'
+        pleadings: '狀紙',
+        info: '案件資訊',
+        progress: '案件進度'
       };
 
       Object.entries(filesData).forEach(([folderType, files]) => {
@@ -353,7 +355,7 @@ export default function FolderTree({
         }
       ];
 
-      filesData.forEach(file => {
+      (filesData as any[]).forEach((file: any) => {
         const fileNode: FolderNode = {
           id: file.id,
           name: file.name,
@@ -402,6 +404,7 @@ export default function FolderTree({
     return rootNode;
   };
 
+  // 單檔上傳
   const uploadFileToS3 = async (file: File, folderPath: string) => {
     try {
       const firmCode = localStorage.getItem('law_firm_code');
@@ -416,60 +419,35 @@ export default function FolderTree({
         '/案件進度': 'progress'
       };
 
-      const folderType = Object.keys(folderTypeMapping).find(key =>
+      const folderTypeKey = Object.keys(folderTypeMapping).find(key =>
         folderPath.includes(key)
       );
+      const mappedType = folderTypeKey ? folderTypeMapping[folderTypeKey] : 'progress';
 
-      const mappedType = folderType ? folderTypeMapping[folderType] : 'progress';
+      console.log('資料夾路徑對應:', { folderPath, folderTypeKey, mappedType });
 
-      console.log('資料夾路徑對應:', { folderPath, folderType, mappedType });
-
-  const handleFileUpload = (folderPath: string) => {
-    if (!s3Config) {
-      alert('S3 設定未提供，無法上傳檔案');
-      return;
-    }
-
-    // 建立檔案選擇器
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.onchange = async (e) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (files) {
-        for (let i = 0; i < files.length; i++) {
-          await uploadFileToS3(files[i], folderPath);
-        }
-        // 重新載入資料夾結構
-        loadFolderStructure();
-      }
-    };
-    input.click();
-
-    if (onFileUpload) {
-      onFileUpload(folderPath);
-    }
-  };
-
-      const finalFolderType = mappedType ?? folderType;
+      const finalFolderType = mappedType ?? folderTypeKey;
 
       // 建立 FormData
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('folder_type', finalFolderType);
+      formData.append('folder_type', finalFolderType as string);
 
       console.log('準備上傳檔案:', {
         fileName: file.name,
         folderPath,
-        folderType,
+        finalFolderType,
         caseId
       });
 
       // 直接上傳檔案
-      const uploadResponse = await fetch(`/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`, {
-        method: 'POST',
-        body: formData
-      });
+      const uploadResponse = await fetch(
+        `/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`,
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
 
       console.log('上傳回應狀態:', uploadResponse.status, uploadResponse.statusText);
 
@@ -490,10 +468,36 @@ export default function FolderTree({
 
       const result = await uploadResponse.json();
       console.log(`檔案 ${file.name} 上傳成功:`, result);
-
-    } catch (error) {
+    } catch (error: any) {
       console.error(`檔案 ${file.name} 上傳失敗:`, error);
-      alert(`檔案 ${file.name} 上傳失敗: ${error.message || error}`);
+      alert(`檔案 ${file.name} 上傳失敗: ${error?.message || error}`);
+    }
+  };
+
+  // 檔案挑選器（多檔）＋逐一上傳
+  const handleFileUpload = (folderPath: string) => {
+    if (!s3Config) {
+      alert('S3 設定未提供，無法上傳檔案');
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.onchange = async (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files) {
+        for (let i = 0; i < files.length; i++) {
+          await uploadFileToS3(files[i], folderPath);
+        }
+        // 上傳後重新載入資料夾
+        await loadFolderStructure();
+      }
+    };
+    input.click();
+
+    if (onFileUpload) {
+      onFileUpload(folderPath);
     }
   };
 
@@ -518,7 +522,7 @@ export default function FolderTree({
       if (onDelete) {
         onDelete(path, type);
       }
-      // 這裡可以實現刪除邏輯
+      // TODO: 實現後端刪除邏輯
     }
   };
 
