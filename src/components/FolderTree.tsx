@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2 } from 'lucide-react';
+import { FolderManager } from '../utils/folderManager';
 
 interface FolderNode {
   id: string;
@@ -202,6 +203,9 @@ export default function FolderTree({
 
   const loadFolderStructure = async () => {
     try {
+      // 確保預設資料夾存在
+      FolderManager.getCaseFolders(caseId);
+      
       const response = await fetch(`/api/cases/${caseId}/files`);
       if (response.ok) {
         const files = await response.json();
@@ -215,35 +219,27 @@ export default function FolderTree({
   };
 
   const buildFolderTree = (files: any[]): FolderNode => {
-    // 建立基本的資料夾結構
+    // 使用 FolderManager 取得資料夾結構
+    const caseFolders = FolderManager.getCaseFolders(caseId);
+    
     const rootNode: FolderNode = {
       id: 'root',
       name: '案件資料夾',
       type: 'folder',
       path: '/',
-      children: [
-        {
-          id: 'pleadings',
-          name: '狀紙',
-          type: 'folder',
-          path: '/狀紙',
+      children: caseFolders.map(folder => ({
+        id: folder.id,
+        name: folder.name,
+        type: 'folder' as const,
+        path: folder.path,
+        children: folder.children?.map(child => ({
+          id: child.id,
+          name: child.name,
+          type: 'folder' as const,
+          path: child.path,
           children: []
-        },
-        {
-          id: 'evidence',
-          name: '證據',
-          type: 'folder',
-          path: '/證據',
-          children: []
-        },
-        {
-          id: 'correspondence',
-          name: '往來函件',
-          type: 'folder',
-          path: '/往來函件',
-          children: []
-        }
-      ]
+        })) || []
+      }))
     };
 
     // 將檔案加入對應的資料夾

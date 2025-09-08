@@ -21,10 +21,11 @@ import {
 } from 'lucide-react';
 
 import CaseForm from '../components/CaseForm';
-import ImportDataDialog from '../components/ImportDataDialog';
+import FileUploadDialog from '../components/FileUploadDialog';
 import UnifiedDialog from '../components/UnifiedDialog';
 import DateReminderWidget from '../components/DateReminderWidget';
 import FolderTree from '../components/FolderTree';
+import { FolderManager } from '../utils/folderManager';
 
 // 導入型別
 import type {
@@ -53,15 +54,6 @@ const stageManager = {
   },
   setCaseStages: (caseId: string, stages: any[]) => {
     localStorage.setItem(`stages:${caseId}`, JSON.stringify(stages));
-  },
-  createDefaultFolders: (caseId: string) => {
-    console.log(`為案件 ${caseId} 建立預設資料夾結構：狀紙、案件資訊、案件進度`);
-  },
-  createStageFolder: (caseId: string, stageName: string) => {
-    console.log(`為案件 ${caseId} 在案件進度資料夾下建立階段資料夾：${stageName}`);
-  },
-  updateCaseInfoExcel: (caseId: string, updatedData: any) => {
-    console.log(`更新案件 ${caseId} 的案件資訊 Excel 檔案`);
   },
   addCaseToFirm: (firmCode: string, newCase: any) => {
     const existingCases = stageManager.getFirmCases(firmCode);
@@ -254,7 +246,7 @@ export default function CaseOverview() {
   const [caseFormMode, setCaseFormMode] = useState<'add' | 'edit'>('add');
   const [editingCase, setEditingCase] = useState<FormCaseData | null>(null);
 
-  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showFileUploadDialog, setShowFileUploadDialog] = useState(false);
 
   const [showUnifiedDialog, setShowUnifiedDialog] = useState(false);
   const [dialogConfig, setDialogConfig] = useState<DialogConfig>({
@@ -343,7 +335,7 @@ export default function CaseOverview() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: data.stageName,
+          stage_name: data.stageName,  // 修正欄位名稱
           stage_date: data.date,
           completed: false,
           sort_order: selectedCase.stages.length
@@ -428,7 +420,7 @@ export default function CaseOverview() {
       
       // 建立階段資料夾
       if (stageDialogMode === 'add') {
-        stageManager.createStageFolder(selectedCase.id, data.stageName);
+        FolderManager.createStageFolder(selectedCase.id, data.stageName);
       }
       
       return true;
@@ -581,7 +573,23 @@ export default function CaseOverview() {
         
         // 建立預設資料夾結構
         if (form.case_id) {
-          stageManager.createDefaultFolders(form.case_id);
+          FolderManager.createDefaultFolders(form.case_id);
+          
+          // 建立案件資訊 Excel 檔案
+          FolderManager.createCaseInfoExcel(form.case_id, {
+            caseNumber: form.case_number || '',
+            client: form.client,
+            caseType: form.case_type,
+            lawyer: form.lawyer || '',
+            legalAffairs: form.legal_affairs || '',
+            caseReason: form.case_reason || '',
+            opposingParty: form.opposing_party || '',
+            court: form.court || '',
+            division: form.division || '',
+            progress: form.progress || '委任',
+            progressDate: form.progress_date || '',
+            createdDate: new Date().toLocaleDateString('zh-TW')
+          });
         }
         
         // 建立新案件物件並加入本地存儲
@@ -623,7 +631,19 @@ export default function CaseOverview() {
         
         // 更新案件資訊Excel檔案
         if (form.case_id) {
-          stageManager.updateCaseInfoExcel(form.case_id, form);
+          FolderManager.updateCaseInfoExcel(form.case_id, {
+            caseNumber: form.case_number || '',
+            client: form.client,
+            caseType: form.case_type,
+            lawyer: form.lawyer || '',
+            legalAffairs: form.legal_affairs || '',
+            caseReason: form.case_reason || '',
+            opposingParty: form.opposing_party || '',
+            court: form.court || '',
+            division: form.division || '',
+            progress: form.progress || '',
+            progressDate: form.progress_date || ''
+          });
         }
         
         // 背景重新載入以同步最新資料
@@ -680,8 +700,8 @@ export default function CaseOverview() {
     setShowUnifiedDialog(true);
   };
 
-  const handleImportComplete = () => {
-    showSuccess('資料匯入完成！');
+  const handleFileUploadComplete = () => {
+    showSuccess('檔案上傳完成！');
   };
 
   /* -------- 提醒元件資料 -------- */
@@ -725,7 +745,7 @@ export default function CaseOverview() {
               </button>
 
               <button
-                onClick={() => setShowImportDialog(true)}
+                onClick={() => setShowFileUploadDialog(true)}
                 className="bg-[#27ae60] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#229954] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <Upload className="w-4 h-4" />
@@ -733,11 +753,11 @@ export default function CaseOverview() {
               </button>
 
               <button
-                onClick={() => setShowImportDialog(true)}
+                onClick={() => setShowFileUploadDialog(true)}
                 className="bg-[#8e44ad] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#7d3c98] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <Download className="w-4 h-4" />
-                <span>匯入資料</span>
+                <span>批次上傳</span>
               </button>
 
               <button
@@ -1144,7 +1164,11 @@ export default function CaseOverview() {
                                 {stage.time ? ` ${stage.time}` : ''}
                               </span>
                               <button
-                                onClick={() => console.log(`開啟階段資料夾: ${stage.name}`)}
+                                onClick={() => {
+                                  const folderPath = FolderManager.getStageFolder(selectedCase.id, stage.name);
+                                  console.log(`開啟階段資料夾: ${folderPath}`);
+                                  alert(`開啟階段資料夾：${stage.name}\n路徑：${folderPath}`);
+                                }}
                                 className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-all"
                                 title="開啟階段資料夾"
                               >
@@ -1182,11 +1206,12 @@ export default function CaseOverview() {
         mode={caseFormMode}
       />
 
-      <ImportDataDialog
-        isOpen={showImportDialog}
-        onClose={() => setShowImportDialog(false)}
-        onImportComplete={handleImportComplete}
+      <FileUploadDialog
+        isOpen={showFileUploadDialog}
+        onClose={() => setShowFileUploadDialog(false)}
+        onUploadComplete={handleFileUploadComplete}
         selectedCaseIds={selectedIds}
+        cases={filteredCases}
       />
 
       <UnifiedDialog
@@ -1208,6 +1233,7 @@ export default function CaseOverview() {
         suggestions={getStageSuggestions(selectedCase?.id)}
         onClose={() => setShowStageDialog(false)}
         onSave={handleSaveStage}
+        caseId={selectedCase?.id}
       />
 
       {/* 轉移確認框 */}

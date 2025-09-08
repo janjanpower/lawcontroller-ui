@@ -1,6 +1,7 @@
 // src/components/StageEditDialog.tsx
 import { useEffect, useMemo, useState } from 'react';
-import { Folder } from 'lucide-react';
+import { Folder, FolderOpen } from 'lucide-react';
+import { FolderManager } from '../utils/folderManager';
 
 export type StageFormData = {
   stageName: string;
@@ -16,7 +17,7 @@ interface StageEditDialogProps {
   suggestions?: string[]; // 階段名稱建議（可自由輸入）
   onClose: () => void;
   onSave: (data: StageFormData) => Promise<boolean> | boolean;
-  onOpenFolder?: (stageName: string) => void;
+  caseId?: string;
 }
 
 const DEFAULT_SUGGESTIONS = ['委任','起訴','開庭','判決','上訴','執行','結案'];
@@ -28,15 +29,28 @@ export default function StageEditDialog({
   suggestions,
   onClose,
   onSave,
+  caseId,
 }: StageEditDialogProps) {
   const [stageName, setStageName] = useState(initial?.stageName ?? '');
   const [date, setDate] = useState(initial?.date ?? '');
   const [time, setTime] = useState(initial?.time ?? '');
   const [note, setNote] = useState(initial?.note ?? '');
+  
   const tips = useMemo(
     () => (suggestions && suggestions.length ? suggestions : DEFAULT_SUGGESTIONS),
     [suggestions]
   );
+
+  const handleOpenStageFolder = () => {
+    if (!caseId || !stageName) return;
+    
+    const folderPath = FolderManager.getStageFolder(caseId, stageName);
+    console.log(`開啟階段資料夾: ${folderPath}`);
+    
+    // TODO: 實現開啟資料夾功能
+    // 這裡可以觸發檔案上傳對話框，並預選該階段資料夾
+    alert(`開啟階段資料夾：${stageName}\n路徑：${folderPath}`);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -87,14 +101,14 @@ export default function StageEditDialog({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-sm text-gray-700">階段名稱</label>
-              {mode === 'edit' && stageName && onOpenFolder && (
+              {mode === 'edit' && stageName && caseId && (
                 <button
                   type="button"
-                  onClick={() => console.log(`開啟階段資料夾: ${stageName}`)}
+                  onClick={handleOpenStageFolder}
                   className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
                   title="開啟階段資料夾"
                 >
-                  <Folder className="w-3 h-3" />
+                  <FolderOpen className="w-3 h-3" />
                   <span>開啟資料夾</span>
                 </button>
               )}
