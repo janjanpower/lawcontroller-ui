@@ -91,6 +91,7 @@ export default function CaseOverview() {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
       console.log('載入案件列表，事務所代碼:', firmCode);
 
+      // 修正：使用 'all' 狀態來載入所有案件，不只是 'open'
       const response = await fetch(`/api/cases?firm_code=${firmCode}&status=all&page=1&page_size=1000`);
       console.log('載入案件回應狀態:', response.status);
 
@@ -98,8 +99,17 @@ export default function CaseOverview() {
         const data = await response.json();
         console.log('載入的原始案件資料:', data);
 
+        // 檢查 API 回應格式
+        if (!data.items || !Array.isArray(data.items)) {
+          console.error('API 回應格式錯誤，期望 { items: [], total: number }，實際收到:', data);
+          showError('API 回應格式錯誤');
+          return;
+        }
+
         // 確保正確轉換資料格式
         const transformedCases: TableCase[] = data.items.map((apiCase: any) => {
+          console.log('轉換單一案件資料:', apiCase);
+
           // 處理階段資料
           const stages: Stage[] = apiCase.stages?.map((stage: any) => ({
             id: stage.id,
@@ -132,9 +142,12 @@ export default function CaseOverview() {
         console.log('轉換後的案件資料:', transformedCases);
         setCases(transformedCases);
 
-        // 更新成功訊息
+        // 顯示載入成功訊息
         if (transformedCases.length > 0) {
           console.log(`成功載入 ${transformedCases.length} 筆案件`);
+        } else {
+          console.log('沒有找到任何案件資料');
+          // 不要顯示錯誤，因為空列表是正常的
         }
 
       } else {
@@ -143,6 +156,11 @@ export default function CaseOverview() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.detail || errorMessage;
+
+          // 特別處理事務所不存在的情況
+          if (response.status === 404 && errorMessage.includes('事務所')) {
+            errorMessage = `事務所代碼 '${firmCode}' 不存在，請檢查登入資訊或聯絡系統管理員`;
+          }
         } catch {
           // 如果不是JSON格式，使用預設錯誤訊息
           errorMessage = `伺服器錯誤: ${response.status} ${response.statusText}`;
@@ -152,7 +170,7 @@ export default function CaseOverview() {
       }
     } catch (error) {
       console.error('載入案件列表錯誤:', error);
-      showError('無法連接到伺服器，請檢查網路連線');
+      showError('無法連接到伺服器，請檢查網路連線和後端服務狀態');
     }
   };
 

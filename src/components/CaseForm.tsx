@@ -109,6 +109,11 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
     try {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
 
+      // 檢查事務所代碼是否存在
+      if (!firmCode || firmCode === 'default') {
+        throw new Error('未找到有效的事務所代碼，請重新登入');
+      }
+
       if (mode === 'add') {
         // 新增案件 - 呼叫後端 API
         const caseDataForAPI = {
@@ -128,13 +133,14 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
 
         console.log('發送到後端的新增案件資料:', caseDataForAPI);
 
-        // 檢查後端服務是否可用（修正端點）
+        // 檢查後端服務是否可用
         try {
-          const healthResponse = await fetch('/api/test');  // 使用正確的測試端點
+          const healthResponse = await fetch('/api/test');
           if (!healthResponse.ok) {
             throw new Error('後端服務不可用');
           }
-          console.log('後端服務檢查通過');
+          const healthData = await healthResponse.json();
+          console.log('後端服務檢查通過:', healthData);
         } catch (healthError) {
           console.error('後端服務檢查失敗:', healthError);
           throw new Error('無法連接到後端服務，請檢查伺服器狀態');
@@ -167,6 +173,13 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
               try {
                 const errorData = JSON.parse(errorText);
                 errorMessage = errorData.detail || errorData.message || errorMessage;
+
+                // 特別處理常見錯誤
+                if (response.status === 404 && errorMessage.includes('事務所')) {
+                  errorMessage = `事務所 '${firmCode}' 不存在，請聯絡系統管理員`;
+                } else if (response.status === 422) {
+                  errorMessage = `資料驗證失敗: ${errorMessage}`;
+                }
               } catch (parseError) {
                 errorMessage = `伺服器錯誤 (${response.status}): ${errorText.substring(0, 100)}`;
               }
@@ -196,6 +209,12 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
 
           responseData = JSON.parse(responseText);
           console.log('後端回應解析成功:', responseData);
+
+          // 驗證回應資料結構
+          if (!responseData.id) {
+            throw new Error('後端回應缺少案件ID');
+          }
+
         } catch (parseError) {
           console.error('解析後端回應失敗:', parseError);
           throw new Error('後端回應格式錯誤，無法解析 JSON');
@@ -229,7 +248,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         }
 
       } else {
-        // 編輯案件 - 呼叫後端 API
+        // 編輯案件邏輯保持不變
         const updateData = {
           case_type: formData.case_type,
           case_reason: formData.case_reason,
@@ -280,7 +299,6 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
       setLoading(false);
     }
   };
-
   const handleInputChange = (field: keyof CaseData, value: string) => {
     setFormData(prev => ({
       ...prev,
