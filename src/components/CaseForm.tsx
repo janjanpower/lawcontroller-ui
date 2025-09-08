@@ -100,18 +100,25 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
 
     setLoading(true);
     try {
+      const firmCode = localStorage.getItem('law_firm_code') || 'default';
+      
       // 準備要發送到後端的資料
       const caseDataForAPI = {
-        firm_code: localStorage.getItem('law_firm_code') || 'default',
+        firm_code: firmCode,
         case_type: formData.case_type,
+        client_name: formData.client, // 暫時使用客戶名稱，後續可改為客戶ID
         case_reason: formData.case_reason,
         case_number: formData.case_number,
         opposing_party: formData.opposing_party,
         court: formData.court,
         division: formData.division,
         progress: formData.progress || '委任',
-        progress_date: formData.progress_date || new Date().toISOString().split('T')[0]
+        progress_date: formData.progress_date || new Date().toISOString().split('T')[0],
+        lawyer_name: formData.lawyer,
+        legal_affairs_name: formData.legal_affairs
       };
+
+      console.log('發送到後端的資料:', caseDataForAPI);
 
       if (mode === 'add') {
         // 新增案件 - 呼叫後端 API
