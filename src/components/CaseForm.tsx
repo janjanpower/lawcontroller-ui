@@ -5,6 +5,8 @@ interface CaseData {
   case_id?: string;
   case_type: string;
   client: string;
+  client_id_number?: string;
+  client_phone?: string;
   lawyer?: string;
   legal_affairs?: string;
   case_reason?: string;
@@ -126,6 +128,17 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
 
         console.log('發送到後端的新增案件資料:', caseDataForAPI);
 
+        // 檢查後端服務是否可用
+        try {
+          const healthResponse = await fetch('/api/test');
+          if (!healthResponse.ok) {
+            throw new Error('後端服務不可用');
+          }
+        } catch (healthError) {
+          console.error('後端服務檢查失敗:', healthError);
+          throw new Error('無法連接到後端服務，請檢查伺服器狀態');
+        }
+
         const response = await fetch('/api/cases', {
           method: 'POST',
           headers: {
@@ -134,20 +147,57 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           body: JSON.stringify(caseDataForAPI),
         });
 
+        console.log('後端回應狀態:', response.status, response.statusText);
+        console.log('後端回應 headers:', Object.fromEntries(response.headers.entries()));
+
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('後端回應錯誤:', errorText);
           let errorMessage = '新增案件失敗';
+          let errorText = '';
+          
           try {
-            const errorData = JSON.parse(errorText);
-            errorMessage = errorData.detail || errorData.message || errorMessage;
-          } catch {
-            errorMessage = `伺服器錯誤: ${response.status} ${response.statusText}`;
+            errorText = await response.text();
+            console.error('後端錯誤回應內容:', errorText);
+            
+            // 檢查是否為 HTML 回應（通常是 404 或 500 錯誤頁面）
+            if (errorText.trim().startsWith('<')) {
+              errorMessage = `伺服器錯誤 (${response.status}): API 端點可能不存在或伺服器內部錯誤`;
+            } else {
+              // 嘗試解析 JSON 錯誤訊息
+              try {
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.detail || errorData.message || errorMessage;
+              } catch (parseError) {
+                errorMessage = `伺服器錯誤 (${response.status}): ${errorText.substring(0, 100)}`;
+              }
+            }
+          } catch (textError) {
+            console.error('無法讀取錯誤回應:', textError);
+            errorMessage = `伺服器錯誤 (${response.status}): 無法讀取錯誤詳情`;
           }
+          
           throw new Error(errorMessage);
         }
 
-        const responseData = await response.json();
+        let responseData;
+        try {
+          const responseText = await response.text();
+          console.log('後端成功回應原始內容:', responseText);
+          
+          if (!responseText.trim()) {
+            throw new Error('後端回應為空');
+          }
+          
+          // 檢查是否為 HTML 回應
+          if (responseText.trim().startsWith('<')) {
+            throw new Error('後端回應了 HTML 而不是 JSON，可能是路由配置問題');
+          }
+          
+          responseData = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('解析後端回應失敗:', parseError);
+          throw new Error('後端回應格式錯誤，無法解析 JSON');
+        }
+        
         console.log('後端回應成功:', responseData);
 
         // 將後端回應的資料轉換為前端格式
