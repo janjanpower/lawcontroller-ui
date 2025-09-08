@@ -1,5 +1,6 @@
 // src/pages/CaseOverview.tsx
 import { isUUID } from '../utils/id';
+import { parseExcelToCases } from '../utils/importers';
 import { apiFetch } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { hasClosedStage } from '../utils/caseStage';
@@ -249,6 +250,7 @@ export default function CaseOverview() {
   const [editingCase, setEditingCase] = useState<FormCaseData | null>(null);
 
   const [showFileUploadDialog, setShowFileUploadDialog] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   const [showUnifiedDialog, setShowUnifiedDialog] = useState(false);
   const [dialogConfig, setDialogConfig] = useState<DialogConfig>({
@@ -632,28 +634,7 @@ export default function CaseOverview() {
 
         // 建立預設資料夾結構
         if (form.case_id) {
-          FolderManager.createDefaultFolders(form.case_id);
-
-          // 建立案件資訊 Excel 檔案
-          FolderManager.createCaseInfoExcel(form.case_id, {
-            caseNumber: form.case_number || '',
-            client: form.client,
-            caseType: form.case_type,
-            lawyer: form.lawyer || '',
-            legalAffairs: form.legal_affairs || '',
-            caseReason: form.case_reason || '',
-            opposingParty: form.opposing_party || '',
-            court: form.court || '',
-            division: form.division || '',
-            progress: form.progress || '委任',
-            progressDate: form.progress_date || '',
-            createdDate: new Date().toLocaleDateString('zh-TW')
-          });
-        }
-
-        // 建立新案件物件並加入本地存儲
-        const newCase: TableCase = {
-          id: form.case_id || `case_${Date.now()}`,
+        FolderManager.createCaseInfoExcel(form.case_id, {
           caseNumber: form.case_number || '',
           client: form.client,
           caseType: form.case_type,
@@ -664,19 +645,37 @@ export default function CaseOverview() {
           court: form.court || '',
           division: form.division || '',
           progress: form.progress || '委任',
-          progressDate: form.progress_date || new Date().toLocaleDateString('zh-TW'),
-          status: 'active',
-          stages: [],
-        };
+          progressDate: form.progress_date || '',
+          createdDate: new Date().toLocaleDateString('zh-TW')
+        });
+      }
 
-        // 立即更新本地狀態和存儲
-        setCases(prev => [...prev, newCase]);
-        stageManager.addCaseToFirm(firmCode, newCase);
+      // 建立新案件物件並加入本地存儲（UI 立即顯示）
+      const newCase: TableCase = {
+        id: form.case_id || `case_${Date.now()}`,
+        caseNumber: form.case_number || '',
+        client: form.client,
+        caseType: form.case_type,
+        lawyer: form.lawyer || '',
+        legalAffairs: form.legal_affairs || '',
+        caseReason: form.case_reason || '',
+        opposingParty: form.opposing_party || '',
+        court: form.court || '',
+        division: form.division || '',
+        progress: form.progress || '委任',
+        progressDate: form.progress_date || new Date().toLocaleDateString('zh-TW'),
+        status: 'active',
+        stages: [],
+      };
 
-        // 背景重新載入以同步最新資料
-        loadCases();
+      setCases(prev => [...prev, newCase]);
+      stageManager.addCaseToFirm(getFirmCodeOrThrow(), newCase);
 
-        showSuccess('案件新增成功！');
+      // 背景重新載入以同步最新資料
+      loadCases();
+
+      showSuccess('案件新增成功！');
+      return true;
       } else {
         // 編輯模式：同樣重新載入列表
         console.log('DEBUG: 編輯案件成功，重新載入列表');
@@ -767,6 +766,61 @@ export default function CaseOverview() {
     showSuccess('檔案上傳完成！');
   };
 
+  const handleImportCases = () => {
+    if (isImporting) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,.xls';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      setIsImporting(true);
+      try {
+        // 1) 解析 Excel
+        const imported = await parseExcelToCases(file);
+
+        // 2) 逐筆建立案件
+        for (const it of imported) {
+          const f = it.fields;
+          const clientName =
+            f['當事人'] || f['原告'] || f['被告'] || f['上訴人'] || f['被上訴人'] || f['告訴人'] || f['被告人'] || f['對造'] || '';
+
+          const payload: any = {
+            case_type: it.type === '未知' ? '' : it.type, // 刑事/民事/未知
+            case_number: f['案號'] || '',
+            case_reason: f['案由'] || '',
+            client_name: clientName,
+            meta: f,                  // 全欄位丟進 meta，後端可擷取
+            title: it.title,          // 若後端有 title 欄位可用
+          };
+
+          const res = await apiFetch('/api/cases', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!res.ok) {
+            const txt = await res.text();
+            console.warn('建立案件失敗：', txt);
+            // 不中斷整體流程
+          }
+        }
+
+        // 3) 全部建立完 → 刷新列表
+        await loadCases();
+        showSuccess('匯入完成');
+      } catch (err: any) {
+        console.error(err);
+        showError(err?.message || '匯入失敗');
+      } finally {
+        setIsImporting(false);
+      }
+    };
+    input.click();
+  };
+
+
   /* -------- 提醒元件資料 -------- */
   const reminderData: ReminderCaseData[] = useMemo(
     () =>
@@ -816,11 +870,14 @@ export default function CaseOverview() {
               </button>
 
               <button
-                onClick={() => setShowFileUploadDialog(true)}
-                className="bg-[#8e44ad] text白 px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#7d3c98] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify中心"
+                onClick={handleImportCases}
+                disabled={isImporting}
+                className={`px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center
+                  ${isImporting ? 'bg-gray-300 text-white cursor-not-allowed' : 'bg-[#8e44ad] text-white hover:bg-[#7d3c98]'}`}
+                title="從 Excel 匯入案件資料"
               >
                 <Download className="w-4 h-4" />
-                <span>批次上傳</span>
+                <span>{isImporting ? '匯入中…' : '匯入資料'}</span>
               </button>
 
               <button
