@@ -108,7 +108,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
     setLoading(true);
     try {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
-      
+
       if (mode === 'add') {
         // 新增案件 - 呼叫後端 API
         const caseDataForAPI = {
@@ -128,17 +128,19 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
 
         console.log('發送到後端的新增案件資料:', caseDataForAPI);
 
-        // 檢查後端服務是否可用
+        // 檢查後端服務是否可用（修正端點）
         try {
-          const healthResponse = await fetch('/api/test');
+          const healthResponse = await fetch('/api/test');  // 使用正確的測試端點
           if (!healthResponse.ok) {
             throw new Error('後端服務不可用');
           }
+          console.log('後端服務檢查通過');
         } catch (healthError) {
           console.error('後端服務檢查失敗:', healthError);
           throw new Error('無法連接到後端服務，請檢查伺服器狀態');
         }
 
+        // 發送新增案件請求
         const response = await fetch('/api/cases', {
           method: 'POST',
           headers: {
@@ -148,16 +150,15 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         });
 
         console.log('後端回應狀態:', response.status, response.statusText);
-        console.log('後端回應 headers:', Object.fromEntries(response.headers.entries()));
 
         if (!response.ok) {
           let errorMessage = '新增案件失敗';
           let errorText = '';
-          
+
           try {
             errorText = await response.text();
             console.error('後端錯誤回應內容:', errorText);
-            
+
             // 檢查是否為 HTML 回應（通常是 404 或 500 錯誤頁面）
             if (errorText.trim().startsWith('<')) {
               errorMessage = `伺服器錯誤 (${response.status}): API 端點可能不存在或伺服器內部錯誤`;
@@ -174,31 +175,31 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
             console.error('無法讀取錯誤回應:', textError);
             errorMessage = `伺服器錯誤 (${response.status}): 無法讀取錯誤詳情`;
           }
-          
+
           throw new Error(errorMessage);
         }
 
+        // 解析成功回應
         let responseData;
         try {
           const responseText = await response.text();
           console.log('後端成功回應原始內容:', responseText);
-          
+
           if (!responseText.trim()) {
             throw new Error('後端回應為空');
           }
-          
+
           // 檢查是否為 HTML 回應
           if (responseText.trim().startsWith('<')) {
             throw new Error('後端回應了 HTML 而不是 JSON，可能是路由配置問題');
           }
-          
+
           responseData = JSON.parse(responseText);
+          console.log('後端回應解析成功:', responseData);
         } catch (parseError) {
           console.error('解析後端回應失敗:', parseError);
           throw new Error('後端回應格式錯誤，無法解析 JSON');
         }
-        
-        console.log('後端回應成功:', responseData);
 
         // 將後端回應的資料轉換為前端格式
         const savedCaseData: CaseData = {
@@ -216,11 +217,17 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           progress_date: responseData.progress_date || formData.progress_date
         };
 
-        // 呼叫前端的 onSave 回調
+        console.log('轉換後的案件資料:', savedCaseData);
+
+        // 呼叫前端的 onSave 回調，確保前端狀態更新
         const success = await onSave(savedCaseData);
         if (success) {
+          console.log('前端狀態更新成功，關閉表單');
           onClose();
+        } else {
+          throw new Error('前端狀態更新失敗');
         }
+
       } else {
         // 編輯案件 - 呼叫後端 API
         const updateData = {

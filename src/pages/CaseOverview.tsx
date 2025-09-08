@@ -89,39 +89,54 @@ export default function CaseOverview() {
   const loadCases = async () => {
     try {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
-      const response = await fetch(`/api/cases?firm_code=${firmCode}&status=open`);
-      
+      console.log('載入案件列表，事務所代碼:', firmCode);
+
+      const response = await fetch(`/api/cases?firm_code=${firmCode}&status=all&page=1&page_size=1000`);
+      console.log('載入案件回應狀態:', response.status);
+
       if (response.ok) {
         const data = await response.json();
-        console.log('API 回應資料:', data);
-        
-        // 轉換API資料格式為前端格式
-        const transformedCases = (data.items || []).map((apiCase: any) => {
-          const caseId = apiCase.id;
-          const stages = stageManager.getCaseStages(caseId);
-          
-          console.log('轉換案件資料:', apiCase);
-          
+        console.log('載入的原始案件資料:', data);
+
+        // 確保正確轉換資料格式
+        const transformedCases: TableCase[] = data.items.map((apiCase: any) => {
+          // 處理階段資料
+          const stages: Stage[] = apiCase.stages?.map((stage: any) => ({
+            id: stage.id,
+            name: stage.name,
+            date: stage.stage_date,
+            completed: stage.completed,
+            sortOrder: stage.sort_order || 0,
+            note: stage.note || ''
+          })) || [];
+
           return {
-            id: caseId,
+            id: apiCase.id,
             caseNumber: apiCase.case_number || '',
-            client: apiCase.client?.name || apiCase.client_name || '未指定',
+            client: apiCase.client?.name || '未知客戶',
             caseType: apiCase.case_type || '',
-            lawyer: apiCase.lawyer?.full_name || apiCase.lawyer_name || '',
-            legalAffairs: apiCase.legal_affairs?.full_name || apiCase.legal_affairs_name || '',
+            lawyer: apiCase.lawyer?.full_name || '',
+            legalAffairs: apiCase.legal_affairs?.full_name || '',
             caseReason: apiCase.case_reason || '',
             opposingParty: apiCase.opposing_party || '',
             court: apiCase.court || '',
             division: apiCase.division || '',
             progress: apiCase.progress || '',
-            progressDate: apiCase.progress_date ? new Date(apiCase.progress_date).toLocaleDateString('zh-TW') : '',
+            progressDate: apiCase.progress_date ?
+              new Date(apiCase.progress_date).toLocaleDateString('zh-TW') : '',
             status: apiCase.is_closed ? 'completed' : 'active',
             stages: stages,
           };
         });
-        
+
         console.log('轉換後的案件資料:', transformedCases);
         setCases(transformedCases);
+
+        // 更新成功訊息
+        if (transformedCases.length > 0) {
+          console.log(`成功載入 ${transformedCases.length} 筆案件`);
+        }
+
       } else {
         // 處理錯誤回應
         let errorMessage = '載入案件列表失敗';
@@ -137,7 +152,7 @@ export default function CaseOverview() {
       }
     } catch (error) {
       console.error('載入案件列表錯誤:', error);
-      showError('無法連接到伺服器');
+      showError('無法連接到伺服器，請檢查網路連線');
     }
   };
 
@@ -226,7 +241,7 @@ export default function CaseOverview() {
 
   const handleDeleteStage = (idx: number) => {
     if (!selectedCase) return;
-    
+
     const stage = selectedCase.stages[idx];
     setDialogConfig({
       title: '確認刪除階段',
@@ -235,14 +250,14 @@ export default function CaseOverview() {
       onConfirm: () => {
         const updatedStages = selectedCase.stages.filter((_, index) => index !== idx);
         const updatedCase = { ...selectedCase, stages: updatedStages };
-        
+
         // 更新本地狀態
         setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updatedCase : c)));
         setSelectedCase(updatedCase);
-        
+
         // 更新持久化存儲
         stageManager.setCaseStages(selectedCase.id, updatedStages);
-        
+
         setShowUnifiedDialog(false);
         showSuccess('階段已刪除');
       },
@@ -340,15 +355,15 @@ export default function CaseOverview() {
       // 更新本地狀態
       setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updated : c)));
       setSelectedCase(updated);
-      
+
       // 更新持久化存儲
       stageManager.setCaseStages(selectedCase.id, updated.stages);
-      
+
       // 建立階段資料夾
       if (stageDialogMode === 'add') {
         stageManager.createStageFolder(selectedCase.id, data.stageName);
       }
-      
+
       return true;
     } catch (error) {
       console.error('新增階段請求失敗:', error);
@@ -490,38 +505,42 @@ export default function CaseOverview() {
   const handleSaveCase = async (form: FormCaseData): Promise<boolean> => {
     try {
       console.log('DEBUG: handleSaveCase 收到資料:', form);
-      
+
       if (caseFormMode === 'add') {
         // 新增模式：資料已經在 CaseForm 中處理過後端 API
-        // 這裡只需要重新載入案件列表
         console.log('DEBUG: 新增案件成功，重新載入列表');
+
+        // 重新載入案件列表，確保顯示最新資料
         await loadCases();
-        
+
         // 建立預設資料夾結構
         if (form.case_id) {
           stageManager.createDefaultFolders(form.case_id);
         }
-        
+
         showSuccess('案件新增成功！');
+        return true;
+
       } else {
-        // 編輯模式：同樣重新載入列表
+        // 編輯模式
         console.log('DEBUG: 編輯案件成功，重新載入列表');
+
+        // 重新載入案件列表
         await loadCases();
-        
-        const updated = formToTableCase(form, selectedCase ?? undefined);
-        setSelectedCase(updated);
-        
-        // 更新案件資訊Excel檔案
-        if (form.case_id) {
-          stageManager.updateCaseInfoExcel(form.case_id, form);
+
+        // 更新當前選中的案件
+        if (selectedCase && form.case_id === selectedCase.id) {
+          const updated = formToTableCase(form, selectedCase);
+          setSelectedCase(updated);
         }
-        
+
         showSuccess('案件更新成功！');
+        return true;
       }
-      return true;
+
     } catch (error) {
-      console.error('handleSaveCase 錯誤:', error);
-      showError('操作失敗，請稍後再試');
+      console.error('保存案件失敗:', error);
+      showError('保存案件失敗: ' + (error.message || '未知錯誤'));
       return false;
     }
   };
@@ -1010,7 +1029,7 @@ export default function CaseOverview() {
 
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
-                            <span 
+                            <span
                               className="text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600"
                               onClick={() => openEditStage(idx)}
                               title="點擊編輯此進度"
