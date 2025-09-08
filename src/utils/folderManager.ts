@@ -1,160 +1,91 @@
-// 資料夾管理工具
-export interface CaseFolder {
-  id: string;
-  name: string;
-  path: string;
-  type: 'default' | 'stage' | 'custom';
-  children?: CaseFolder[];
-}
+// src/utils/folderManager.ts
+/**
+ * FolderManager (server-driven 版本)
+ * 目標：前端不再用 localStorage 生成/保存樹狀資料，而是「只負責組路徑字串」與「提供少量工具函式」。
+ * 預設資料夾的建立交由後端 `/api/files/tree` 自動處理。
+ */
 
-export interface CaseExcelData {
-  caseNumber: string;
-  client: string;
-  caseType: string;
-  lawyer: string;
-  legalAffairs: string;
-  caseReason: string;
-  opposingParty: string;
-  court: string;
-  division: string;
-  progress: string;
-  progressDate: string;
-  createdDate: string;
-}
+export type FolderKind = 'default' | 'stage' | 'custom';
 
-export class FolderManager {
-  private static getStorageKey(caseId: string): string {
-    return `case_folders:${caseId}`;
-  }
+/** 與後端統一：所有路徑以 `/cases/{caseId}` 為根 */
+export const FolderManager = {
+  /** 根路徑：/cases/{caseId} */
+  root(caseId: string) {
+    return `/cases/${caseId}`;
+  },
 
-  private static getExcelKey(caseId: string): string {
-    return `case_excel:${caseId}`;
-  }
-
-  // 建立預設資料夾結構
-  static createDefaultFolders(caseId: string): CaseFolder[] {
-    const defaultFolders: CaseFolder[] = [
-      {
-        id: `${caseId}_pleadings`,
-        name: '狀紙',
-        path: `/cases/${caseId}/狀紙`,
-        type: 'default',
-        children: []
-      },
-      {
-        id: `${caseId}_info`,
-        name: '案件資訊',
-        path: `/cases/${caseId}/案件資訊`,
-        type: 'default',
-        children: []
-      },
-      {
-        id: `${caseId}_progress`,
-        name: '案件進度',
-        path: `/cases/${caseId}/案件進度`,
-        type: 'default',
-        children: []
-      }
+  /**
+   * 三個預設資料夾（名稱需與後端一致；後端會在 /api/files/tree 自動建立）
+   * - 案件資訊
+   * - 進度追蹤
+   * - 狀紙
+   */
+  preset(caseId: string) {
+    return [
+      { name: '案件資訊', path: `/cases/${caseId}/案件資訊`, type: 'default' as FolderKind },
+      { name: '進度追蹤', path: `/cases/${caseId}/進度追蹤`, type: 'default' as FolderKind },
+      { name: '狀紙',     path: `/cases/${caseId}/狀紙`,     type: 'default' as FolderKind },
     ];
+  },
 
-    // 存儲到 localStorage
-    localStorage.setItem(this.getStorageKey(caseId), JSON.stringify(defaultFolders));
-    
-    console.log(`為案件 ${caseId} 建立預設資料夾結構：狀紙、案件資訊、案件進度`);
-    return defaultFolders;
-  }
+  /**
+   * 進度追蹤底下的階段資料夾路徑
+   * 舊版若使用「案件進度」，此函式會自動糾正為「進度追蹤」。
+   */
+  stage(caseId: string, stageName: string) {
+    const safe = (stageName || '').trim();
+    return `/cases/${caseId}/進度追蹤/${safe}`;
+  },
 
-  // 取得案件資料夾結構
-  static getCaseFolders(caseId: string): CaseFolder[] {
-    const stored = localStorage.getItem(this.getStorageKey(caseId));
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return this.createDefaultFolders(caseId);
-      }
-    }
-    return this.createDefaultFolders(caseId);
-  }
+  /** 客製化拼接：/cases/{caseId}/...segments */
+  join(caseId: string, ...segments: string[]) {
+    const cleaned = segments
+      .filter(Boolean)
+      .map(s => s.replace(/^\/+|\/+$/g, '')); // 去除每段前後斜線
+    return [`/cases/${caseId}`, ...cleaned].join('/');
+  },
 
-  // 新增階段資料夾
-  static createStageFolder(caseId: string, stageName: string): void {
-    const folders = this.getCaseFolders(caseId);
-    const progressFolder = folders.find(f => f.name === '案件進度');
-    
-    if (progressFolder) {
-      if (!progressFolder.children) {
-        progressFolder.children = [];
-      }
-      
-      // 檢查是否已存在同名資料夾
-      const existingStage = progressFolder.children.find(c => c.name === stageName);
-      if (!existingStage) {
-        const stageFolder: CaseFolder = {
-          id: `${caseId}_stage_${stageName}`,
-          name: stageName,
-          path: `/cases/${caseId}/案件進度/${stageName}`,
-          type: 'stage',
-          children: []
-        };
-        
-        progressFolder.children.push(stageFolder);
-        localStorage.setItem(this.getStorageKey(caseId), JSON.stringify(folders));
-        
-        console.log(`為案件 ${caseId} 在案件進度資料夾下建立階段資料夾：${stageName}`);
-      }
-    }
-  }
-
-  // 建立案件資訊 Excel 檔案
-  static createCaseInfoExcel(caseId: string, caseData: CaseExcelData): void {
-    // 模擬建立 Excel 檔案
-    const excelData = {
-      fileName: `${caseId}_案件資訊.xlsx`,
-      path: `/cases/${caseId}/案件資訊/${caseId}_案件資訊.xlsx`,
-      data: caseData,
-      lastUpdated: new Date().toISOString()
-    };
-
-    localStorage.setItem(this.getExcelKey(caseId), JSON.stringify(excelData));
-    console.log(`為案件 ${caseId} 建立案件資訊 Excel 檔案`);
-  }
-
-  // 更新案件資訊 Excel 檔案
-  static updateCaseInfoExcel(caseId: string, updatedData: Partial<CaseExcelData>): void {
-    const stored = localStorage.getItem(this.getExcelKey(caseId));
-    if (stored) {
-      try {
-        const excelData = JSON.parse(stored);
-        excelData.data = { ...excelData.data, ...updatedData };
-        excelData.lastUpdated = new Date().toISOString();
-        
-        localStorage.setItem(this.getExcelKey(caseId), JSON.stringify(excelData));
-        console.log(`更新案件 ${caseId} 的案件資訊 Excel 檔案`);
-      } catch (error) {
-        console.error('更新 Excel 檔案失敗:', error);
-      }
-    }
-  }
-
-  // 取得案件的所有資料夾（用於上傳檔案時選擇）
-  static getAvailableFolders(caseId: string): { name: string; path: string }[] {
-    const folders = this.getCaseFolders(caseId);
+  /**
+   * （可選）把後端回來的 children（folders + files）攤平成可放入下拉選單的 {name, path}
+   * 主要用在「選擇要上傳到哪個資料夾」的情境。
+   */
+  flattenToOptions(caseId: string, nodes: Array<{type: 'folder' | 'file'; name: string; path?: string; children?: any[]}>) {
     const result: { name: string; path: string }[] = [];
-
-    const addFolderRecursively = (folder: CaseFolder) => {
-      result.push({ name: folder.name, path: folder.path });
-      if (folder.children) {
-        folder.children.forEach(addFolderRecursively);
+    const walk = (n: any) => {
+      if (n.type === 'folder' && n.path) {
+        result.push({ name: n.name, path: n.path });
       }
+      if (n.children?.length) n.children.forEach(walk);
     };
-
-    folders.forEach(addFolderRecursively);
+    nodes.forEach(walk);
     return result;
-  }
+  },
 
-  // 取得階段資料夾路徑
-  static getStageFolder(caseId: string, stageName: string): string {
-    return `/cases/${caseId}/案件進度/${stageName}`;
-  }
-}
+  /**
+   * （遷移輔助）把舊版 localStorage 以「案件進度」命名的資料夾轉為「進度追蹤」字串（不改動後端，只處理前端舊字串）
+   */
+  normalizeLegacyPath(path: string) {
+    return (path || '').replace('案件進度', '進度追蹤');
+  },
+};
+
+/* === 用法摘要 ===
+import { FolderManager } from '../utils/folderManager';
+
+// 1) 取得根與預設資料夾（僅顯示用途；實體建立由後端處理）
+FolderManager.root(caseId);              // '/cases/{caseId}'
+FolderManager.preset(caseId);            // [{name:'案件資訊',...}, {name:'進度追蹤',...}, {name:'狀紙',...}]
+
+// 2) 取得某階段路徑
+FolderManager.stage(caseId, '開庭');     // '/cases/{caseId}/進度追蹤/開庭'
+
+// 3) 自訂更深層路徑
+FolderManager.join(caseId, '案件資訊', '證據', '第1批');
+// '/cases/{caseId}/案件資訊/證據/第1批'
+
+// 4) 將後端 children 攤平成下拉選單
+// const options = FolderManager.flattenToOptions(caseId, childrenFromApi);
+
+// 5) 將舊字串「案件進度」矯正為「進度追蹤」
+FolderManager.normalizeLegacyPath('/cases/xxx/案件進度/開庭'); // '/cases/xxx/進度追蹤/開庭'
+*/
