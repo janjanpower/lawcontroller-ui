@@ -117,20 +117,17 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         const health = await healthResponse.json();
         if (!health?.ok) throw new Error(`服務異常（db=${health?.db ?? 'unknown'}）`);
 
-        // 新增案件 - 呼叫後端 API
+        // 新增案件 - 使用新的 API 格式
         const caseDataForAPI = {
           firm_code: firmCode,
           case_type: formData.case_type,
           client_name: formData.client,
-          case_reason: formData.case_reason || '',
-          case_number: formData.case_number || '',
-          opposing_party: formData.opposing_party || '',
-          court: formData.court || '',
-          division: formData.division || '',
-          progress: formData.progress || '委任',
-          progress_date: formData.progress_date || new Date().toISOString().split('T')[0],
-          lawyer_name: formData.lawyer || '',
-          legal_affairs_name: formData.legal_affairs || ''
+          case_reason: formData.case_reason || null,
+          case_number: formData.case_number || null,
+          court: formData.court || null,
+          division: formData.division || null,
+          lawyer_name: formData.lawyer || null,
+          legal_affairs_name: formData.legal_affairs || null
         };
 
         console.log('發送到後端的新增案件資料:', caseDataForAPI);
@@ -196,9 +193,9 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         const savedCaseData: CaseData = {
           case_id: responseData.id,
           case_type: responseData.case_type || formData.case_type,
-          client: responseData.client?.name || formData.client,
-          lawyer: responseData.lawyer?.full_name || formData.lawyer,
-          legal_affairs: responseData.legal_affairs?.full_name || formData.legal_affairs,
+          client: responseData.client?.name || responseData.client_name || formData.client,
+          lawyer: responseData.lawyer?.full_name || responseData.lawyer_name || formData.lawyer,
+          legal_affairs: responseData.legal_affairs?.full_name || responseData.legal_affairs_name || formData.legal_affairs,
           case_reason: responseData.case_reason || formData.case_reason,
           case_number: responseData.case_number || formData.case_number,
           opposing_party: responseData.opposing_party || formData.opposing_party,
@@ -214,6 +211,20 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         const success = await onSave(savedCaseData);
         if (success) {
           console.log('DEBUG: onSave 成功，關閉對話框');
+          // 清空表單
+          setFormData({
+            case_type: '',
+            client: '',
+            lawyer: '',
+            legal_affairs: '',
+            case_reason: '',
+            case_number: '',
+            opposing_party: '',
+            court: '',
+            division: '',
+            progress: '委任',
+            progress_date: new Date().toISOString().split('T')[0]
+          });
           onClose();
         } else {
           console.log('DEBUG: onSave 失敗');

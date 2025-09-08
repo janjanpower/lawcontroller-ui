@@ -1,6 +1,7 @@
 // src/pages/CaseOverview.tsx
 import { useNavigate } from 'react-router-dom';
 import { hasClosedStage } from '../utils/caseStage';
+import { getFirmCodeOrThrow } from '../utils/firm';
 import StageEditDialog, { StageFormData } from '../components/StageEditDialog';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -24,7 +25,6 @@ import ImportDataDialog from '../components/ImportDataDialog';
 import UnifiedDialog from '../components/UnifiedDialog';
 import DateReminderWidget from '../components/DateReminderWidget';
 import FolderTree from '../components/FolderTree';
-import CaseStageManager from '../utils/caseStageManager';
 
 // 導入型別
 import type {
@@ -36,6 +36,51 @@ import type {
   DialogConfig,
   VisibleColumns,
 } from '../types';
+
+const stageManager = {
+  getFirmCases: (firmCode: string) => {
+    const raw = localStorage.getItem(`cases:${firmCode}`);
+    if (!raw) return [];
+    try { return JSON.parse(raw) || []; } catch { return []; }
+  },
+  setFirmCases: (firmCode: string, cases: any[]) => {
+    localStorage.setItem(`cases:${firmCode}`, JSON.stringify(cases));
+  },
+  getCaseStages: (caseId: string) => {
+    const raw = localStorage.getItem(`stages:${caseId}`);
+    if (!raw) return [];
+    try { return JSON.parse(raw) || []; } catch { return []; }
+  },
+  setCaseStages: (caseId: string, stages: any[]) => {
+    localStorage.setItem(`stages:${caseId}`, JSON.stringify(stages));
+  },
+  createDefaultFolders: (caseId: string) => {
+    console.log(`為案件 ${caseId} 建立預設資料夾結構：狀紙、案件資訊、案件進度`);
+  },
+  createStageFolder: (caseId: string, stageName: string) => {
+    console.log(`為案件 ${caseId} 在案件進度資料夾下建立階段資料夾：${stageName}`);
+  },
+  updateCaseInfoExcel: (caseId: string, updatedData: any) => {
+    console.log(`更新案件 ${caseId} 的案件資訊 Excel 檔案`);
+  },
+  addCaseToFirm: (firmCode: string, newCase: any) => {
+    const existingCases = stageManager.getFirmCases(firmCode);
+    const updatedCases = [...existingCases, newCase];
+    stageManager.setFirmCases(firmCode, updatedCases);
+  },
+  updateCaseInFirm: (firmCode: string, updatedCase: any) => {
+    const existingCases = stageManager.getFirmCases(firmCode);
+    const updatedCases = existingCases.map(c => 
+      c.id === updatedCase.id ? updatedCase : c
+    );
+    stageManager.setFirmCases(firmCode, updatedCases);
+  },
+  removeCaseFromFirm: (firmCode: string, caseId: string) => {
+    const existingCases = stageManager.getFirmCases(firmCode);
+    const updatedCases = existingCases.filter(c => c.id !== caseId);
+    stageManager.setFirmCases(firmCode, updatedCases);
+  }
+};
 
 /* ------------------ 工具：型別轉換 ------------------ */
 function tableToFormCase(c: TableCase): FormCaseData {
@@ -78,7 +123,6 @@ function formToTableCase(form: FormCaseData, base?: TableCase): TableCase {
 /* ------------------ 主元件 ------------------ */
 export default function CaseOverview() {
   const navigate = useNavigate();
-  const stageManager = CaseStageManager.getInstance();
 
   // 案件資料狀態
   const [cases, setCases] = useState<TableCase[]>([]);
@@ -88,7 +132,7 @@ export default function CaseOverview() {
   // 載入案件列表
   const loadCases = async () => {
     try {
-      const firmCode = localStorage.getItem('law_firm_code') || 'default';
+      const firmCode = getFirmCodeOrThrow();
       
       // 先嘗試從本地存儲載入
       const localCases = stageManager.getFirmCases(firmCode);
@@ -98,9 +142,25 @@ export default function CaseOverview() {
       }
       
       // 然後從 API 載入最新資料
-      const response = await fetch(`/api/cases?firm_code=${firmCode}&status=open`);
+      const response = await fetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`);
       
-      if (response.ok) {
+      if (!response.ok) {
+        const txt = await response.text();
+        const msg = `載入案件失敗：${response.status} ${txt}`;
+        console.error(msg);
+        
+        // 4xx/5xx 也要 fallback 到本地快取
+        const fallback = stageManager.getFirmCases(firmCode);
+        if (fallback.length > 0) {
+          console.log('API 失敗，使用本地存儲的案件資料');
+          setCases(fallback);
+        } else {
+          showError(msg);
+        }
+        return;
+      }
+      
+      try {
         const data = await response.json();
         console.log('API 回應資料:', data);
         
@@ -134,29 +194,30 @@ export default function CaseOverview() {
         
         // 將案件資料存儲到本地
         stageManager.setFirmCases(firmCode, transformedCases);
-      } else {
-        // 處理錯誤回應
-        let errorMessage = '載入案件列表失敗';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.detail || errorMessage;
-        } catch {
-          // 如果不是JSON格式，使用預設錯誤訊息
-          errorMessage = `伺服器錯誤: ${response.status} ${response.statusText}`;
+      } catch (parseError) {
+        console.error('解析 API 回應失敗:', parseError);
+        const fallback = stageManager.getFirmCases(firmCode);
+        if (fallback.length > 0) {
+          console.log('解析失敗，使用本地存儲的案件資料');
+          setCases(fallback);
+        } else {
+          showError('API 回應格式錯誤');
         }
-        console.error('載入案件列表失敗:', errorMessage);
-        showError(errorMessage);
       }
     } catch (error) {
       console.error('載入案件列表錯誤:', error);
       // 如果 API 失敗，但本地有資料，則使用本地資料
-      const firmCode = localStorage.getItem('law_firm_code') || 'default';
-      const localCases = stageManager.getFirmCases(firmCode);
-      if (localCases.length > 0) {
-        console.log('API 失敗，使用本地存儲的案件資料');
-        setCases(localCases);
-      } else {
-        showError('無法連接到伺服器，且無本地資料');
+      try {
+        const firmCode = getFirmCodeOrThrow();
+        const localCases = stageManager.getFirmCases(firmCode);
+        if (localCases.length > 0) {
+          console.log('API 失敗，使用本地存儲的案件資料');
+          setCases(localCases);
+        } else {
+          showError('無法連接到伺服器，且無本地資料');
+        }
+      } catch (firmError) {
+        showError('無法取得事務所代碼，請重新登入');
       }
     }
   };
@@ -275,7 +336,8 @@ export default function CaseOverview() {
 
     try {
       // 先同步到後端
-      const response = await fetch(`/api/cases/${selectedCase.id}/stages`, {
+      const firmCode = getFirmCodeOrThrow();
+      const response = await fetch(`/api/cases/${selectedCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -510,7 +572,7 @@ export default function CaseOverview() {
   const handleSaveCase = async (form: FormCaseData): Promise<boolean> => {
     try {
       console.log('DEBUG: handleSaveCase 收到資料:', form);
-      const firmCode = localStorage.getItem('law_firm_code') || 'default';
+      const firmCode = getFirmCodeOrThrow();
       
       if (caseFormMode === 'add') {
         // 新增模式：資料已經在 CaseForm 中處理過後端 API
@@ -583,7 +645,7 @@ export default function CaseOverview() {
       message: `確定要刪除案件「${row.client} - ${row.caseNumber}」嗎？此操作無法復原。`,
       type: 'warning',
       onConfirm: () => {
-        const firmCode = localStorage.getItem('law_firm_code') || 'default';
+        const firmCode = getFirmCodeOrThrow();
         
         // 從本地狀態和存儲中移除
         setCases((prev) => prev.filter((c) => c.id !== row.id));
@@ -593,7 +655,7 @@ export default function CaseOverview() {
         setShowUnifiedDialog(false);
         
         // TODO: 呼叫後端 API 刪除案件
-        // fetch(`/api/cases/${row.id}`, { method: 'DELETE' })
+        // fetch(`/api/cases/${row.id}?firm_code=${encodeURIComponent(firmCode)}`, { method: 'DELETE' })
       },
     });
     setShowUnifiedDialog(true);

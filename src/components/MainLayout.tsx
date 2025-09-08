@@ -15,7 +15,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
   // 檢查登入狀態
   useEffect(() => {
     const userId = localStorage.getItem('law_user_id');
-    if (!userId) {
+    const firmCode = localStorage.getItem('law_firm_code');
+    if (!userId || !firmCode) {
       navigate('/login', { replace: true });
       return;
     }
