@@ -632,6 +632,7 @@ export default function CaseOverview() {
 
         // 建立預設資料夾結構
         if (form.case_id) {
+          FolderManager.createDefaultFolders(form.case_id);
 
           // 建立案件資訊 Excel 檔案
           FolderManager.createCaseInfoExcel(form.case_id, {
