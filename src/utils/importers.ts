@@ -1,6 +1,4 @@
 // src/utils/importers.ts
-// 讀 Excel → 判斷刑事/民事 → 萃取關鍵欄位
-
 export type ImportedCase = {
   type: '刑事' | '民事' | '未知';
   title: string;
@@ -11,7 +9,6 @@ const CRIMINAL_HINTS = ['刑事', '公訴', '偵字', '訴字', '易字'];
 const CIVIL_HINTS    = ['民事', '民訴', '民調', '家事', '家調'];
 const KEYWORDS       = ['案由','案號','當事人','原告','被告','上訴人','被上訴人','告訴人','被告人','對造'];
 
-// 只用一個動態載入，避免 Rollup 嘗試解析不存在的路徑
 type XLSXType = typeof import('xlsx');
 let xlsxPromise: Promise<XLSXType> | null = null;
 async function getXLSX(): Promise<XLSXType> {
@@ -32,10 +29,8 @@ function buildTitleRow(row: Record<string, any>) {
   return grabs.join(' / ');
 }
 
-/** 讀 Excel → 轉成 ImportedCase[] */
 export async function parseExcelToCases(file: File): Promise<ImportedCase[]> {
   const XLSX = await getXLSX();
-
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
 
@@ -53,11 +48,7 @@ export async function parseExcelToCases(file: File): Promise<ImportedCase[]> {
 
     json.forEach((row) => {
       const title = buildTitleRow(row) || (row['案由'] || row['案號'] || row['當事人'] || '未命名案件');
-      results.push({
-        type: sheetType,
-        title,
-        fields: row,
-      });
+      results.push({ type: sheetType, title, fields: row });
     });
   });
 
