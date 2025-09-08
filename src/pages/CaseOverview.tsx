@@ -1,9 +1,8 @@
 // src/pages/CaseOverview.tsx
-
 import { useNavigate } from 'react-router-dom';
 import { hasClosedStage } from '../utils/caseStage';
 import StageEditDialog, { StageFormData } from '../components/StageEditDialog';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Search,
   Plus,
@@ -57,9 +56,7 @@ function tableToFormCase(c: TableCase): FormCaseData {
 }
 
 function formToTableCase(form: FormCaseData, base?: TableCase): TableCase {
-  // ★ 關鍵：優先使用後端回來的 UUID（form.case_id）
-  const nowId = form.case_id ?? base?.id ?? `case_${Date.now()}`;
-
+  const nowId = base?.id ?? `case_${Date.now()}`;
   return {
     id: nowId,
     caseNumber: form.case_number ?? base?.caseNumber ?? '',
@@ -78,10 +75,8 @@ function formToTableCase(form: FormCaseData, base?: TableCase): TableCase {
   };
 }
 
-
 /* ------------------ 主元件 ------------------ */
 export default function CaseOverview() {
-
   const navigate = useNavigate();
   const stageManager = CaseStageManager.getInstance();
 
@@ -90,82 +85,23 @@ export default function CaseOverview() {
   const [filteredCases, setFilteredCases] = useState<TableCase[]>([]);
   const [selectedCase, setSelectedCase] = useState<TableCase | null>(null);
 
-  // 勾選與刪除相關狀態
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [alertOpen, setAlertOpen] = useState(false);    // 沒勾選卻按刪除
-  const [confirmOpen, setConfirmOpen] = useState(false); // 確認刪除
-
-  // 勾選單筆
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  // 全選 / 全不選
-  const toggleSelectAll = () => {
-    if (selectedIds.size === cases.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(cases.map(c => c.id)));
-    }
-  };
-
-  // 按下刪除按鈕
-  const handleDeleteClick = () => {
-    if (selectedIds.size === 0) {
-      setAlertOpen(true);
-      return;
-    }
-    setConfirmOpen(true);
-  };
-
-  // 執行刪除
-  const performDelete = async () => {
-    try {
-      setIsDeleting(true);
-      const ids = Array.from(selectedIds);
-      await Promise.all(
-        ids.map(async (id) => {
-          const resp = await fetch(`/api/cases/${id}`, { method: 'DELETE' });
-          if (!resp.ok) {
-            const data = await resp.json().catch(() => ({}));
-            throw new Error(data?.detail || `刪除案件失敗 (${id})`);
-          }
-        })
-      );
-      setCases(prev => prev.filter(c => !selectedIds.has(c.id)));
-      setSelectedIds(new Set());
-    } catch (err: any) {
-      alert(err?.message ?? '刪除發生錯誤');
-    } finally {
-      setIsDeleting(false);
-      setConfirmOpen(false);
-    }
-  };
-
-
   // 載入案件列表
   const loadCases = async () => {
     try {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
       const response = await fetch(`/api/cases?firm_code=${firmCode}&status=open`);
-
+      
       if (response.ok) {
         const data = await response.json();
         console.log('API 回應資料:', data);
-
+        
         // 轉換API資料格式為前端格式
         const transformedCases = (data.items || []).map((apiCase: any) => {
           const caseId = apiCase.id;
           const stages = stageManager.getCaseStages(caseId);
-
+          
           console.log('轉換案件資料:', apiCase);
-
+          
           return {
             id: caseId,
             caseNumber: apiCase.case_number || '',
@@ -183,7 +119,7 @@ export default function CaseOverview() {
             stages: stages,
           };
         });
-
+        
         console.log('轉換後的案件資料:', transformedCases);
         setCases(transformedCases);
       } else {
@@ -290,7 +226,7 @@ export default function CaseOverview() {
 
   const handleDeleteStage = (idx: number) => {
     if (!selectedCase) return;
-
+    
     const stage = selectedCase.stages[idx];
     setDialogConfig({
       title: '確認刪除階段',
@@ -299,14 +235,14 @@ export default function CaseOverview() {
       onConfirm: () => {
         const updatedStages = selectedCase.stages.filter((_, index) => index !== idx);
         const updatedCase = { ...selectedCase, stages: updatedStages };
-
+        
         // 更新本地狀態
         setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updatedCase : c)));
         setSelectedCase(updatedCase);
-
+        
         // 更新持久化存儲
         stageManager.setCaseStages(selectedCase.id, updatedStages);
-
+        
         setShowUnifiedDialog(false);
         showSuccess('階段已刪除');
       },
@@ -404,15 +340,15 @@ export default function CaseOverview() {
       // 更新本地狀態
       setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updated : c)));
       setSelectedCase(updated);
-
+      
       // 更新持久化存儲
       stageManager.setCaseStages(selectedCase.id, updated.stages);
-
+      
       // 建立階段資料夾
       if (stageDialogMode === 'add') {
         stageManager.createStageFolder(selectedCase.id, data.stageName);
       }
-
+      
       return true;
     } catch (error) {
       console.error('新增階段請求失敗:', error);
@@ -553,29 +489,38 @@ export default function CaseOverview() {
 
   const handleSaveCase = async (form: FormCaseData): Promise<boolean> => {
     try {
+      console.log('DEBUG: handleSaveCase 收到資料:', form);
+      
       if (caseFormMode === 'add') {
-        const newRow = formToTableCase(form);
-        setCases((prev) => [...prev, newRow]);
-        setSelectedCase(newRow);
-
+        // 新增模式：資料已經在 CaseForm 中處理過後端 API
+        // 這裡只需要重新載入案件列表
+        console.log('DEBUG: 新增案件成功，重新載入列表');
+        await loadCases();
+        
         // 建立預設資料夾結構
-        stageManager.createDefaultFolders(newRow.id);
-
+        if (form.case_id) {
+          stageManager.createDefaultFolders(form.case_id);
+        }
+        
         showSuccess('案件新增成功！');
       } else {
+        // 編輯模式：同樣重新載入列表
+        console.log('DEBUG: 編輯案件成功，重新載入列表');
+        await loadCases();
+        
         const updated = formToTableCase(form, selectedCase ?? undefined);
-        setCases((prev) =>
-          prev.map((c) => (c.id === (form.case_id ?? '') ? updated : c))
-        );
         setSelectedCase(updated);
-
+        
         // 更新案件資訊Excel檔案
-        stageManager.updateCaseInfoExcel(updated.id, form);
-
+        if (form.case_id) {
+          stageManager.updateCaseInfoExcel(form.case_id, form);
+        }
+        
         showSuccess('案件更新成功！');
       }
       return true;
-    } catch {
+    } catch (error) {
+      console.error('handleSaveCase 錯誤:', error);
       showError('操作失敗，請稍後再試');
       return false;
     }
@@ -1065,7 +1010,7 @@ export default function CaseOverview() {
 
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
-                            <span
+                            <span 
                               className="text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600"
                               onClick={() => openEditStage(idx)}
                               title="點擊編輯此進度"

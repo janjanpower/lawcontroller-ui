@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, FileText, X } from 'lucide-react';
 
-
 interface CaseData {
   case_id?: string;
   case_type: string;
@@ -38,7 +37,9 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
     case_number: '',
     opposing_party: '',
     court: '',
-    division: ''
+    division: '',
+    progress: '委任',
+    progress_date: new Date().toISOString().split('T')[0]
   });
 
   const [loading, setLoading] = useState(false);
@@ -57,7 +58,9 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           case_number: caseData.case_number || '',
           opposing_party: caseData.opposing_party || '',
           court: caseData.court || '',
-          division: caseData.division || ''
+          division: caseData.division || '',
+          progress: caseData.progress || '委任',
+          progress_date: caseData.progress_date || new Date().toISOString().split('T')[0]
         });
       } else {
         setFormData({
@@ -69,7 +72,9 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           case_number: '',
           opposing_party: '',
           court: '',
-          division: ''
+          division: '',
+          progress: '委任',
+          progress_date: new Date().toISOString().split('T')[0]
         });
       }
       setErrors({});
@@ -101,27 +106,26 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
     setLoading(true);
     try {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
-
-      // 準備要發送到後端的資料
-      const caseDataForAPI = {
-        firm_code: firmCode,
-        case_type: formData.case_type,
-        client_name: formData.client, // 暫時使用客戶名稱，後續可改為客戶ID
-        case_reason: formData.case_reason,
-        case_number: formData.case_number,
-        opposing_party: formData.opposing_party,
-        court: formData.court,
-        division: formData.division,
-        progress: formData.progress || '委任',
-        progress_date: formData.progress_date || new Date().toISOString().split('T')[0],
-        lawyer_name: formData.lawyer,
-        legal_affairs_name: formData.legal_affairs
-      };
-
-      console.log('發送到後端的資料:', caseDataForAPI);
-
+      
       if (mode === 'add') {
         // 新增案件 - 呼叫後端 API
+        const caseDataForAPI = {
+          firm_code: firmCode,
+          case_type: formData.case_type,
+          client_name: formData.client,
+          case_reason: formData.case_reason || '',
+          case_number: formData.case_number || '',
+          opposing_party: formData.opposing_party || '',
+          court: formData.court || '',
+          division: formData.division || '',
+          progress: formData.progress || '委任',
+          progress_date: formData.progress_date || new Date().toISOString().split('T')[0],
+          lawyer_name: formData.lawyer || '',
+          legal_affairs_name: formData.legal_affairs || ''
+        };
+
+        console.log('發送到後端的新增案件資料:', caseDataForAPI);
+
         const response = await fetch('/api/cases', {
           method: 'POST',
           headers: {
@@ -130,58 +134,91 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           body: JSON.stringify(caseDataForAPI),
         });
 
-        const data = await response.json();
-
         if (!response.ok) {
-          throw new Error(data.detail || data.message || '新增案件失敗');
+          const errorText = await response.text();
+          console.error('後端回應錯誤:', errorText);
+          let errorMessage = '新增案件失敗';
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.detail || errorData.message || errorMessage;
+          } catch {
+            errorMessage = `伺服器錯誤: ${response.status} ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
         }
 
-        // 將後端真正建立的案件 UUID 帶回父層
-        const enrichedFormData = {
-          ...formData,
-          case_id: data.id,                              // ★ 關鍵：使用後端回傳的 id
-          client: data?.client?.name ?? formData.client, // 若後端建立/對應了 Client，順便同步顯示名
+        const responseData = await response.json();
+        console.log('後端回應成功:', responseData);
+
+        // 將後端回應的資料轉換為前端格式
+        const savedCaseData: CaseData = {
+          case_id: responseData.id,
+          case_type: responseData.case_type || formData.case_type,
+          client: responseData.client?.name || formData.client,
+          lawyer: responseData.lawyer?.full_name || formData.lawyer,
+          legal_affairs: responseData.legal_affairs?.full_name || formData.legal_affairs,
+          case_reason: responseData.case_reason || formData.case_reason,
+          case_number: responseData.case_number || formData.case_number,
+          opposing_party: responseData.opposing_party || formData.opposing_party,
+          court: responseData.court || formData.court,
+          division: responseData.division || formData.division,
+          progress: responseData.progress || formData.progress,
+          progress_date: responseData.progress_date || formData.progress_date
         };
 
-        const success = await onSave(enrichedFormData);
+        // 呼叫前端的 onSave 回調
+        const success = await onSave(savedCaseData);
         if (success) {
           onClose();
         }
-
       } else {
         // 編輯案件 - 呼叫後端 API
+        const updateData = {
+          case_type: formData.case_type,
+          case_reason: formData.case_reason,
+          case_number: formData.case_number,
+          opposing_party: formData.opposing_party,
+          court: formData.court,
+          division: formData.division,
+          progress: formData.progress,
+          progress_date: formData.progress_date
+        };
+
+        console.log('發送到後端的更新案件資料:', updateData);
+
         const response = await fetch(`/api/cases/${formData.case_id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            case_type: formData.case_type,
-            case_reason: formData.case_reason,
-            case_number: formData.case_number,
-            opposing_party: formData.opposing_party,
-            court: formData.court,
-            division: formData.division,
-            progress: formData.progress,
-            progress_date: formData.progress_date
-          }),
+          body: JSON.stringify(updateData),
         });
 
-        const data = await response.json();
-
-        if (response.ok) {
-          // 成功後呼叫前端的 onSave 回調
-          const success = await onSave(formData);
-          if (success) {
-            onClose();
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('後端回應錯誤:', errorText);
+          let errorMessage = '更新案件失敗';
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.detail || errorData.message || errorMessage;
+          } catch {
+            errorMessage = `伺服器錯誤: ${response.status} ${response.statusText}`;
           }
-        } else {
-          throw new Error(data.detail || data.message || '更新案件失敗');
+          throw new Error(errorMessage);
+        }
+
+        const responseData = await response.json();
+        console.log('後端更新回應成功:', responseData);
+
+        // 呼叫前端的 onSave 回調
+        const success = await onSave(formData);
+        if (success) {
+          onClose();
         }
       }
     } catch (error) {
       console.error('保存案件失敗:', error);
-      alert(`操作失敗: ${error.message}`);
+      setErrors({ submit: error.message || '操作失敗，請稍後再試' });
     } finally {
       setLoading(false);
     }
@@ -366,7 +403,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
                 </div>
 
                 {/* 負責股別 */}
-                <div className="md:col-span-2">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     負責股別
                   </label>
@@ -378,9 +415,30 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
                     placeholder="請輸入負責股別"
                   />
                 </div>
+
+                {/* 進度 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    目前進度
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.progress}
+                    onChange={(e) => handleInputChange('progress', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    placeholder="請輸入目前進度"
+                  />
+                </div>
               </div>
             </div>
           </div>
+
+          {/* 錯誤訊息 */}
+          {errors.submit && (
+            <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-3">
+              <p className="text-red-700 text-sm">{errors.submit}</p>
+            </div>
+          )}
 
           {/* 按鈕區域 */}
           <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200">
