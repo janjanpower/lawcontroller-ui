@@ -223,9 +223,6 @@ export default function ClosedCases() {
             <table className="w-full">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                    ID
-                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     案號
                   </th>
@@ -255,9 +252,6 @@ export default function ClosedCases() {
                     } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                     onClick={() => setSelectedCase(row)}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {row.id}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {row.caseNumber}
                     </td>

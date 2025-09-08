@@ -55,7 +55,7 @@ function tableToFormCase(c: TableCase): FormCaseData {
 }
 
 function formToTableCase(form: FormCaseData, base?: TableCase): TableCase {
-  const nowId = base?.id ?? String(Date.now());
+  const nowId = base?.id ?? `case_${Date.now()}`;
   return {
     id: nowId,
     caseNumber: form.case_number ?? base?.caseNumber ?? '',
@@ -70,15 +70,7 @@ function formToTableCase(form: FormCaseData, base?: TableCase): TableCase {
     progress: form.progress ?? base?.progress ?? '',
     progressDate: form.progress_date ?? base?.progressDate ?? '',
     status: base?.status ?? 'active',
-    stages:
-      base?.stages ??
-      [
-        {
-          name: '委任',
-          date: new Date().toISOString().split('T')[0],
-          completed: true,
-        },
-      ],
+    stages: base?.stages ?? [],
   };
 }
 
@@ -686,14 +678,14 @@ export default function CaseOverview() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
                     選擇
                   </th>
-                  {visibleColumns.caseNumber && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      案號
-                    </th>
-                  )}
                   {visibleColumns.client && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       當事人
+                    </th>
+                  )}
+                  {visibleColumns.caseNumber && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      案號
                     </th>
                   )}
                   {visibleColumns.caseType && (
@@ -762,14 +754,14 @@ export default function CaseOverview() {
                         />
                       </td>
 
-                      {visibleColumns.caseNumber && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.caseNumber}
-                        </td>
-                      )}
                       {visibleColumns.client && (
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {row.client}
+                        </td>
+                      )}
+                      {visibleColumns.caseNumber && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {row.caseNumber}
                         </td>
                       )}
                       {visibleColumns.caseType && (

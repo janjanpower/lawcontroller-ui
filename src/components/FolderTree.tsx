@@ -19,6 +19,13 @@ interface FolderTreeProps {
   onFileUpload?: (folderPath: string) => void;
   onFolderCreate?: (parentPath: string) => void;
   onDelete?: (path: string, type: 'folder' | 'file') => void;
+  s3Config?: {
+    endpoint: string;
+    accessKey: string;
+    secretKey: string;
+    bucket: string;
+    region: string;
+  };
 }
 
 // 預設空的資料夾結構

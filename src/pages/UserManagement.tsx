@@ -613,10 +613,10 @@ export default function UserManagement() {
                   <button
                     onClick={() => {
                       setEditUserData({
-                        fullName: user.fullName,
-                        email: user.email,
-                        phone: user.phone || '',
-                        role: user.role
+                        fullName: selectedUser.fullName,
+                        email: selectedUser.email,
+                        phone: selectedUser.phone || '',
+                        role: selectedUser.role
                       });
                       setShowEditUser(true);
                     }}
