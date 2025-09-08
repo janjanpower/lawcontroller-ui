@@ -212,7 +212,7 @@ export default function UserSelectionDialog({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          firm_code: firm.firmCode || firm.firmCode,
+          firm_code: firm.firmCode,
           username: createUserData.username,
           full_name: createUserData.fullName,
           email: `${createUserData.username}@${firm.firmName}.com`,

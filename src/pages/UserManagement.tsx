@@ -494,11 +494,11 @@ export default function UserManagement() {
               {filteredUsers.map((user) => (
                 <div
                   key={user.id}
-                  className={`bg-white rounded-lg border p-4 transition-colors ${
+                  className={`bg-white rounded-lg border p-4 transition-colors space-y-3 ${
                     selectedUser?.id === user.id ? 'border-[#334d6d] bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
                   }`}
                 >
-                  <div className="space-y-3">
+                  <div>
                     <div 
                       className="flex items-center cursor-pointer"
                       onClick={() => setSelectedUser(user)}
@@ -511,8 +511,10 @@ export default function UserManagement() {
                         <div className="text-xs text-gray-500">{user.username}</div>
                       </div>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 text-xs">
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs">
                       <div>
                         <span className="text-gray-500">角色：</span>
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
@@ -527,17 +529,21 @@ export default function UserManagement() {
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 gap-1 text-xs text-gray-600">
+                    <div className="space-y-1 text-xs text-gray-600">
                       <div><span className="text-gray-500">部門：</span>{user.department}</div>
                       <div><span className="text-gray-500">職位：</span>{user.position}</div>
                       <div><span className="text-gray-500">Email：</span>{user.email}</div>
                       <div><span className="text-gray-500">電話：</span>{user.phone || '未設定'}</div>
                     </div>
-                    
+                  </div>
+                  
+                  <div>
                     <div className="text-xs text-gray-500 border-t pt-2">
                       <div><span className="text-gray-500">最後登入：</span>{user.lastLogin ? new Date(user.lastLogin).toLocaleString('zh-TW') : '從未登入'}</div>
                     </div>
-                    
+                  </div>
+                  
+                  <div>
                     <div className="flex justify-end space-x-2 border-t pt-2">
                       <button
                         onClick={(e) => {
