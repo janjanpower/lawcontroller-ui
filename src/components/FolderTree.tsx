@@ -210,13 +210,13 @@ export default function FolderTree({
       }
 
       const response = await fetch(`/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`);
-      
+
       console.log('API 回應狀態:', response.status, response.statusText);
-      
+
       if (response.ok) {
         const responseText = await response.text();
         console.log('API 原始回應:', responseText);
-        
+
         let filesData;
         try {
           filesData = JSON.parse(responseText);
@@ -224,9 +224,9 @@ export default function FolderTree({
           console.error('解析 API 回應失敗:', parseError);
           return;
         }
-        
+
         console.log('解析後的檔案資料:', filesData);
-        
+
         // 轉換檔案列表為樹狀結構
         const treeData = buildFolderTree(filesData);
         setFolderData(treeData);
@@ -249,13 +249,13 @@ export default function FolderTree({
     };
 
     console.log('開始建構資料夾樹，filesData 類型:', typeof filesData, Array.isArray(filesData));
-    
+
     // 處理 API 回傳的資料
     if (typeof filesData === 'object' && !Array.isArray(filesData)) {
       // 檢查是否有 folders 資訊
       if (filesData.folders && Array.isArray(filesData.folders)) {
         console.log('找到資料夾資訊:', filesData.folders);
-        
+
         // 建立資料夾結構
         rootNode.children = filesData.folders.map((folder: any) => ({
           id: folder.id,
@@ -290,7 +290,7 @@ export default function FolderTree({
           }
         ];
       }
-      
+
       // 處理檔案資料：{ pleadings: [...], info: [...], progress: [...] }
       const folderMapping: Record<string, string> = {
         'pleadings': '狀紙',
@@ -300,11 +300,11 @@ export default function FolderTree({
 
       Object.entries(filesData).forEach(([folderType, files]) => {
         if (folderType === 'folders') return; // 跳過 folders 欄位
-        
+
         const folderName = folderMapping[folderType];
         if (folderName && Array.isArray(files)) {
           console.log(`處理 ${folderType} 資料夾，檔案數量:`, files.length);
-          
+
           const targetFolder = rootNode.children?.find(f => f.name === folderName);
           if (targetFolder) {
             files.forEach((file: any) => {
@@ -327,7 +327,7 @@ export default function FolderTree({
     } else if (Array.isArray(filesData)) {
       // 舊版 API 回傳格式：檔案陣列
       console.log('處理陣列格式的檔案資料，數量:', filesData.length);
-      
+
       // 建立預設資料夾
       rootNode.children = [
         {
@@ -352,7 +352,7 @@ export default function FolderTree({
           children: []
         }
       ];
-      
+
       filesData.forEach(file => {
         const fileNode: FolderNode = {
           id: file.id,
@@ -371,7 +371,7 @@ export default function FolderTree({
       });
     } else {
       console.log('未知的檔案資料格式，建立預設資料夾');
-      
+
       // 建立預設資料夾結構
       rootNode.children = [
         {
@@ -416,12 +416,12 @@ export default function FolderTree({
         '/案件進度': 'progress'
       };
 
-      const folderType = Object.keys(folderTypeMapping).find(key => 
+      const folderType = Object.keys(folderTypeMapping).find(key =>
         folderPath.includes(key)
       );
-      
+
       const mappedType = folderType ? folderTypeMapping[folderType] : 'progress';
-      
+
       console.log('資料夾路徑對應:', { folderPath, folderType, mappedType });
 
   const handleFileUpload = (folderPath: string) => {
@@ -451,12 +451,12 @@ export default function FolderTree({
     }
   };
 
-      const folderType = mappedType;
+      const finalFolderType = mappedType ?? folderType;
 
       // 建立 FormData
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('folder_type', folderType);
+      formData.append('folder_type', finalFolderType);
 
       console.log('準備上傳檔案:', {
         fileName: file.name,
@@ -476,7 +476,7 @@ export default function FolderTree({
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
         console.error('上傳失敗回應:', errorText);
-        
+
         let errorMessage = '檔案上傳失敗';
         try {
           const errorData = JSON.parse(errorText);
@@ -484,7 +484,7 @@ export default function FolderTree({
         } catch {
           errorMessage = `上傳失敗: ${uploadResponse.status} ${errorText.substring(0, 100)}`;
         }
-        
+
         throw new Error(errorMessage);
       }
 
@@ -509,10 +509,10 @@ export default function FolderTree({
   };
 
   const handleDelete = (path: string, type: 'folder' | 'file') => {
-    const confirmMessage = type === 'folder' 
+    const confirmMessage = type === 'folder'
       ? `確定要刪除資料夾「${path}」及其所有內容嗎？`
       : `確定要刪除檔案「${path}」嗎？`;
-    
+
     if (confirm(confirmMessage)) {
       console.log(`刪除 ${type}: ${path}`);
       if (onDelete) {
