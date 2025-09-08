@@ -1,181 +1,395 @@
-// src/components/FolderTree.tsx
-import React, { useEffect, useMemo, useState } from "react";
-import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Link } from "lucide-react";
-
-type NodeType = "folder" | "file";
-
-interface FileNode {
-  id: string;
-  name: string;
-  type: "file";
-  size?: number;
-  modified?: string;
-  s3_key?: string;
-}
+import React, { useState, useEffect } from 'react';
+import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2 } from 'lucide-react';
+import { FolderManager } from '../utils/folderManager';
 
 interface FolderNode {
   id: string;
   name: string;
-  type: "folder";
+  type: 'folder' | 'file';
   path: string;
-  children?: (FolderNode | FileNode)[];
-  _loaded?: boolean;
-  _open?: boolean;
+  children?: FolderNode[];
+  size?: number;
+  modified?: string;
 }
 
 interface FolderTreeProps {
-  apiBase?: string;   // default: "/api"
-  firmCode: string;
   caseId: string;
+  clientName: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onFileUpload?: (folderPath: string) => void;
+  onFolderCreate?: (parentPath: string) => void;
+  onDelete?: (path: string, type: 'folder' | 'file') => void;
+  s3Config?: {
+    endpoint: string;
+    accessKey: string;
+    secretKey: string;
+    bucket: string;
+    region: string;
+  };
 }
 
-async function getJSON<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
+// 預設空的資料夾結構
+const defaultFolderStructure: FolderNode = {
+  id: 'root',
+  name: '案件資料夾',
+  type: 'folder',
+  path: '/',
+  children: []
+};
 
-export default function FolderTree({ apiBase = "/api", firmCode, caseId }: FolderTreeProps) {
-  const [root, setRoot] = useState<FolderNode | null>(null);
-  const queryFirm = useMemo(() => `firm_code=${encodeURIComponent(firmCode)}`, [firmCode]);
+const FolderTreeNode: React.FC<{
+  node: FolderNode;
+  level: number;
+  onFileUpload?: (folderPath: string) => void;
+  onFolderCreate?: (parentPath: string) => void;
+  onDelete?: (path: string, type: 'folder' | 'file') => void;
+}> = ({ node, level, onFileUpload, onFolderCreate, onDelete }) => {
+  const [isExpanded, setIsExpanded] = useState(level < 2);
+  const [showActions, setShowActions] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const url = `${apiBase}/files/tree?${queryFirm}&case_id=${encodeURIComponent(caseId)}`;
-      const data = await getJSON<FolderNode>(url);
-      setRoot({ ...data, _open: true, _loaded: true });
-    })().catch((e) => console.error("load tree error:", e));
-  }, [apiBase, queryFirm, caseId]);
-
-  const toggle = async (node: FolderNode) => {
-    const willOpen = !node._open;
-    node._open = willOpen;
-
-    if (willOpen && !node._loaded) {
-      const url = `${apiBase}/files/children?${queryFirm}&case_id=${encodeURIComponent(caseId)}&parent_path=${encodeURIComponent(node.path)}`;
-      const data = await getJSON<{ folders: FolderNode[]; files: FileNode[] }>(url);
-      node.children = [
-        ...data.folders.map((f) => ({ ...f, _open: false, _loaded: false })),
-        ...data.files,
-      ];
-      node._loaded = true;
+  const handleToggle = () => {
+    if (node.type === 'folder') {
+      setIsExpanded(!isExpanded);
     }
-    setRoot((prev) => (prev ? { ...prev } : prev));
   };
 
-  const handleUpload = async (node: FolderNode) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.onchange = async () => {
-      if (!input.files || input.files.length === 0) return;
-      const file = input.files[0];
-      const fd = new FormData();
-      fd.append("case_id", caseId);
-      fd.append("folder_path", node.path);
-      fd.append("file", file);
-
-      const res = await fetch(`${apiBase}/files/upload?${queryFirm}`, {
-        method: "POST",
-        body: fd,
-      });
-      if (!res.ok) {
-        alert("上傳失敗：" + (await res.text()));
-        return;
-      }
-      // reload current node content, keep open
-      node._loaded = false;
-      node._open = true;
-      await toggle(node); // this will open->load
-      if (!node._open) await toggle(node); // keep open
-    };
-    input.click();
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleOpenFile = async (file: FileNode) => {
-    if (!file.s3_key) return;
-    const res = await getJSON<{ url: string }>(`${apiBase}/files/presign?${queryFirm}&s3_key=${encodeURIComponent(file.s3_key)}`);
-    window.open(res.url, "_blank");
+  const handleFileUpload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (node.type === 'folder' && onFileUpload) {
+      onFileUpload(node.path);
+    }
   };
 
-  if (!root) return <div className="text-sm text-gray-500 p-2">載入資料夾中…</div>;
+  const handleFolderCreate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (node.type === 'folder' && onFolderCreate) {
+      onFolderCreate(node.path);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDelete) {
+      onDelete(node.path, node.type);
+    }
+  };
 
   return (
-    <div className="text-sm">
-      <TreeNode node={root} onToggle={toggle} onUpload={handleUpload} onOpenFile={handleOpenFile} />
-    </div>
-  );
-}
-
-function TreeNode({
-  node,
-  onToggle,
-  onUpload,
-  onOpenFile,
-  level = 0,
-}: {
-  node: FolderNode | FileNode;
-  onToggle: (n: FolderNode) => Promise<void> | void;
-  onUpload: (n: FolderNode) => Promise<void> | void;
-  onOpenFile: (f: FileNode) => Promise<void> | void;
-  level?: number;
-}) {
-  const isFolder = node.type === "folder";
-  return (
-    <div>
+    <div className="select-none">
       <div
-        className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-default"
-        style={{ paddingLeft: level * 12 + 8 }}
-        onDoubleClick={() => isFolder && onToggle(node as FolderNode)}
+        className={`flex items-center py-1 px-2 hover:bg-gray-100 cursor-pointer rounded group ${
+          level === 0 ? 'font-semibold' : ''
+        }`}
+        style={{ paddingLeft: `${level * 20 + 8}px` }}
+        onClick={handleToggle}
+        onMouseEnter={() => setShowActions(true)}
+        onMouseLeave={() => setShowActions(false)}
       >
-        {isFolder ? (
-          <button onClick={() => onToggle(node as FolderNode)}>
-            {(node as FolderNode)._open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </button>
-        ) : (
-          <span className="w-4 h-4" />
+        {/* 展開/收合圖示 */}
+        {node.type === 'folder' && node.children && node.children.length > 0 && (
+          <div className="w-4 h-4 mr-1 flex items-center justify-center">
+            {isExpanded ? (
+              <ChevronDown className="w-3 h-3 text-gray-600" />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-gray-600" />
+            )}
+          </div>
         )}
 
-        {isFolder ? (
-          (node as FolderNode)._open ? <FolderOpen className="w-4 h-4" /> : <Folder className="w-4 h-4" />
-        ) : (
-          <File className="w-4 h-4" />
-        )}
+        {/* 資料夾/檔案圖示 */}
+        <div className="w-4 h-4 mr-2 flex items-center justify-center">
+          {node.type === 'folder' ? (
+            isExpanded ? (
+              <FolderOpen className="w-4 h-4 text-blue-600" />
+            ) : (
+              <Folder className="w-4 h-4 text-blue-600" />
+            )
+          ) : (
+            <File className="w-4 h-4 text-gray-600" />
+          )}
+        </div>
 
-        <span
-          className={`truncate ${node.type === "file" ? "text-blue-700 hover:underline cursor-pointer" : ""}`}
-          onClick={() => {
-            if (node.type === "file") onOpenFile(node as FileNode);
-          }}
-          title={node.name}
-        >
+        {/* 名稱 */}
+        <span className="flex-1 text-sm text-gray-800 truncate">
           {node.name}
         </span>
 
-        {isFolder && (
-          <button
-            className="ml-auto text-xs flex items-center gap-1 hover:underline"
-            onClick={() => onUpload(node as FolderNode)}
-            title="上傳到這個資料夾"
-          >
-            <Plus className="w-3 h-3" /> 上傳
-          </button>
+        {/* 檔案資訊 */}
+        {node.type === 'file' && (
+          <div className="flex items-center space-x-2 text-xs text-gray-500 ml-2">
+            {node.size && <span>{formatFileSize(node.size)}</span>}
+            {node.modified && <span>{node.modified}</span>}
+          </div>
+        )}
+
+        {/* 操作按鈕 */}
+        {showActions && (
+          <div className="flex items-center space-x-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            {node.type === 'folder' && (
+              <>
+                <button
+                  onClick={handleFileUpload}
+                  className="p-1 hover:bg-gray-200 rounded"
+                  title="上傳檔案"
+                >
+                  <Plus className="w-3 h-3 text-green-600" />
+                </button>
+                <button
+                  onClick={handleFolderCreate}
+                  className="p-1 hover:bg-gray-200 rounded"
+                  title="新增資料夾"
+                >
+                  <Folder className="w-3 h-3 text-blue-600" />
+                </button>
+              </>
+            )}
+            <button
+              onClick={handleDelete}
+              className="p-1 hover:bg-gray-200 rounded"
+              title="刪除"
+            >
+              <Trash2 className="w-3 h-3 text-red-600" />
+            </button>
+          </div>
         )}
       </div>
 
-      {isFolder && (node as FolderNode)._open && (node as FolderNode).children && (
-        <div className="mt-1">
-          {(node as FolderNode).children!.map((child) => (
-            <TreeNode
-              key={`${child.type}-${"id" in child ? child.id : child.name}`}
+      {/* 子節點 */}
+      {node.type === 'folder' && isExpanded && node.children && (
+        <div>
+          {node.children.map((child) => (
+            <FolderTreeNode
+              key={child.id}
               node={child}
-              onToggle={onToggle}
-              onUpload={onUpload}
-              onOpenFile={onOpenFile}
               level={level + 1}
+              onFileUpload={onFileUpload}
+              onFolderCreate={onFolderCreate}
+              onDelete={onDelete}
             />
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+export default function FolderTree({
+  caseId,
+  clientName,
+  isExpanded,
+  onToggle,
+  onFileUpload,
+  onFolderCreate,
+  onDelete,
+  s3Config
+}: FolderTreeProps) {
+  const [folderData, setFolderData] = useState<FolderNode>(defaultFolderStructure);
+
+  // 從 API 載入真實的資料夾結構
+  useEffect(() => {
+    if (isExpanded && s3Config) {
+      loadFolderStructure();
+    }
+  }, [caseId]);
+
+  const loadFolderStructure = async () => {
+    try {
+      // 確保預設資料夾存在
+      FolderManager.getCaseFolders(caseId);
+      
+      const response = await fetch(`/api/cases/${caseId}/files`);
+      if (response.ok) {
+        const files = await response.json();
+        // 轉換檔案列表為樹狀結構
+        const treeData = buildFolderTree(files);
+        setFolderData(treeData);
+      }
+    } catch (error) {
+      console.error('載入資料夾結構失敗:', error);
+    }
+  };
+
+  const buildFolderTree = (files: any[]): FolderNode => {
+    // 使用 FolderManager 取得資料夾結構
+    const caseFolders = FolderManager.getCaseFolders(caseId);
+    
+    const rootNode: FolderNode = {
+      id: 'root',
+      name: '案件資料夾',
+      type: 'folder',
+      path: '/',
+      children: caseFolders.map(folder => ({
+        id: folder.id,
+        name: folder.name,
+        type: 'folder' as const,
+        path: folder.path,
+        children: folder.children?.map(child => ({
+          id: child.id,
+          name: child.name,
+          type: 'folder' as const,
+          path: child.path,
+          children: []
+        })) || []
+      }))
+    };
+
+    // 將檔案加入對應的資料夾
+    files.forEach(file => {
+      const fileNode: FolderNode = {
+        id: file.id,
+        name: file.name,
+        type: 'file',
+        path: file.path || `/${file.name}`,
+        size: file.size_bytes,
+        modified: file.created_at
+      };
+
+      // 根據檔案路徑決定放在哪個資料夾
+      // 這裡可以根據實際需求調整邏輯
+      if (rootNode.children && rootNode.children[0].children) {
+        rootNode.children[0].children.push(fileNode);
+      }
+    });
+
+    return rootNode;
+  };
+
+  const handleFileUpload = (folderPath: string) => {
+    if (!s3Config) {
+      alert('S3 設定未提供，無法上傳檔案');
+      return;
+    }
+
+    // 建立檔案選擇器
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.onchange = async (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files) {
+        for (let i = 0; i < files.length; i++) {
+          await uploadFileToS3(files[i], folderPath);
+        }
+        // 重新載入資料夾結構
+        loadFolderStructure();
+      }
+    };
+    input.click();
+
+    if (onFileUpload) {
+      onFileUpload(folderPath);
+    }
+  };
+
+  const uploadFileToS3 = async (file: File, folderPath: string) => {
+    try {
+      // 1. 取得預簽名 URL
+      const presignResponse = await fetch(`/api/cases/${caseId}/files/presign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: file.name,
+          folder_slug: folderPath.replace('/', ''),
+          content_type: file.type
+        })
+      });
+
+      if (!presignResponse.ok) {
+        throw new Error('取得上傳 URL 失敗');
+      }
+
+      const presignData = await presignResponse.json();
+
+      // 2. 上傳檔案到 S3
+      const uploadResponse = await fetch(presignData.upload_url, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type
+        }
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('檔案上傳失敗');
+      }
+
+      // 3. 確認上傳
+      const confirmResponse = await fetch('/api/files/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: presignData.key
+        })
+      });
+
+      if (confirmResponse.ok) {
+        console.log(`檔案 ${file.name} 上傳成功`);
+      }
+
+    } catch (error) {
+      console.error(`檔案 ${file.name} 上傳失敗:`, error);
+      alert(`檔案 ${file.name} 上傳失敗: ${error.message}`);
+    }
+  };
+
+  const handleFolderCreate = (parentPath: string) => {
+    const folderName = prompt('請輸入資料夾名稱:');
+    if (folderName) {
+      console.log(`在 ${parentPath} 建立資料夾: ${folderName}`);
+      if (onFolderCreate) {
+        onFolderCreate(parentPath);
+      }
+      // TODO: 實現資料夾建立邏輯
+    }
+  };
+
+  const handleDelete = (path: string, type: 'folder' | 'file') => {
+    const confirmMessage = type === 'folder' 
+      ? `確定要刪除資料夾「${path}」及其所有內容嗎？`
+      : `確定要刪除檔案「${path}」嗎？`;
+    
+    if (confirm(confirmMessage)) {
+      console.log(`刪除 ${type}: ${path}`);
+      if (onDelete) {
+        onDelete(path, type);
+      }
+      // 這裡可以實現刪除邏輯
+    }
+  };
+
+  if (!isExpanded) return null;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm w-full">
+      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+        <h4 className="font-medium text-gray-800 text-sm lg:text-base truncate">
+          {caseId}_{clientName} 資料夾
+        </h4>
+        <button
+          onClick={onToggle}
+          className="text-gray-500 hover:text-gray-700 p-1 lg:p-0"
+        >
+          <ChevronDown className="w-4 h-4 lg:w-5 lg:h-5" />
+        </button>
+      </div>
+      <div className="p-2 max-h-64 lg:max-h-96 overflow-y-auto">
+        <FolderTreeNode
+          node={folderData}
+          level={0}
+          onFileUpload={handleFileUpload}
+          onFolderCreate={handleFolderCreate}
+          onDelete={handleDelete}
+        />
+      </div>
     </div>
   );
 }
