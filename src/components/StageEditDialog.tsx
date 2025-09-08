@@ -35,7 +35,7 @@ export default function StageEditDialog({
   const [date, setDate] = useState(initial?.date ?? '');
   const [time, setTime] = useState(initial?.time ?? '');
   const [note, setNote] = useState(initial?.note ?? '');
-  
+
   const tips = useMemo(
     () => (suggestions && suggestions.length ? suggestions : DEFAULT_SUGGESTIONS),
     [suggestions]
@@ -43,10 +43,10 @@ export default function StageEditDialog({
 
   const handleOpenStageFolder = () => {
     if (!caseId || !stageName) return;
-    
+
     const folderPath = FolderManager.getStageFolder(caseId, stageName);
     console.log(`開啟階段資料夾: ${folderPath}`);
-    
+
     // TODO: 實現開啟資料夾功能
     // 這裡可以觸發檔案上傳對話框，並預選該階段資料夾
     alert(`開啟階段資料夾：${stageName}\n路徑：${folderPath}`);
