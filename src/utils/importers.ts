@@ -11,10 +11,14 @@ const KEYWORDS       = ['案由','案號','當事人','原告','被告','上訴�
 
 type XLSXType = typeof import('xlsx');
 let xlsxPromise: Promise<XLSXType> | null = null;
+
 async function getXLSX(): Promise<XLSXType> {
-  if (!xlsxPromise) xlsxPromise = import('xlsx') as Promise<XLSXType>;
+  if (!xlsxPromise) {
+    xlsxPromise = import('xlsx') as Promise<XLSXType>;
+  }
   return xlsxPromise;
 }
+
 
 function detectSheetType(name: string, sampleText: string): '刑事' | '民事' | '未知' {
   const hay = `${name} ${sampleText}`.toLowerCase();
@@ -31,6 +35,7 @@ function buildTitleRow(row: Record<string, any>) {
 
 export async function parseExcelToCases(file: File): Promise<ImportedCase[]> {
   const XLSX = await getXLSX();
+
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
 
