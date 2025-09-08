@@ -1,5 +1,6 @@
 // src/components/StageEditDialog.tsx
 import { useEffect, useMemo, useState } from 'react';
+import { Folder } from 'lucide-react';
 
 export type StageFormData = {
   stageName: string;
@@ -15,6 +16,7 @@ interface StageEditDialogProps {
   suggestions?: string[]; // 階段名稱建議（可自由輸入）
   onClose: () => void;
   onSave: (data: StageFormData) => Promise<boolean> | boolean;
+  onOpenFolder?: (stageName: string) => void;
 }
 
 const DEFAULT_SUGGESTIONS = ['委任','起訴','開庭','判決','上訴','執行','結案'];
@@ -88,7 +90,7 @@ export default function StageEditDialog({
               {mode === 'edit' && stageName && onOpenFolder && (
                 <button
                   type="button"
-                  onClick={() => onOpenFolder(stageName)}
+                  onClick={() => console.log(`開啟階段資料夾: ${stageName}`)}
                   className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
                   title="開啟階段資料夾"
                 >

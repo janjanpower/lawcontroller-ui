@@ -61,6 +61,9 @@ class CaseStageManager {
     const currentStages = this.getCaseStages(caseId);
     const updatedStages = [...currentStages, stage];
     this.setCaseStages(caseId, updatedStages);
+    
+    // 建立階段資料夾
+    this.createStageFolder(caseId, stage.name);
   }
 
   public updateStage(caseId: string, stageIndex: number, updatedStage: CaseStageData['stages'][0]): void {
@@ -82,6 +85,9 @@ class CaseStageManager {
   public createDefaultFolders(caseId: string): void {
     // 建立預設資料夾結構的邏輯
     console.log(`為案件 ${caseId} 建立預設資料夾結構：狀紙、案件資訊、案件進度`);
+    
+    // 建立案件資訊 Excel 檔案
+    this.generateCaseInfoExcel(caseId, null);
   }
 
   public createStageFolder(caseId: string, stageName: string): void {
@@ -92,6 +98,12 @@ class CaseStageManager {
   public generateCaseInfoExcel(caseId: string, caseData: any): void {
     // 生成案件資訊 Excel 檔案
     console.log(`為案件 ${caseId} 生成案件資訊 Excel 檔案`);
+  }
+
+  public updateCaseInfoExcel(caseId: string, updatedData: any): void {
+    // 更新案件資訊 Excel 檔案
+    console.log(`更新案件 ${caseId} 的案件資訊 Excel 檔案`);
+    this.generateCaseInfoExcel(caseId, updatedData);
   }
 }
 

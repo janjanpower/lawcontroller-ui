@@ -792,7 +792,7 @@ export default function UserManagement() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email <span className="text-red-500">*</span>
+                      Email <span className="text-gray-400 text-xs">（選填）</span>
                     </label>
                     <input
                       type="email"
@@ -800,7 +800,6 @@ export default function UserManagement() {
                       onChange={(e) => setCreateUserData(prev => ({ ...prev, email: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
                       placeholder="請輸入Email"
-                      required
                     />
                   </div>
 

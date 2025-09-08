@@ -24,7 +24,6 @@ import ImportDataDialog from '../components/ImportDataDialog';
 import UnifiedDialog from '../components/UnifiedDialog';
 import DateReminderWidget from '../components/DateReminderWidget';
 import FolderTree from '../components/FolderTree';
-import CaseStageManager from '../utils/caseStageManager';
 
 // 導入型別
 import type {
@@ -36,6 +35,7 @@ import type {
   DialogConfig,
   VisibleColumns,
 } from '../types';
+import CaseStageManager from '../utils/caseStageManager';
 
 /* ------------------ 工具：型別轉換 ------------------ */
 function tableToFormCase(c: TableCase): FormCaseData {
@@ -78,7 +78,6 @@ function formToTableCase(form: FormCaseData, base?: TableCase): TableCase {
 /* ------------------ 主元件 ------------------ */
 export default function CaseOverview() {
   const navigate = useNavigate();
-  const stageManager = CaseStageManager.getInstance();
 
   // 案件資料狀態
   const [cases, setCases] = useState<TableCase[]>([]);
@@ -108,7 +107,7 @@ export default function CaseOverview() {
           progress: apiCase.progress || '',
           progressDate: apiCase.progress_date || '',
           status: apiCase.is_closed ? 'completed' : 'active',
-          stages: stageManager.getCaseStages(apiCase.id), // 從本地儲存載入階段資料
+          stages: [], // 初始為空陣列
         }));
         setCases(transformedCases);
       } else {
@@ -133,6 +132,15 @@ export default function CaseOverview() {
   // 初始載入
   useEffect(() => {
     loadCases();
+    
+    // 載入持久化的階段資料
+    const stageManager = CaseStageManager.getInstance();
+    setCases(prevCases => 
+      prevCases.map(caseItem => ({
+        ...caseItem,
+        stages: stageManager.getCaseStages(caseItem.id)
+      }))
+    );
   }, []);
 
   // 選擇和轉移狀態
@@ -216,17 +224,18 @@ export default function CaseOverview() {
   const handleDeleteStage = (idx: number) => {
     if (!selectedCase) return;
     
+    const stageManager = CaseStageManager.getInstance();
+    
     const stage = selectedCase.stages[idx];
     setDialogConfig({
       title: '確認刪除階段',
       message: `確定要刪除階段「${stage.name}」嗎？此操作無法復原。`,
       type: 'warning',
       onConfirm: () => {
-        const updatedStages = selectedCase.stages.filter((_, index) => index !== idx);
-        const updatedCase = { ...selectedCase, stages: updatedStages };
+        stageManager.deleteStage(selectedCase.id, idx);
         
-        // 更新本地管理器
-        stageManager.setCaseStages(selectedCase.id, updatedStages);
+        const updatedStages = stageManager.getCaseStages(selectedCase.id);
+        const updatedCase = { ...selectedCase, stages: updatedStages };
         
         setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updatedCase : c)));
         setSelectedCase(updatedCase);
@@ -239,6 +248,8 @@ export default function CaseOverview() {
 
   const handleSaveStage = async (data: StageFormData): Promise<boolean> => {
     if (!selectedCase) return false;
+    
+    const stageManager = CaseStageManager.getInstance();
 
     try {
       // 先同步到後端
@@ -268,74 +279,42 @@ export default function CaseOverview() {
       showError('新增階段失敗: 無法連接到伺服器');
       return false;
     }
-    const updateCase = (c: typeof selectedCase) => {
-      const nextStages = [...c.stages];
-
-      if (stageDialogMode === 'add') {
-        const existIdx = nextStages.findIndex((s) => s.name === data.stageName);
-        if (existIdx >= 0) {
-          const ok = window.confirm(`階段「${data.stageName}」已存在，是否更新日期 / 備註 / 時間？`);
-          if (!ok) return null;
-          nextStages[existIdx] = {
-            ...nextStages[existIdx],
-            date: data.date,
-            note: data.note,
-            time: data.time,
-          };
-        } else {
-          nextStages.push({
-            name: data.stageName,
-            date: data.date,
-            note: data.note,
-            time: data.time,
-            completed: false,
-          });
-          // 建立階段資料夾
-          stageManager.createStageFolder(selectedCase.id, data.stageName);
-        }
-      } else {
-        if (editingStageIndex == null || editingStageIndex < 0 || editingStageIndex >= nextStages.length) {
-          return null;
-        }
-        const before = nextStages[editingStageIndex];
-        const dupIdx = nextStages.findIndex(
-          (s, idx) => idx !== editingStageIndex && s.name === data.stageName
-        );
-        if (dupIdx >= 0) {
-          const ok = window.confirm(
-            `階段名稱「${data.stageName}」已存在，是否將本次編輯內容覆蓋該階段？（原階段將被更新）`
-          );
-          if (!ok) return null;
-          nextStages[dupIdx] = {
-            ...nextStages[dupIdx],
-            date: data.date,
-            note: data.note,
-            time: data.time,
-            completed: nextStages[dupIdx].completed || before.completed,
-          };
-          nextStages.splice(editingStageIndex, 1);
-        } else {
-          nextStages[editingStageIndex] = {
-            ...before,
-            name: data.stageName,
-            date: data.date,
-            note: data.note,
-            time: data.time,
-          };
-        }
-      }
-
-      return { ...c, stages: nextStages };
-    };
-
-    const updated = updateCase(selectedCase);
-    if (!updated) return false;
-
-    // 儲存到本地管理器
-    stageManager.setCaseStages(selectedCase.id, updated.stages);
-
-    setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updated : c)));
-    setSelectedCase(updated);
+    
+    // 使用 CaseStageManager 處理階段資料
+    if (stageDialogMode === 'add') {
+      const newStage = {
+        name: data.stageName,
+        date: data.date,
+        note: data.note,
+        time: data.time,
+        completed: false,
+      };
+      
+      stageManager.addStage(selectedCase.id, newStage);
+      
+      const updatedStages = stageManager.getCaseStages(selectedCase.id);
+      const updatedCase = { ...selectedCase, stages: updatedStages };
+      
+      setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updatedCase : c)));
+      setSelectedCase(updatedCase);
+    } else if (editingStageIndex !== null) {
+      const updatedStage = {
+        name: data.stageName,
+        date: data.date,
+        note: data.note,
+        time: data.time,
+        completed: selectedCase.stages[editingStageIndex]?.completed || false,
+      };
+      
+      stageManager.updateStage(selectedCase.id, editingStageIndex, updatedStage);
+      
+      const updatedStages = stageManager.getCaseStages(selectedCase.id);
+      const updatedCase = { ...selectedCase, stages: updatedStages };
+      
+      setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updatedCase : c)));
+      setSelectedCase(updatedCase);
+    }
+    
     return true;
   };
 
@@ -472,26 +451,29 @@ export default function CaseOverview() {
 
   const handleSaveCase = async (form: FormCaseData): Promise<boolean> => {
     try {
+      const stageManager = CaseStageManager.getInstance();
+      
       if (caseFormMode === 'add') {
         const newRow = formToTableCase(form);
-        // 為新案件建立預設資料夾和生成案件資訊檔案
-        stageManager.createDefaultFolders(newRow.id);
-        stageManager.generateCaseInfoExcel(newRow.id, form);
-        
         setCases((prev) => [...prev, newRow]);
         setSelectedCase(newRow);
+        
+        // 建立預設資料夾結構
+        stageManager.createDefaultFolders(newRow.id);
+        
         showSuccess('案件新增成功！');
       } else {
-        // 更新案件時也要更新案件資訊檔案
-        if (form.case_id) {
-          stageManager.generateCaseInfoExcel(form.case_id, form);
-        }
-        
         setCases((prev) =>
           prev.map((c) => (c.id === (form.case_id ?? '') ? formToTableCase(form, c) : c))
         );
         const updated = formToTableCase(form, selectedCase ?? undefined);
         setSelectedCase(updated);
+        
+        // 更新案件資訊 Excel
+        if (form.case_id) {
+          stageManager.updateCaseInfoExcel(form.case_id, form);
+        }
+        
         showSuccess('案件更新成功！');
       }
       return true;
@@ -606,7 +588,7 @@ export default function CaseOverview() {
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-4">
             {/* 跑馬燈：日期提醒 */}
-            <div className="w-full sm:w-[320px] lg:w-[420px] order-2 sm:order-1">
+            <div className="w-full sm:w-64 order-2 sm:order-1">
               <DateReminderWidget
                 caseData={reminderData}
                 onCaseSelect={onCaseSelectFromReminder}
@@ -624,6 +606,7 @@ export default function CaseOverview() {
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-sm w-full sm:w-64"
               />
             </div>
+            
             <button
               onClick={() => setShowFilters((s) => !s)}
               className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors order-3"
@@ -917,7 +900,7 @@ export default function CaseOverview() {
                   <button className="text-gray-400 hover:text-gray-600" title="更多">
                     <MoreHorizontal className="w-5 h-5" />
                   </button>
-              </div>
+                </div>
               </div>
 
               {/* 基本資訊 */}
@@ -1030,8 +1013,6 @@ export default function CaseOverview() {
         isOpen={showImportDialog}
         onClose={() => setShowImportDialog(false)}
         onImportComplete={handleImportComplete}
-        selectedCases={selectedIds}
-        availableCases={getAvailableCasesForUpload()}
       />
 
       <UnifiedDialog

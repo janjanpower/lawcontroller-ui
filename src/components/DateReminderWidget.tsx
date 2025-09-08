@@ -31,11 +31,8 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
   const [upcomingStages, setUpcomingStages] = useState<StageInfo[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [showTomorrowBell, setShowTomorrowBell] = useState(false);
 
   const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const bellTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ✅ 用 useCallback 包裝，避免 missing dependency 警告
   const calculateUpcomingStages = useCallback(() => {
@@ -102,31 +99,6 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
   }, [isExpanded, upcomingStages.length]);
 
   // 檢查明天案件並顯示鈴鐺
-  useEffect(() => {
-    if (upcomingStages.length > 0 && soundEnabled && !isExpanded) {
-      const currentStage = upcomingStages[currentIndex];
-      if (currentStage && currentStage.days_until === 1) {
-        setShowTomorrowBell(true);
-
-        // 模擬音效播放
-        console.log('🔔 明天案件提醒:', currentStage.client, '-', currentStage.stage_name);
-
-        bellTimeoutRef.current = setTimeout(() => {
-          setShowTomorrowBell(false);
-        }, 4500);
-      } else {
-        setShowTomorrowBell(false);
-      }
-    } else {
-      setShowTomorrowBell(false);
-    }
-
-    return () => {
-      if (bellTimeoutRef.current) {
-        clearTimeout(bellTimeoutRef.current);
-      }
-    };
-  }, [currentIndex, upcomingStages, soundEnabled, isExpanded]);
 
   const formatDisplayText = (stage: StageInfo): string => {
     const dateStr = stage.stage_date.toLocaleDateString('zh-TW', {
@@ -187,7 +159,7 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
       <div className="relative">
         <div
           onClick={() => setIsExpanded(true)}
-          className="bg-gray-100 border border-gray-300 rounded-md py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors h-10 flex items-center"
+          className="bg-gray-100 border border-gray-300 rounded-md py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors h-[42px] flex items-center"
         >
           {upcomingStages.length > 0 ? (
             <div className="w-full">
@@ -207,100 +179,100 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
 
       {/* 展開詳細列表 */}
       {isExpanded && (
-        <div 
-          className="fixed inset-0 z-40"
-          onClick={() => setIsExpanded(false)}
-        />
-      )}
-      {isExpanded && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
-          <div className="p-3 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="font-medium text-gray-900">未來 {daysAhead} 天內到期</h3>
-            <button
-              onClick={() => setIsExpanded(false)}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              ✕
-            </button>
-          </div>
+        <>
+          <div 
+            className="fixed inset-0 z-40"
+            onClick={() => setIsExpanded(false)}
+          />
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+            <div className="p-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="font-medium text-gray-900">未來 {daysAhead} 天內到期</h3>
+              <button
+                onClick={() => setIsExpanded(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
 
-          <div className="max-h-48 overflow-y-auto">
-            {upcomingStages.length > 0 ? (
-              upcomingStages.map((stage, index) => (
-                <div
-                  key={`${stage.case.case_id}-${stage.stage_name}`}
-                  onClick={() => handleStageClick(stage)}
-                  className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
-                    index === currentIndex ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            stage.is_overdue
-                              ? 'bg-red-500'
-                              : stage.is_today
-                              ? 'bg-orange-500'
-                              : stage.days_until === 1
-                              ? 'bg-yellow-500'
-                              : 'bg-green-500'
-                          }`}
-                        />
-                        <span className="text-sm font-medium text-gray-900">
-                          {stage.client.length > 8
-                            ? stage.client.substring(0, 8) + '...'
-                            : stage.client}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        {stage.stage_name.length > 10
-                          ? stage.stage_name.substring(0, 10) + '...'
-                          : stage.stage_name}
-                      </div>
-                      {stage.stage_time && (
-                        <div className="text-xs text-gray-500 flex items-center mt-1">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {stage.stage_time}
+            <div className="max-h-48 overflow-y-auto">
+              {upcomingStages.length > 0 ? (
+                upcomingStages.map((stage, index) => (
+                  <div
+                    key={`${stage.case.case_id}-${stage.stage_name}`}
+                    onClick={() => handleStageClick(stage)}
+                    className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
+                      index === currentIndex ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              stage.is_overdue
+                                ? 'bg-red-500'
+                                : stage.is_today
+                                ? 'bg-orange-500'
+                                : stage.days_until === 1
+                                ? 'bg-yellow-500'
+                                : 'bg-green-500'
+                            }`}
+                          />
+                          <span className="text-sm font-medium text-gray-900">
+                            {stage.client.length > 8
+                              ? stage.client.substring(0, 8) + '...'
+                              : stage.client}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <div
-                        className={`text-xs font-bold ${
-                          stage.is_overdue
-                            ? 'text-red-600'
-                            : stage.is_today
-                            ? 'text-orange-600'
-                            : stage.days_until === 1
-                            ? 'text-yellow-600'
-                            : 'text-gray-600'
-                        }`}
-                      >
-                        {stage.is_overdue
-                          ? '逾期'
-                          : stage.is_today
-                          ? '今日'
-                          : stage.days_until === 1
-                          ? '明日'
-                          : `${stage.days_until}天`}
+                        <div className="text-xs text-gray-600 mt-1">
+                          {stage.stage_name.length > 10
+                            ? stage.stage_name.substring(0, 10) + '...'
+                            : stage.stage_name}
+                        </div>
+                        {stage.stage_time && (
+                          <div className="text-xs text-gray-500 flex items-center mt-1">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {stage.stage_time}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {stage.stage_date.toLocaleDateString('zh-TW', {
-                          month: '2-digit',
-                          day: '2-digit',
-                        })}
+                      <div className="text-right">
+                        <div
+                          className={`text-xs font-bold ${
+                            stage.is_overdue
+                              ? 'text-red-600'
+                              : stage.is_today
+                              ? 'text-orange-600'
+                              : stage.days_until === 1
+                              ? 'text-yellow-600'
+                              : 'text-gray-600'
+                          }`}
+                        >
+                          {stage.is_overdue
+                            ? '逾期'
+                            : stage.is_today
+                            ? '今日'
+                            : stage.days_until === 1
+                            ? '明日'
+                            : `${stage.days_until}天`}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {stage.stage_date.toLocaleDateString('zh-TW', {
+                            month: '2-digit',
+                            day: '2-digit',
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))
-            ) : (
-              <div className="p-4 text-center text-gray-500 text-sm">無即將到期的案件</div>
-            )}
+                ))
+              ) : (
+                <div className="p-4 text-center text-gray-500 text-sm">無即將到期的案件</div>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

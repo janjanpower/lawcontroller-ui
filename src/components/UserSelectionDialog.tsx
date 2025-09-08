@@ -393,9 +393,11 @@ export default function UserSelectionDialog({
               <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                 <div className="text-center space-y-2">
                   <h3 className="font-medium text-blue-900 text-lg">{selectedUser.fullName || selectedUser.username}</h3>
-                  <p className="text-sm text-blue-700">暱稱：{selectedUser.username}</p>
-                  <p className="text-sm text-blue-700">部門：法務部</p>
-                  <p className="text-sm text-blue-700">職位：{selectedUser.role === 'admin' ? '管理員' : selectedUser.role === 'lawyer' ? '律師' : '法務'}</p>
+                  <div className="space-y-1">
+                    <p className="text-sm text-blue-700">暱稱：{selectedUser.username}</p>
+                    <p className="text-sm text-blue-700">部門：法務部</p>
+                    <p className="text-sm text-blue-700">職位：{selectedUser.role === 'admin' ? '管理員' : selectedUser.role === 'lawyer' ? '律師' : '法務'}</p>
+                  </div>
                 </div>
               </div>
 
