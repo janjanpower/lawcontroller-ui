@@ -199,69 +199,230 @@ export default function FolderTree({
     if (isExpanded && s3Config) {
       loadFolderStructure();
     }
-  }, [caseId]);
+  }, [caseId, isExpanded]);
 
   const loadFolderStructure = async () => {
     try {
-      // 確保預設資料夾存在
-      FolderManager.getCaseFolders(caseId);
+      const firmCode = localStorage.getItem('law_firm_code');
+      if (!firmCode) {
+        console.error('找不到事務所代碼');
+        return;
+      }
+
+      const response = await fetch(`/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`);
       
-      const response = await fetch(`/api/cases/${caseId}/files`);
+      console.log('API 回應狀態:', response.status, response.statusText);
+      
       if (response.ok) {
-        const files = await response.json();
+        const responseText = await response.text();
+        console.log('API 原始回應:', responseText);
+        
+        let filesData;
+        try {
+          filesData = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('解析 API 回應失敗:', parseError);
+          return;
+        }
+        
+        console.log('解析後的檔案資料:', filesData);
+        
         // 轉換檔案列表為樹狀結構
-        const treeData = buildFolderTree(files);
+        const treeData = buildFolderTree(filesData);
         setFolderData(treeData);
+      } else {
+        const errorText = await response.text();
+        console.error('載入檔案列表失敗:', response.status, errorText);
       }
     } catch (error) {
       console.error('載入資料夾結構失敗:', error);
     }
   };
 
-  const buildFolderTree = (files: any[]): FolderNode => {
-    // 使用 FolderManager 取得資料夾結構
-    const caseFolders = FolderManager.getCaseFolders(caseId);
-    
+  const buildFolderTree = (filesData: any): FolderNode => {
     const rootNode: FolderNode = {
       id: 'root',
       name: '案件資料夾',
       type: 'folder',
       path: '/',
-      children: caseFolders.map(folder => ({
-        id: folder.id,
-        name: folder.name,
-        type: 'folder' as const,
-        path: folder.path,
-        children: folder.children?.map(child => ({
-          id: child.id,
-          name: child.name,
-          type: 'folder' as const,
-          path: child.path,
-          children: []
-        })) || []
-      }))
+      children: []
     };
 
-    // 將檔案加入對應的資料夾
-    files.forEach(file => {
-      const fileNode: FolderNode = {
-        id: file.id,
-        name: file.name,
-        type: 'file',
-        path: file.path || `/${file.name}`,
-        size: file.size_bytes,
-        modified: file.created_at
+    console.log('開始建構資料夾樹，filesData 類型:', typeof filesData, Array.isArray(filesData));
+    
+    // 處理 API 回傳的資料
+    if (typeof filesData === 'object' && !Array.isArray(filesData)) {
+      // 檢查是否有 folders 資訊
+      if (filesData.folders && Array.isArray(filesData.folders)) {
+        console.log('找到資料夾資訊:', filesData.folders);
+        
+        // 建立資料夾結構
+        rootNode.children = filesData.folders.map((folder: any) => ({
+          id: folder.id,
+          name: folder.folder_name,
+          type: 'folder' as const,
+          path: folder.folder_path,
+          children: []
+        }));
+      } else {
+        // 如果沒有 folders 資訊，建立預設資料夾
+        rootNode.children = [
+          {
+            id: 'pleadings',
+            name: '狀紙',
+            type: 'folder' as const,
+            path: '/狀紙',
+            children: []
+          },
+          {
+            id: 'info',
+            name: '案件資訊',
+            type: 'folder' as const,
+            path: '/案件資訊',
+            children: []
+          },
+          {
+            id: 'progress',
+            name: '案件進度',
+            type: 'folder' as const,
+            path: '/案件進度',
+            children: []
+          }
+        ];
+      }
+      
+      // 處理檔案資料：{ pleadings: [...], info: [...], progress: [...] }
+      const folderMapping: Record<string, string> = {
+        'pleadings': '狀紙',
+        'info': '案件資訊',
+        'progress': '案件進度'
       };
 
-      // 根據檔案路徑決定放在哪個資料夾
-      // 這裡可以根據實際需求調整邏輯
-      if (rootNode.children && rootNode.children[0].children) {
-        rootNode.children[0].children.push(fileNode);
-      }
-    });
+      Object.entries(filesData).forEach(([folderType, files]) => {
+        if (folderType === 'folders') return; // 跳過 folders 欄位
+        
+        const folderName = folderMapping[folderType];
+        if (folderName && Array.isArray(files)) {
+          console.log(`處理 ${folderType} 資料夾，檔案數量:`, files.length);
+          
+          const targetFolder = rootNode.children?.find(f => f.name === folderName);
+          if (targetFolder) {
+            files.forEach((file: any) => {
+              const fileNode: FolderNode = {
+                id: file.id,
+                name: file.name,
+                type: 'file',
+                path: `${targetFolder.path}/${file.name}`,
+                size: file.size_bytes,
+                modified: file.created_at
+              };
+              if (!targetFolder.children) targetFolder.children = [];
+              targetFolder.children.push(fileNode);
+            });
+          } else {
+            console.warn(`找不到對應的資料夾: ${folderName}`);
+          }
+        }
+      });
+    } else if (Array.isArray(filesData)) {
+      // 舊版 API 回傳格式：檔案陣列
+      console.log('處理陣列格式的檔案資料，數量:', filesData.length);
+      
+      // 建立預設資料夾
+      rootNode.children = [
+        {
+          id: 'pleadings',
+          name: '狀紙',
+          type: 'folder' as const,
+          path: '/狀紙',
+          children: []
+        },
+        {
+          id: 'info',
+          name: '案件資訊',
+          type: 'folder' as const,
+          path: '/案件資訊',
+          children: []
+        },
+        {
+          id: 'progress',
+          name: '案件進度',
+          type: 'folder' as const,
+          path: '/案件進度',
+          children: []
+        }
+      ];
+      
+      filesData.forEach(file => {
+        const fileNode: FolderNode = {
+          id: file.id,
+          name: file.name,
+          type: 'file',
+          path: file.path || `/${file.name}`,
+          size: file.size_bytes,
+          modified: file.created_at
+        };
 
+        // 預設放在第一個資料夾
+        if (rootNode.children && rootNode.children[0]) {
+          if (!rootNode.children[0].children) rootNode.children[0].children = [];
+          rootNode.children[0].children.push(fileNode);
+        }
+      });
+    } else {
+      console.log('未知的檔案資料格式，建立預設資料夾');
+      
+      // 建立預設資料夾結構
+      rootNode.children = [
+        {
+          id: 'pleadings',
+          name: '狀紙',
+          type: 'folder' as const,
+          path: '/狀紙',
+          children: []
+        },
+        {
+          id: 'info',
+          name: '案件資訊',
+          type: 'folder' as const,
+          path: '/案件資訊',
+          children: []
+        },
+        {
+          id: 'progress',
+          name: '案件進度',
+          type: 'folder' as const,
+          path: '/案件進度',
+          children: []
+        }
+      ];
+    }
+
+    console.log('最終建構的資料夾樹:', rootNode);
     return rootNode;
   };
+
+  const uploadFileToS3 = async (file: File, folderPath: string) => {
+    try {
+      const firmCode = localStorage.getItem('law_firm_code');
+      if (!firmCode) {
+        throw new Error('找不到事務所代碼');
+      }
+
+      // 將資料夾路徑轉換為 folder_type
+      const folderTypeMapping: Record<string, string> = {
+        '/狀紙': 'pleadings',
+        '/案件資訊': 'info',
+        '/案件進度': 'progress'
+      };
+
+      const folderType = Object.keys(folderTypeMapping).find(key => 
+        folderPath.includes(key)
+      );
+      
+      const mappedType = folderType ? folderTypeMapping[folderType] : 'progress';
+      
+      console.log('資料夾路徑對應:', { folderPath, folderType, mappedType });
 
   const handleFileUpload = (folderPath: string) => {
     if (!s3Config) {
@@ -290,54 +451,49 @@ export default function FolderTree({
     }
   };
 
-  const uploadFileToS3 = async (file: File, folderPath: string) => {
-    try {
-      // 1. 取得預簽名 URL
-      const presignResponse = await fetch(`/api/cases/${caseId}/files/presign`, {
+      const folderType = mappedType;
+
+      // 建立 FormData
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder_type', folderType);
+
+      console.log('準備上傳檔案:', {
+        fileName: file.name,
+        folderPath,
+        folderType,
+        caseId
+      });
+
+      // 直接上傳檔案
+      const uploadResponse = await fetch(`/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: file.name,
-          folder_slug: folderPath.replace('/', ''),
-          content_type: file.type
-        })
+        body: formData
       });
 
-      if (!presignResponse.ok) {
-        throw new Error('取得上傳 URL 失敗');
-      }
-
-      const presignData = await presignResponse.json();
-
-      // 2. 上傳檔案到 S3
-      const uploadResponse = await fetch(presignData.upload_url, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type
-        }
-      });
+      console.log('上傳回應狀態:', uploadResponse.status, uploadResponse.statusText);
 
       if (!uploadResponse.ok) {
-        throw new Error('檔案上傳失敗');
+        const errorText = await uploadResponse.text();
+        console.error('上傳失敗回應:', errorText);
+        
+        let errorMessage = '檔案上傳失敗';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.detail || errorMessage;
+        } catch {
+          errorMessage = `上傳失敗: ${uploadResponse.status} ${errorText.substring(0, 100)}`;
+        }
+        
+        throw new Error(errorMessage);
       }
 
-      // 3. 確認上傳
-      const confirmResponse = await fetch('/api/files/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          key: presignData.key
-        })
-      });
-
-      if (confirmResponse.ok) {
-        console.log(`檔案 ${file.name} 上傳成功`);
-      }
+      const result = await uploadResponse.json();
+      console.log(`檔案 ${file.name} 上傳成功:`, result);
 
     } catch (error) {
       console.error(`檔案 ${file.name} 上傳失敗:`, error);
-      alert(`檔案 ${file.name} 上傳失敗: ${error.message}`);
+      alert(`檔案 ${file.name} 上傳失敗: ${error.message || error}`);
     }
   };
 

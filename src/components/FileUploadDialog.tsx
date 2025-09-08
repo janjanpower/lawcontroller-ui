@@ -64,17 +64,46 @@ export default function FileUploadDialog({
     setIsUploading(true);
 
     try {
+      const firmCode = localStorage.getItem('law_firm_code');
+      if (!firmCode) {
+        throw new Error('找不到事務所代碼');
+      }
+
+      // 將資料夾名稱轉換為 folder_type
+      const folderTypeMapping: Record<string, string> = {
+        '狀紙': 'pleadings',
+        '案件資訊': 'info',
+        '案件進度': 'progress'
+      };
+
+      const folderType = folderTypeMapping[selectedFolder] || 'progress';
+
       for (const file of selectedFiles) {
-        // TODO: 實現真實的檔案上傳 API 呼叫
         console.log('上傳檔案:', {
           file: file.name,
           caseId: selectedCase,
-          folderPath: selectedFolder,
+          folderType: folderType,
           size: file.size
         });
 
-        // 模擬上傳過程
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // 建立 FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder_type', folderType);
+
+        // 呼叫上傳 API
+        const response = await fetch(`/api/cases/${selectedCase}/files?firm_code=${encodeURIComponent(firmCode)}`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || `上傳 ${file.name} 失敗`);
+        }
+
+        const result = await response.json();
+        console.log('檔案上傳成功:', result);
       }
 
       alert(`成功上傳 ${selectedFiles.length} 個檔案到案件資料夾`);

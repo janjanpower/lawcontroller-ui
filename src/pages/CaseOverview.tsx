@@ -62,7 +62,7 @@ const stageManager = {
   },
   updateCaseInFirm: (firmCode: string, updatedCase: any) => {
     const existingCases = stageManager.getFirmCases(firmCode);
-    const updatedCases = existingCases.map(c =>
+    const updatedCases = existingCases.map(c => 
       c.id === updatedCase.id ? updatedCase : c
     );
     stageManager.setFirmCases(firmCode, updatedCases);
@@ -125,22 +125,22 @@ export default function CaseOverview() {
   const loadCases = async () => {
     try {
       const firmCode = getFirmCodeOrThrow();
-
+      
       // 先嘗試從本地存儲載入
       const localCases = stageManager.getFirmCases(firmCode);
       if (localCases.length > 0) {
         console.log('從本地存儲載入案件:', localCases.length, '筆');
         setCases(localCases);
       }
-
+      
       // 然後從 API 載入最新資料
       const response = await fetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`);
-
+      
       if (!response.ok) {
         const txt = await response.text();
         const msg = `載入案件失敗：${response.status} ${txt}`;
         console.error(msg);
-
+        
         // 4xx/5xx 也要 fallback 到本地快取
         const fallback = stageManager.getFirmCases(firmCode);
         if (fallback.length > 0) {
@@ -151,18 +151,18 @@ export default function CaseOverview() {
         }
         return;
       }
-
+      
       try {
         const data = await response.json();
         console.log('API 回應資料:', data);
-
+        
         // 轉換API資料格式為前端格式
         const transformedCases = (data.items || []).map((apiCase: any) => {
           const caseId = apiCase.id;
           const stages = stageManager.getCaseStages(caseId);
-
+          
           console.log('轉換案件資料:', apiCase);
-
+          
           return {
             id: caseId,
             caseNumber: apiCase.case_number || '',
@@ -180,10 +180,10 @@ export default function CaseOverview() {
             stages: stages,
           };
         });
-
+        
         console.log('轉換後的案件資料:', transformedCases);
         setCases(transformedCases);
-
+        
         // 將案件資料存儲到本地
         stageManager.setFirmCases(firmCode, transformedCases);
       } catch (parseError) {
@@ -299,7 +299,7 @@ export default function CaseOverview() {
 
   const handleDeleteStage = (idx: number) => {
     if (!selectedCase) return;
-
+    
     const stage = selectedCase.stages[idx];
     setDialogConfig({
       title: '確認刪除階段',
@@ -308,14 +308,14 @@ export default function CaseOverview() {
       onConfirm: () => {
         const updatedStages = selectedCase.stages.filter((_, index) => index !== idx);
         const updatedCase = { ...selectedCase, stages: updatedStages };
-
+        
         // 更新本地狀態
         setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updatedCase : c)));
         setSelectedCase(updatedCase);
-
+        
         // 更新持久化存儲
         stageManager.setCaseStages(selectedCase.id, updatedStages);
-
+        
         setShowUnifiedDialog(false);
         showSuccess('階段已刪除');
       },
@@ -337,7 +337,7 @@ export default function CaseOverview() {
         body: JSON.stringify({
           stage_name: data.stageName,  // 修正欄位名稱
           stage_date: data.date,
-          completed: false,
+          is_completed: false,
           sort_order: selectedCase.stages.length
         }),
       });
@@ -414,15 +414,15 @@ export default function CaseOverview() {
       // 更新本地狀態
       setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updated : c)));
       setSelectedCase(updated);
-
+      
       // 更新持久化存儲
       stageManager.setCaseStages(selectedCase.id, updated.stages);
-
+      
       // 建立階段資料夾
       if (stageDialogMode === 'add') {
         FolderManager.createStageFolder(selectedCase.id, data.stageName);
       }
-
+      
       return true;
     } catch (error) {
       console.error('新增階段請求失敗:', error);
@@ -565,16 +565,16 @@ export default function CaseOverview() {
     try {
       console.log('DEBUG: handleSaveCase 收到資料:', form);
       const firmCode = getFirmCodeOrThrow();
-
+      
       if (caseFormMode === 'add') {
         // 新增模式：資料已經在 CaseForm 中處理過後端 API
         // 這裡只需要重新載入案件列表
         console.log('DEBUG: 新增案件成功，重新載入列表');
-
+        
         // 建立預設資料夾結構
         if (form.case_id) {
           FolderManager.createDefaultFolders(form.case_id);
-
+          
           // 建立案件資訊 Excel 檔案
           FolderManager.createCaseInfoExcel(form.case_id, {
             caseNumber: form.case_number || '',
@@ -591,7 +591,7 @@ export default function CaseOverview() {
             createdDate: new Date().toLocaleDateString('zh-TW')
           });
         }
-
+        
         // 建立新案件物件並加入本地存儲
         const newCase: TableCase = {
           id: form.case_id || `case_${Date.now()}`,
@@ -609,26 +609,26 @@ export default function CaseOverview() {
           status: 'active',
           stages: [],
         };
-
+        
         // 立即更新本地狀態和存儲
         setCases(prev => [...prev, newCase]);
         stageManager.addCaseToFirm(firmCode, newCase);
-
+        
         // 背景重新載入以同步最新資料
         loadCases();
-
+        
         showSuccess('案件新增成功！');
       } else {
         // 編輯模式：同樣重新載入列表
         console.log('DEBUG: 編輯案件成功，重新載入列表');
-
+        
         const updated = formToTableCase(form, selectedCase ?? undefined);
         setSelectedCase(updated);
-
+        
         // 立即更新本地狀態和存儲
         setCases(prev => prev.map(c => c.id === updated.id ? updated : c));
         stageManager.updateCaseInFirm(firmCode, updated);
-
+        
         // 更新案件資訊Excel檔案
         if (form.case_id) {
           FolderManager.updateCaseInfoExcel(form.case_id, {
@@ -645,10 +645,10 @@ export default function CaseOverview() {
             progressDate: form.progress_date || ''
           });
         }
-
+        
         // 背景重新載入以同步最新資料
         loadCases();
-
+        
         showSuccess('案件更新成功！');
       }
       return true;
@@ -666,14 +666,14 @@ export default function CaseOverview() {
       type: 'warning',
       onConfirm: () => {
         const firmCode = getFirmCodeOrThrow();
-
+        
         // 從本地狀態和存儲中移除
         setCases((prev) => prev.filter((c) => c.id !== row.id));
         stageManager.removeCaseFromFirm(firmCode, row.id);
-
+        
         if (selectedCase?.id === row.id) setSelectedCase(null);
         setShowUnifiedDialog(false);
-
+        
         // TODO: 呼叫後端 API 刪除案件
         // fetch(`/api/cases/${row.id}?firm_code=${encodeURIComponent(firmCode)}`, { method: 'DELETE' })
       },
@@ -1151,7 +1151,7 @@ export default function CaseOverview() {
 
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
-                            <span
+                            <span 
                               className="text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600"
                               onClick={() => openEditStage(idx)}
                               title="點擊編輯此進度"
