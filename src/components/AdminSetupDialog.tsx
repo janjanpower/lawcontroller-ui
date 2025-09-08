@@ -15,19 +15,19 @@ interface AdminSetupDialogProps {
   onSetupComplete: (adminUserId: string) => void;
 }
 
-export default function AdminSetupDialog({ 
-  isOpen, 
-  onClose, 
-  firmId, 
-  firmName, 
-  onSetupComplete 
+export default function AdminSetupDialog({
+  isOpen,
+  onClose,
+  firmId,
+  firmName,
+  onSetupComplete
 }: AdminSetupDialogProps) {
   const [formData, setFormData] = useState<AdminSetupData>({
     adminName: '',
     adminEmail: '',
     adminPhone: ''
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -65,11 +65,11 @@ export default function AdminSetupDialog({
         admin_email: formData.adminEmail,
         admin_phone: formData.adminPhone
       });
-      
+
       // 模擬 API 回應
       await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const response = await fetch('/api/auth/setup-admin', {
+
+      const response = await apiFetch('/api/auth/setup-admin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,7 +90,7 @@ export default function AdminSetupDialog({
       } else {
         setErrors({ submit: data.detail || data.message || '設定管理員失敗' });
       }
-      
+
     } catch (error) {
       console.error('設定管理員請求失敗:', error);
       setErrors({ submit: `網路錯誤: ${error.message || '無法連接到伺服器'}` });

@@ -109,10 +109,10 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
     setLoading(true);
     try {
       const firmCode = getFirmCodeOrThrow();
-      
+
       if (mode === 'add') {
         // 健康檢查
-        const healthResponse = await fetch('/api/healthz', { method: 'GET' });
+        const healthResponse = await apiFetch('/api/healthz', { method: 'GET' });
         if (!healthResponse.ok) throw new Error('後端服務不可用');
         const health = await healthResponse.json();
         if (!health?.ok) throw new Error(`服務異常（db=${health?.db ?? 'unknown'}）`);
@@ -145,11 +145,11 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         if (!response.ok) {
           let errorMessage = '新增案件失敗';
           let errorText = '';
-          
+
           try {
             errorText = await response.text();
             console.error('後端錯誤回應內容:', errorText);
-            
+
             if (errorText.trim().startsWith('<')) {
               errorMessage = `伺服器錯誤 (${response.status}): API 端點可能不存在或伺服器內部錯誤`;
             } else {
@@ -164,7 +164,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
             console.error('無法讀取錯誤回應:', textError);
             errorMessage = `伺服器錯誤 (${response.status}): 無法讀取錯誤詳情`;
           }
-          
+
           throw new Error(errorMessage);
         }
 
@@ -172,21 +172,21 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         try {
           const responseText = await response.text();
           console.log('後端成功回應原始內容:', responseText);
-          
+
           if (!responseText.trim()) {
             throw new Error('後端回應為空');
           }
-          
+
           if (responseText.trim().startsWith('<')) {
             throw new Error('後端回應了 HTML 而不是 JSON，可能是路由配置問題');
           }
-          
+
           responseData = JSON.parse(responseText);
         } catch (parseError) {
           console.error('解析後端回應失敗:', parseError);
           throw new Error('後端回應格式錯誤，無法解析 JSON');
         }
-        
+
         console.log('後端回應成功:', responseData);
 
         // 將後端回應的資料轉換為前端格式
@@ -206,7 +206,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         };
 
         console.log('DEBUG: 準備呼叫 onSave，資料:', savedCaseData);
-        
+
         // 呼叫前端的 onSave 回調
         const success = await onSave(savedCaseData);
         if (success) {
@@ -270,7 +270,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         console.log('後端更新回應成功:', responseData);
 
         console.log('DEBUG: 準備呼叫 onSave (編輯模式)，資料:', formData);
-        
+
         // 呼叫前端的 onSave 回調
         const success = await onSave(formData);
         if (success) {

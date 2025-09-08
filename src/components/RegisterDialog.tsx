@@ -21,7 +21,7 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
     password: '',
     confirmPassword: ''
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -81,11 +81,11 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
         password: formData.password,
         confirm_password: formData.confirmPassword
       });
-      
+
       // 模擬 API 回應
       await new Promise(resolve => setTimeout(resolve, 1000)); // 模擬網路延遲
-      
-      const response = await fetch('/api/auth/register', {
+
+      const response = await apiFetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -101,8 +101,8 @@ export default function RegisterDialog({ isOpen, onClose, onRegisterSuccess }: R
       const data = await response.json();
 
       if (response.ok && data.success) {
-        onRegisterSuccess({ 
-          success: true, 
+        onRegisterSuccess({
+          success: true,
           account: formData.account
         });
         handleClose();

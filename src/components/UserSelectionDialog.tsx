@@ -46,18 +46,18 @@ export default function UserSelectionDialog({
     try {
       setLoading(true);
       setError('');
-      
+
       console.log('DEBUG: 開始載入用戶列表，firm_code:', firm.firmCode);
-      
+
       const res = await fetch(`/api/users?firm_code=${encodeURIComponent(firm.firmCode)}`, {
         method: 'GET'
       });
-      
+
       console.log('DEBUG: API 回應狀態:', res.status, res.statusText);
-      
+
       const raw = await res.text();
       console.log('DEBUG: API 原始回應:', raw);
-      
+
       let data: any = null;
       try {
         data = raw ? JSON.parse(raw) : null;
@@ -70,7 +70,7 @@ export default function UserSelectionDialog({
       }
 
       console.log('DEBUG: 開始轉換用戶資料，items 數量:', data?.items?.length || 0);
-      
+
       const mapped: UserType[] = (data?.items ?? []).map((u: any, index: number) => {
         console.log(`DEBUG: 轉換用戶 ${index}:`, u);
         return {
@@ -126,7 +126,7 @@ export default function UserSelectionDialog({
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/verify-user-password', {
+      const res = await apiFetch('/api/auth/verify-user-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -202,13 +202,13 @@ export default function UserSelectionDialog({
 
     setLoading(true);
     try {
-      
+
       // 檢查是否為第一個用戶，如果是則設為管理員
       const existingUsersResponse = await fetch(`/api/users?firm_code=${firm.firmCode}`);
       const existingUsersData = await existingUsersResponse.json();
       const isFirstUser = !existingUsersData.items || existingUsersData.items.length === 0;
-      
-      const res = await fetch('/api/users', {
+
+      const res = await apiFetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -252,7 +252,7 @@ export default function UserSelectionDialog({
       setShowCreateUser(false);
       setError('');
       alert('用戶新增成功！');
-      
+
       if (isFirstUser) {
         alert('第一個用戶已設為管理員！');
       }
@@ -267,13 +267,13 @@ export default function UserSelectionDialog({
   // 刪除用戶確認
   const handleDeleteUserConfirm = async () => {
     if (!deleteUserId) return;
-    
+
     if (deletePasswordType === 'personal') {
       // 使用個人密碼刪除
       await handleDeleteWithPersonalPassword();
       return;
     }
-    
+
     // 使用管理員密碼刪除
     setLoading(true);
     setError('');
@@ -321,7 +321,7 @@ export default function UserSelectionDialog({
     setError('');
     try {
       // 先驗證個人密碼
-      const verifyRes = await fetch('/api/auth/verify-user-password', {
+      const verifyRes = await apiFetch('/api/auth/verify-user-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -413,7 +413,7 @@ export default function UserSelectionDialog({
                         setPersonalPassword(value);
                       }}
                       className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
-                      style={{ 
+                      style={{
                         WebkitTextSecurity: showPersonalPassword ? 'none' : 'disc',
                         MozAppearance: 'textfield'
                       }}
@@ -532,7 +532,7 @@ export default function UserSelectionDialog({
                           setCreateUserData(prev => ({ ...prev, personalPassword: value }));
                         }}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-[#334d6d] outline-none text-center tracking-widest"
-                        style={{ 
+                        style={{
                           WebkitAppearance: 'none',
                           MozAppearance: 'textfield'
                         }}
@@ -553,7 +553,7 @@ export default function UserSelectionDialog({
                           setCreateUserData(prev => ({ ...prev, confirmPersonalPassword: value }));
                         }}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-[#334d6d] outline-none text-center tracking-widest"
-                        style={{ 
+                        style={{
                           WebkitAppearance: 'none',
                           MozAppearance: 'textfield'
                         }}
@@ -613,7 +613,7 @@ export default function UserSelectionDialog({
                     ))}
                   </div>
                 )}
-                
+
                 {/* 顯示用戶數量限制 */}
                 {users.length >= firm.maxUsers && (
                   <div className="bg-red-50 border border-red-200 rounded-md p-3">
@@ -638,7 +638,7 @@ export default function UserSelectionDialog({
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-sm">
               <h3 className="text-lg font-semibold mb-4">確認刪除用戶</h3>
-              
+
               {/* 密碼類型選擇 */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">驗證方式</label>
@@ -671,14 +671,14 @@ export default function UserSelectionDialog({
                   </label>
                 </div>
               </div>
-              
+
               <p className="text-sm text-gray-600 mb-4">
                 請輸入{deletePasswordType === 'admin' ? '管理員' : '個人'}密碼以確認刪除用戶：
                 <strong className="ml-1">
                   {users.find(u => u.id === deleteUserId)?.fullName || users.find(u => u.id === deleteUserId)?.username}
                 </strong>
               </p>
-              
+
               <div className="relative mb-4">
                 <input
                   type={showDeletePassword ? 'text' : 'password'}
@@ -709,7 +709,7 @@ export default function UserSelectionDialog({
                   )}
                 </button>
               </div>
-              
+
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-md p-2 mb-4">
                   <div className="text-sm text-red-700">{error}</div>

@@ -17,9 +17,9 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
   const [error, setError] = useState('');
 
   // 調試日誌
-  console.log('PlanSelectionDialog render:', { 
-    isOpen, 
-    firm: !!firm, 
+  console.log('PlanSelectionDialog render:', {
+    isOpen,
+    firm: !!firm,
     firmName: firm?.firmName,
     hasPlan: firm?.hasPlan,
     canUseFree: firm?.canUseFree
@@ -31,7 +31,7 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/update-plan', {
+      const response = await apiFetch('/api/auth/update-plan', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -50,7 +50,7 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
       } else {
         setError(data.detail || data.message || '方案選擇失敗');
       }
-      
+
     } catch {
       console.error('方案選擇失敗:', error);
       setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
@@ -123,7 +123,7 @@ export default function PlanSelectionDialog({ isOpen, onClose, firm, onComplete 
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-[#334d6d]">
-                        {key === 'basic' ? '月付1999' : 
+                        {key === 'basic' ? '月付1999' :
                          key === 'advanced' ? '月付 $1,999' :
                          key === 'premium' ? '月付 $3,999' : '月付 $6,999'}
                       </div>

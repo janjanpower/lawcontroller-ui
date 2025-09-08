@@ -43,7 +43,7 @@ export default function UserManagement() {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
       const response = await fetch(`/api/users?firm_code=${firmCode}`);
       const data = await response.json();
-      
+
       if (response.ok) {
         // 轉換 API 資料格式
         const transformedUsers = (data.items || []).map((apiUser: any) => ({
@@ -57,8 +57,8 @@ export default function UserManagement() {
           createdAt: apiUser.created_at,
           lastLogin: apiUser.last_login,
           department: '法務部', // 預設值
-          position: apiUser.role === 'admin' ? '管理員' : 
-                   apiUser.role === 'lawyer' ? '律師' : 
+          position: apiUser.role === 'admin' ? '管理員' :
+                   apiUser.role === 'lawyer' ? '律師' :
                    apiUser.role === 'legal_affairs' ? '法務' : '助理'
         }));
         setUsers(transformedUsers);
@@ -157,7 +157,7 @@ export default function UserManagement() {
 
       if (response.ok && data.success) {
         // 更新本地狀態
-        setUsers(prev => prev.map(u => 
+        setUsers(prev => prev.map(u =>
           u.id === userId ? { ...u, isActive: data.is_active } : u
         ));
       } else {
@@ -206,8 +206,8 @@ export default function UserManagement() {
     setLoading(true);
 
     // 驗證表單
-    if (!createUserData.username || !createUserData.fullName || 
-        !createUserData.personalPassword || 
+    if (!createUserData.username || !createUserData.fullName ||
+        !createUserData.personalPassword ||
         !createUserData.confirmPersonalPassword) {
       setError('請填寫所有必填欄位');
       setLoading(false);
@@ -235,7 +235,7 @@ export default function UserManagement() {
 
     try {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
-      const response = await fetch('/api/users', {
+      const response = await apiFetch('/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -267,7 +267,7 @@ export default function UserManagement() {
       if (response.ok) {
         // 重新載入用戶列表
         await loadUsers();
-        
+
         // 重置表單
         setCreateUserData({
           username: '',
@@ -280,12 +280,12 @@ export default function UserManagement() {
         });
         setShowCreateUser(false);
         setError('');
-        
+
         alert('用戶新增成功！');
       } else {
         setError(data.detail || data.message || '新增用戶失敗');
       }
-      
+
     } catch (error) {
       console.error('新增用戶錯誤:', error);
       setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
@@ -463,8 +463,8 @@ export default function UserManagement() {
                           <button
                             onClick={() => handleToggleStatus(user.id)}
                             className={`transition-colors ${
-                              user.isActive 
-                                ? 'text-gray-400 hover:text-red-600' 
+                              user.isActive
+                                ? 'text-gray-400 hover:text-red-600'
                                 : 'text-gray-400 hover:text-green-600'
                             }`}
                             title={user.isActive ? '停用' : '啟用'}
@@ -499,7 +499,7 @@ export default function UserManagement() {
                   }`}
                 >
                   <div>
-                    <div 
+                    <div
                       className="flex items-center cursor-pointer"
                       onClick={() => setSelectedUser(user)}
                     >
@@ -512,7 +512,7 @@ export default function UserManagement() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs">
                       <div>
@@ -528,7 +528,7 @@ export default function UserManagement() {
                         </span>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-1 text-xs text-gray-600">
                       <div><span className="text-gray-500">部門：</span>{user.department}</div>
                       <div><span className="text-gray-500">職位：</span>{user.position}</div>
@@ -536,13 +536,13 @@ export default function UserManagement() {
                       <div><span className="text-gray-500">電話：</span>{user.phone || '未設定'}</div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <div className="text-xs text-gray-500 border-t pt-2">
                       <div><span className="text-gray-500">最後登入：</span>{user.lastLogin ? new Date(user.lastLogin).toLocaleString('zh-TW') : '從未登入'}</div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <div className="flex justify-end space-x-2 border-t pt-2">
                       <button
@@ -568,8 +568,8 @@ export default function UserManagement() {
                             handleToggleStatus(user.id);
                           }}
                           className={`text-xs ${
-                            user.isActive 
-                              ? 'text-red-600 hover:text-red-800' 
+                            user.isActive
+                              ? 'text-red-600 hover:text-red-800'
                               : 'text-green-600 hover:text-green-800'
                           }`}
                         >
