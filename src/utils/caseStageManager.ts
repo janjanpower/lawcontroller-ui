@@ -1,4 +1,6 @@
 // 案件階段管理工具
+import type { TableCase } from '../types';
+
 export interface CaseStageData {
   caseId: string;
   stages: Array<{
@@ -13,6 +15,7 @@ export interface CaseStageData {
 class CaseStageManager {
   private static instance: CaseStageManager;
   private stageData: Map<string, CaseStageData> = new Map();
+  private caseData: Map<string, TableCase[]> = new Map(); // 新增案件資料存儲
 
   private constructor() {
     // 從 localStorage 載入資料
@@ -33,6 +36,13 @@ class CaseStageManager {
         const data = JSON.parse(stored);
         this.stageData = new Map(Object.entries(data));
       }
+      
+      // 載入案件資料
+      const caseStored = localStorage.getItem('case_data_by_firm');
+      if (caseStored) {
+        const caseData = JSON.parse(caseStored);
+        this.caseData = new Map(Object.entries(caseData));
+      }
     } catch (error) {
       console.error('載入案件階段資料失敗:', error);
     }
@@ -42,9 +52,43 @@ class CaseStageManager {
     try {
       const data = Object.fromEntries(this.stageData);
       localStorage.setItem('case_stages_data', JSON.stringify(data));
+      
+      // 儲存案件資料
+      const caseData = Object.fromEntries(this.caseData);
+      localStorage.setItem('case_data_by_firm', JSON.stringify(caseData));
     } catch (error) {
       console.error('儲存案件階段資料失敗:', error);
     }
+  }
+
+  // 案件資料管理方法
+  public getFirmCases(firmCode: string): TableCase[] {
+    return this.caseData.get(firmCode) || [];
+  }
+
+  public setFirmCases(firmCode: string, cases: TableCase[]): void {
+    this.caseData.set(firmCode, cases);
+    this.saveToStorage();
+  }
+
+  public addCaseToFirm(firmCode: string, newCase: TableCase): void {
+    const existingCases = this.getFirmCases(firmCode);
+    const updatedCases = [...existingCases, newCase];
+    this.setFirmCases(firmCode, updatedCases);
+  }
+
+  public updateCaseInFirm(firmCode: string, updatedCase: TableCase): void {
+    const existingCases = this.getFirmCases(firmCode);
+    const updatedCases = existingCases.map(c => 
+      c.id === updatedCase.id ? updatedCase : c
+    );
+    this.setFirmCases(firmCode, updatedCases);
+  }
+
+  public removeCaseFromFirm(firmCode: string, caseId: string): void {
+    const existingCases = this.getFirmCases(firmCode);
+    const updatedCases = existingCases.filter(c => c.id !== caseId);
+    this.setFirmCases(firmCode, updatedCases);
   }
 
   public getCaseStages(caseId: string): CaseStageData['stages'] {

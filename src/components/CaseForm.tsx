@@ -108,12 +108,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
     setLoading(true);
     try {
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
-
-      // 檢查事務所代碼是否存在
-      if (!firmCode || firmCode === 'default') {
-        throw new Error('未找到有效的事務所代碼，請重新登入');
-      }
-
+      
       if (mode === 'add') {
         // 新增案件 - 呼叫後端 API
         const caseDataForAPI = {
@@ -139,14 +134,11 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           if (!healthResponse.ok) {
             throw new Error('後端服務不可用');
           }
-          const healthData = await healthResponse.json();
-          console.log('後端服務檢查通過:', healthData);
         } catch (healthError) {
           console.error('後端服務檢查失敗:', healthError);
           throw new Error('無法連接到後端服務，請檢查伺服器狀態');
         }
 
-        // 發送新增案件請求
         const response = await fetch('/api/cases', {
           method: 'POST',
           headers: {
@@ -156,15 +148,16 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         });
 
         console.log('後端回應狀態:', response.status, response.statusText);
+        console.log('後端回應 headers:', Object.fromEntries(response.headers.entries()));
 
         if (!response.ok) {
           let errorMessage = '新增案件失敗';
           let errorText = '';
-
+          
           try {
             errorText = await response.text();
             console.error('後端錯誤回應內容:', errorText);
-
+            
             // 檢查是否為 HTML 回應（通常是 404 或 500 錯誤頁面）
             if (errorText.trim().startsWith('<')) {
               errorMessage = `伺服器錯誤 (${response.status}): API 端點可能不存在或伺服器內部錯誤`;
@@ -173,13 +166,6 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
               try {
                 const errorData = JSON.parse(errorText);
                 errorMessage = errorData.detail || errorData.message || errorMessage;
-
-                // 特別處理常見錯誤
-                if (response.status === 404 && errorMessage.includes('事務所')) {
-                  errorMessage = `事務所 '${firmCode}' 不存在，請聯絡系統管理員`;
-                } else if (response.status === 422) {
-                  errorMessage = `資料驗證失敗: ${errorMessage}`;
-                }
               } catch (parseError) {
                 errorMessage = `伺服器錯誤 (${response.status}): ${errorText.substring(0, 100)}`;
               }
@@ -188,37 +174,31 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
             console.error('無法讀取錯誤回應:', textError);
             errorMessage = `伺服器錯誤 (${response.status}): 無法讀取錯誤詳情`;
           }
-
+          
           throw new Error(errorMessage);
         }
 
-        // 解析成功回應
         let responseData;
         try {
           const responseText = await response.text();
           console.log('後端成功回應原始內容:', responseText);
-
+          
           if (!responseText.trim()) {
             throw new Error('後端回應為空');
           }
-
+          
           // 檢查是否為 HTML 回應
           if (responseText.trim().startsWith('<')) {
             throw new Error('後端回應了 HTML 而不是 JSON，可能是路由配置問題');
           }
-
+          
           responseData = JSON.parse(responseText);
-          console.log('後端回應解析成功:', responseData);
-
-          // 驗證回應資料結構
-          if (!responseData.id) {
-            throw new Error('後端回應缺少案件ID');
-          }
-
         } catch (parseError) {
           console.error('解析後端回應失敗:', parseError);
           throw new Error('後端回應格式錯誤，無法解析 JSON');
         }
+        
+        console.log('後端回應成功:', responseData);
 
         // 將後端回應的資料轉換為前端格式
         const savedCaseData: CaseData = {
@@ -236,19 +216,18 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           progress_date: responseData.progress_date || formData.progress_date
         };
 
-        console.log('轉換後的案件資料:', savedCaseData);
-
-        // 呼叫前端的 onSave 回調，確保前端狀態更新
+        console.log('DEBUG: 準備呼叫 onSave，資料:', savedCaseData);
+        
+        // 呼叫前端的 onSave 回調
         const success = await onSave(savedCaseData);
         if (success) {
-          console.log('前端狀態更新成功，關閉表單');
+          console.log('DEBUG: onSave 成功，關閉對話框');
           onClose();
         } else {
-          throw new Error('前端狀態更新失敗');
+          console.log('DEBUG: onSave 失敗');
         }
-
       } else {
-        // 編輯案件邏輯保持不變
+        // 編輯案件 - 呼叫後端 API
         const updateData = {
           case_type: formData.case_type,
           case_reason: formData.case_reason,
@@ -286,10 +265,15 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         const responseData = await response.json();
         console.log('後端更新回應成功:', responseData);
 
+        console.log('DEBUG: 準備呼叫 onSave (編輯模式)，資料:', formData);
+        
         // 呼叫前端的 onSave 回調
         const success = await onSave(formData);
         if (success) {
+          console.log('DEBUG: onSave (編輯模式) 成功，關閉對話框');
           onClose();
+        } else {
+          console.log('DEBUG: onSave (編輯模式) 失敗');
         }
       }
     } catch (error) {
@@ -299,6 +283,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
       setLoading(false);
     }
   };
+
   const handleInputChange = (field: keyof CaseData, value: string) => {
     setFormData(prev => ({
       ...prev,
