@@ -208,16 +208,16 @@ export default function ImportDataDialog({ isOpen, onClose, onImportComplete }: 
             <button
               type="button"
               onClick={handleImport}
-              disabled={!analysisResult?.success || isAnalyzing || isImporting}
+              disabled={!selectedFile || !targetCaseId || isImporting}
               className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               {isImporting ? (
                 <>
                   <Loader className="w-4 h-4 animate-spin mr-2" />
-                  匯入中...
+                  上傳中...
                 </>
               ) : (
-                '開始匯入'
+                '開始上傳'
               )}
             </button>
           </div>

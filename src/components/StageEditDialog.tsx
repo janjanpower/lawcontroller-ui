@@ -83,7 +83,20 @@ export default function StageEditDialog({
         <div className="p-5 space-y-4">
           {/* 階段名稱 */}
           <div>
-            <label className="block text-sm text-gray-700 mb-1">階段名稱</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm text-gray-700">階段名稱</label>
+              {mode === 'edit' && stageName && onOpenFolder && (
+                <button
+                  type="button"
+                  onClick={() => onOpenFolder(stageName)}
+                  className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                  title="開啟階段資料夾"
+                >
+                  <Folder className="w-3 h-3" />
+                  <span>開啟資料夾</span>
+                </button>
+              )}
+            </div>
             <input
               list="stage-suggestions"
               value={stageName}

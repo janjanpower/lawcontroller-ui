@@ -137,6 +137,9 @@ export default function CustomerData() {
             <table className="w-full">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                    ID
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     姓名
                   </th>
@@ -169,6 +172,9 @@ export default function CustomerData() {
                     } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                     onClick={() => setSelectedCustomer(customer)}
                   >
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {customer.id}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {customer.name}
                     </td>

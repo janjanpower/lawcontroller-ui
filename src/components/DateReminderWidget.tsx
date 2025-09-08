@@ -181,25 +181,13 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
           </button>
           <span className="text-sm text-gray-600">天內各案件階段</span>
         </div>
-
-        <button
-          onClick={() => setSoundEnabled(!soundEnabled)}
-          className="p-1 hover:bg-gray-200 rounded"
-          title={soundEnabled ? '關閉提醒音效' : '開啟提醒音效'}
-        >
-          {soundEnabled ? (
-            <Bell className="w-4 h-4 text-blue-600" />
-          ) : (
-            <BellOff className="w-4 h-4 text-gray-400" />
-          )}
-        </button>
       </div>
 
       {/* 跑馬燈顯示區域 */}
       <div className="relative">
         <div
           onClick={() => setIsExpanded(true)}
-          className="bg-gray-100 border border-gray-300 rounded-md p-3 cursor-pointer hover:bg-gray-50 transition-colors min-h-[60px] flex items-center"
+          className="bg-gray-100 border border-gray-300 rounded-md py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors h-10 flex items-center"
         >
           {upcomingStages.length > 0 ? (
             <div className="w-full">
@@ -215,22 +203,15 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
             <div className="text-gray-500 text-sm">即將到期：無資料</div>
           )}
         </div>
-
-        {/* 明天案件鈴鐺提示 */}
-        {showTomorrowBell && upcomingStages[currentIndex] && (
-          <div className="absolute -right-2 top-1/2 transform -translate-y-1/2 bg-yellow-400 text-yellow-900 px-3 py-2 rounded-lg shadow-lg border-2 border-yellow-500 animate-pulse">
-            <div className="flex items-center space-x-2">
-              <Bell className="w-4 h-4" />
-              <div className="text-xs font-bold">
-                <div>明日案件</div>
-                <div>{upcomingStages[currentIndex].client.substring(0, 4)}...</div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 展開詳細列表 */}
+      {isExpanded && (
+        <div 
+          className="fixed inset-0 z-40"
+          onClick={() => setIsExpanded(false)}
+        />
+      )}
       {isExpanded && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
           <div className="p-3 border-b border-gray-200 flex items-center justify-between">

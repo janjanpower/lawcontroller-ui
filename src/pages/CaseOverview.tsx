@@ -24,6 +24,7 @@ import ImportDataDialog from '../components/ImportDataDialog';
 import UnifiedDialog from '../components/UnifiedDialog';
 import DateReminderWidget from '../components/DateReminderWidget';
 import FolderTree from '../components/FolderTree';
+import CaseStageManager from '../utils/caseStageManager';
 
 // 導入型別
 import type {
@@ -77,6 +78,7 @@ function formToTableCase(form: FormCaseData, base?: TableCase): TableCase {
 /* ------------------ 主元件 ------------------ */
 export default function CaseOverview() {
   const navigate = useNavigate();
+  const stageManager = CaseStageManager.getInstance();
 
   // 案件資料狀態
   const [cases, setCases] = useState<TableCase[]>([]);
@@ -106,7 +108,7 @@ export default function CaseOverview() {
           progress: apiCase.progress || '',
           progressDate: apiCase.progress_date || '',
           status: apiCase.is_closed ? 'completed' : 'active',
-          stages: [], // 初始為空陣列
+          stages: stageManager.getCaseStages(apiCase.id), // 從本地儲存載入階段資料
         }));
         setCases(transformedCases);
       } else {
@@ -223,6 +225,9 @@ export default function CaseOverview() {
         const updatedStages = selectedCase.stages.filter((_, index) => index !== idx);
         const updatedCase = { ...selectedCase, stages: updatedStages };
         
+        // 更新本地管理器
+        stageManager.setCaseStages(selectedCase.id, updatedStages);
+        
         setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updatedCase : c)));
         setSelectedCase(updatedCase);
         setShowUnifiedDialog(false);
@@ -285,6 +290,8 @@ export default function CaseOverview() {
             time: data.time,
             completed: false,
           });
+          // 建立階段資料夾
+          stageManager.createStageFolder(selectedCase.id, data.stageName);
         }
       } else {
         if (editingStageIndex == null || editingStageIndex < 0 || editingStageIndex >= nextStages.length) {
@@ -323,6 +330,9 @@ export default function CaseOverview() {
 
     const updated = updateCase(selectedCase);
     if (!updated) return false;
+
+    // 儲存到本地管理器
+    stageManager.setCaseStages(selectedCase.id, updated.stages);
 
     setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updated : c)));
     setSelectedCase(updated);
@@ -464,10 +474,19 @@ export default function CaseOverview() {
     try {
       if (caseFormMode === 'add') {
         const newRow = formToTableCase(form);
+        // 為新案件建立預設資料夾和生成案件資訊檔案
+        stageManager.createDefaultFolders(newRow.id);
+        stageManager.generateCaseInfoExcel(newRow.id, form);
+        
         setCases((prev) => [...prev, newRow]);
         setSelectedCase(newRow);
         showSuccess('案件新增成功！');
       } else {
+        // 更新案件時也要更新案件資訊檔案
+        if (form.case_id) {
+          stageManager.generateCaseInfoExcel(form.case_id, form);
+        }
+        
         setCases((prev) =>
           prev.map((c) => (c.id === (form.case_id ?? '') ? formToTableCase(form, c) : c))
         );
@@ -1011,6 +1030,8 @@ export default function CaseOverview() {
         isOpen={showImportDialog}
         onClose={() => setShowImportDialog(false)}
         onImportComplete={handleImportComplete}
+        selectedCases={selectedIds}
+        availableCases={getAvailableCasesForUpload()}
       />
 
       <UnifiedDialog
