@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Users as UsersIcon, Plus, Trash2, Loader, Eye, EyeOff } from 'lucide-react';
 import type { User as UserType, Firm, CreateUserData } from '../types';
 import { PLANS } from '../types';
+import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 interface UserSelectionDialogProps {
   isOpen: boolean;

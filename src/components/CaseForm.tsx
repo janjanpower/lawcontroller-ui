@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, FileText, X } from 'lucide-react';
 import { getFirmCodeOrThrow } from '../utils/firm';
+import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 interface CaseData {
   case_id?: string;

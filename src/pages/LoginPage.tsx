@@ -5,6 +5,7 @@ import PlanSelectionDialog from '../components/PlanSelectionDialog';
 import UserSelectionDialog from '../components/UserSelectionDialog';
 import '../styles/login.css';
 import type { LoginCredentials, Firm, User as UserType } from '../types';
+import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 export default function LoginPage() {
   // 基本狀態

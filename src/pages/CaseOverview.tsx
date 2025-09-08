@@ -1,6 +1,6 @@
 // src/pages/CaseOverview.tsx
 import { isUUID } from '../utils/id';
-
+import { apiFetch } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { hasClosedStage } from '../utils/caseStage';
 import { getFirmCodeOrThrow } from '../utils/firm';
@@ -304,27 +304,74 @@ export default function CaseOverview() {
     setShowStageDialog(true);
   };
 
+  /* ------------------ 新增：刪除階段 + 刪對應資料夾 ------------------ */
+  // 嘗試用 /folders/{id}，若無則改走 /files（DELETE with body）
+  async function deleteStageAndFolder(
+    caseId: string,
+    stageId: string,
+    folderId?: string,
+    folderPath?: string
+  ) {
+    // 1) 先刪階段
+    const delStage = await apiFetch(`/api/cases/${caseId}/stages/${stageId}`, { method: 'DELETE' });
+    if (!delStage.ok) {
+      throw new Error(`刪除階段失敗：${delStage.status} ${await delStage.text()}`);
+    }
+
+    // 2) 再刪資料夾
+    if (folderId) {
+      const delFolder = await apiFetch(`/api/cases/${caseId}/folders/${folderId}`, { method: 'DELETE' });
+      if (delFolder.ok) return; // 成功就結束
+      // 若 404/405 表示沒有此 endpoint，改走備援
+    }
+
+    // 備援：用 /files，帶 body 指定欲刪的資料夾
+    const body: any = {};
+    if (folderId) body.folder_id = folderId;
+    if (folderPath) body.folder_path = folderPath;
+
+    const fallback = await apiFetch(`/api/cases/${caseId}/files`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!fallback.ok) {
+      throw new Error(`刪除資料夾失敗：${fallback.status} ${await fallback.text()}`);
+    }
+  }
+
   const handleDeleteStage = (idx: number) => {
     if (!selectedCase) return;
 
     const stage = selectedCase.stages[idx];
+    const stageFolderPath = FolderManager.getStageFolder(selectedCase.id, stage.name); // e.g. "/案件進度/開庭"
+    // 若你的後端可回傳 folderId，這裡可以從 stage.folderId 取得；目前示範用 folderPath
+
     setDialogConfig({
       title: '確認刪除階段',
-      message: `確定要刪除階段「${stage.name}」嗎？此操作無法復原。`,
+      message: `確定要刪除階段「${stage.name}」及其對應資料夾嗎？此操作無法復原。`,
       type: 'warning',
-      onConfirm: () => {
-        const updatedStages = selectedCase.stages.filter((_, index) => index !== idx);
-        const updatedCase = { ...selectedCase, stages: updatedStages };
+      onConfirm: async () => {
+        try {
+          await deleteStageAndFolder(selectedCase.id, (stage as any).id ?? stage.name, undefined, stageFolderPath);
 
-        // 更新本地狀態
-        setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updatedCase : c)));
-        setSelectedCase(updatedCase);
+          // 前端就地更新
+          const updatedStages = selectedCase.stages.filter((_, index) => index !== idx);
+          const updatedCase = { ...selectedCase, stages: updatedStages };
 
-        // 更新持久化存儲
-        stageManager.setCaseStages(selectedCase.id, updatedStages);
+          setCases((prev) => prev.map((c) => (c.id === selectedCase.id ? updatedCase : c)));
+          setSelectedCase(updatedCase);
 
-        setShowUnifiedDialog(false);
-        showSuccess('階段已刪除');
+          // 更新持久化存儲
+          stageManager.setCaseStages(selectedCase.id, updatedStages);
+
+          setShowUnifiedDialog(false);
+          showSuccess('階段與資料夾已刪除');
+        } catch (e: any) {
+          console.error(e);
+          setShowUnifiedDialog(false);
+          showError(e?.message || '刪除失敗');
+        }
       },
     });
     setShowUnifiedDialog(true);
@@ -440,6 +487,8 @@ export default function CaseOverview() {
       return false;
     }
   };
+
+
 
   /* -------- 資料夾樹管理 -------- */
   const handleFolderToggle = (caseId: string) => {
@@ -633,13 +682,17 @@ export default function CaseOverview() {
         console.log('DEBUG: 編輯案件成功，重新載入列表');
 
         const updated = formToTableCase(form, selectedCase ?? undefined);
+
+        // 即時更新右側詳情
         setSelectedCase(updated);
 
-        // 立即更新本地狀態和存儲
-        setCases(prev => prev.map(c => c.id === updated.id ? updated : c));
+        // 即時更新案件列表
+        setCases((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+
+        // 更新快取
         stageManager.updateCaseInFirm(firmCode, updated);
 
-        // 更新案件資訊Excel檔案
+        // 更新案件資訊 Excel
         if (form.case_id) {
           FolderManager.updateCaseInfoExcel(form.case_id, {
             caseNumber: form.case_number || '',
@@ -657,7 +710,7 @@ export default function CaseOverview() {
         }
 
         // 背景重新載入以同步最新資料
-        loadCases();
+        await loadCases();
 
         showSuccess('案件更新成功！');
       }
@@ -756,7 +809,7 @@ export default function CaseOverview() {
 
               <button
                 onClick={() => setShowFileUploadDialog(true)}
-                className="bg-[#27ae60] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#229954] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
+                className="bg-[#27ae60] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#229954] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify中心"
               >
                 <Upload className="w-4 h-4" />
                 <span>上傳檔案</span>
@@ -764,7 +817,7 @@ export default function CaseOverview() {
 
               <button
                 onClick={() => setShowFileUploadDialog(true)}
-                className="bg-[#8e44ad] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#7d3c98] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
+                className="bg-[#8e44ad] text白 px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#7d3c98] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify中心"
               >
                 <Download className="w-4 h-4" />
                 <span>批次上傳</span>
@@ -772,7 +825,7 @@ export default function CaseOverview() {
 
               <button
                 onClick={handleTransferToClosed}
-                className="bg-[#f39c12] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#d68910] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
+                className="bg-[#f39c12] text白 px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#d68910] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify中心"
               >
                 <CheckCircle className="w-4 h-4" />
                 <span>轉移結案</span>
@@ -924,7 +977,7 @@ export default function CaseOverview() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg白 divide-y divide-gray-200">
                 {filteredCases.map((row, index) => (
                   <>
                     <tr
@@ -1275,7 +1328,7 @@ export default function CaseOverview() {
                   setShowTransferConfirm(false);
                   navigate('/closed-cases');
                 }}
-                className="px-4 py-2 rounded-md bg-[#f39c12] hover:bg-[#d68910] text-white"
+                className="px-4 py-2 rounded-md bg-[#f39c12] hover:bg-[#d68910] text白"
               >
                 確認轉移
               </button>

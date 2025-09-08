@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, CreditCard, Banknote, Loader } from 'lucide-react';
 import { PLANS } from '../types';
 import type { PlanType, Firm } from '../types';
+import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 interface PlanSelectionDialogProps {
   isOpen: boolean;

@@ -42,7 +42,7 @@ const defaultFolderStructure: FolderNode = {
 const FolderTreeNode: React.FC<{
   node: FolderNode;
   level: number;
-  onFileUpload?: (folderPath: string) => void;
+  onFileUpload?: (opts: { folderId?: string; folderPath: string }) => void;
   onFolderCreate?: (parentPath: string) => void;
   onDelete?: (path: string, type: 'folder' | 'file') => void;
 }> = ({ node, level, onFileUpload, onFolderCreate, onDelete }) => {
@@ -66,7 +66,7 @@ const FolderTreeNode: React.FC<{
   const handleUploadClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (node.type === 'folder' && onFileUpload) {
-      onFileUpload(node.path);
+      onFileUpload({ folderId: node.id, folderPath: node.path });
     }
   };
 
@@ -419,7 +419,7 @@ export default function FolderTree({
   };
 
   // 單檔上傳
-  const uploadFileToS3 = async (file: File, folderPath: string) => {
+  const uploadFileToS3 = async (file: File, folderPath: string, folderId?: string) => {
     try {
       const firmCode = localStorage.getItem('law_firm_code');
       if (!firmCode) {
@@ -446,7 +446,8 @@ export default function FolderTree({
       const formData = new FormData();
       formData.append('file', file);
       formData.append('folder_type', finalFolderType);
-
+      if (folderId) formData.append('folder_id', folderId);      // 新增，後端若支援就用這個
+      formData.append('folder_path', folderPath);                // 備援，後端可用路徑判斷
       console.log('準備上傳檔案:', {
         fileName: file.name,
         folderPath,
@@ -489,7 +490,8 @@ export default function FolderTree({
   };
 
   // 檔案挑選器（多檔）＋逐一上傳
-  const handleFileUpload = (folderPath: string) => {
+  const handleFileUpload = (opts: { folderId?: string; folderPath: string }) => {
+   const { folderId, folderPath } = opts;
     if (!s3Config) {
       alert('S3 設定未提供，無法上傳檔案');
       return;
@@ -502,7 +504,7 @@ export default function FolderTree({
       const files = (e.target as HTMLInputElement).files;
       if (files) {
         for (let i = 0; i < files.length; i++) {
-          await uploadFileToS3(files[i], folderPath);
+          await uploadFileToS3(files[i], folderPath, folderId);
         }
         // 上傳後重新載入資料夾
         await loadFolderStructure();

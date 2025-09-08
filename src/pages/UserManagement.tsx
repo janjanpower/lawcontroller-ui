@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Eye, Edit, Trash2, Shield, UserCheck, UserX, X, Plus } from 'lucide-react';
+import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
