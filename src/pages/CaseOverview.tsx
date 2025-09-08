@@ -337,7 +337,7 @@ export default function CaseOverview() {
         body: JSON.stringify({
           stage_name: data.stageName,  // 修正欄位名稱
           stage_date: data.date,
-          completed: false,
+          is_completed: false,
           sort_order: selectedCase.stages.length
         }),
       });
