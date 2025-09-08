@@ -297,35 +297,49 @@ export default function FolderTree({
       const folderMapping: Record<string, string> = {
         pleadings: '狀紙',
         info: '案件資訊',
-        progress: '案件進度'
+        progress: '案件進度' // 如果後端實際叫「進度追蹤」，這裡改成 '進度追蹤'
       };
+
+      // 小工具：確保資料夾存在（若不存在則建立）
+      function ensureFolder(name: string): FolderNode {
+        if (!rootNode.children) rootNode.children = [];
+        let node = rootNode.children.find(f => f.type === 'folder' && f.name === name);
+        if (!node) {
+          node = {
+            id: name, // 這裡可以用 name 或固定 key
+            name,
+            type: 'folder',
+            path: `/${name}`,
+            children: []
+          };
+          rootNode.children.push(node);
+        }
+        return node;
+      }
 
       Object.entries(filesData).forEach(([folderType, files]) => {
         if (folderType === 'folders') return; // 跳過 folders 欄位
 
-        const folderName = folderMapping[folderType];
-        if (folderName && Array.isArray(files)) {
-          console.log(`處理 ${folderType} 資料夾，檔案數量:`, files.length);
+        const displayName = folderMapping[folderType];
+        if (!displayName || !Array.isArray(files)) return;
 
-          const targetFolder = rootNode.children?.find(f => f.name === folderName);
-          if (targetFolder) {
-            files.forEach((file: any) => {
-              const fileNode: FolderNode = {
-                id: file.id,
-                name: file.name,
-                type: 'file',
-                path: `${targetFolder.path}/${file.name}`,
-                size: file.size_bytes,
-                modified: file.created_at
-              };
-              if (!targetFolder.children) targetFolder.children = [];
-              targetFolder.children.push(fileNode);
-            });
-          } else {
-            console.warn(`找不到對應的資料夾: ${folderName}`);
-          }
-        }
+        // 確保資料夾存在
+        const targetFolder = ensureFolder(displayName);
+
+        files.forEach((file: any) => {
+          const fileNode: FolderNode = {
+            id: file.id,
+            name: file.name,
+            type: 'file',
+            path: `${targetFolder.path}/${file.name}`,
+            size: file.size_bytes,
+            modified: file.created_at
+          };
+          if (!targetFolder.children) targetFolder.children = [];
+          targetFolder.children.push(fileNode);
+        });
       });
+
     } else if (Array.isArray(filesData)) {
       // 舊版 API 回傳格式：檔案陣列
       console.log('處理陣列格式的檔案資料，數量:', filesData.length);
@@ -426,12 +440,12 @@ export default function FolderTree({
 
       console.log('資料夾路徑對應:', { folderPath, folderTypeKey, mappedType });
 
-      const finalFolderType = mappedType ?? folderTypeKey;
+      const finalFolderType = mappedType;
 
       // 建立 FormData
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('folder_type', finalFolderType as string);
+      formData.append('folder_type', finalFolderType);
 
       console.log('準備上傳檔案:', {
         fileName: file.name,
