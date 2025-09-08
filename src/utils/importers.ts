@@ -1,63 +1,68 @@
 // src/utils/importers.ts
-import * as XLSX from 'xlsx';
+// 讀 Excel → 判斷刑事/民事 → 萃取關鍵欄位
 
 export type ImportedCase = {
   type: '刑事' | '民事' | '未知';
-  title: string;   // 例如案號/案由 + 當事人
-  fields: Record<string, string>; // 原始欄位映射
+  title: string;
+  fields: Record<string, any>;
 };
 
 const CRIMINAL_HINTS = ['刑事', '公訴', '偵字', '訴字', '易字'];
 const CIVIL_HINTS    = ['民事', '民訴', '民調', '家事', '家調'];
+const KEYWORDS       = ['案由','案號','當事人','原告','被告','上訴人','被上訴人','告訴人','被告人','對造'];
 
-function detectSheetType(name: string, content: string): '刑事' | '民事' | '未知' {
-  const hay = `${name} ${content}`.toLowerCase();
+/** 動態載入 xlsx；部分環境要用 dist/xlsx.mjs 才抓得到 ESM 入口 */
+type XLSXType = typeof import('xlsx');
+let xlsxPromise: Promise<XLSXType> | null = null;
+async function getXLSX(): Promise<XLSXType> {
+  if (!xlsxPromise) {
+    xlsxPromise = import('xlsx')
+      .catch(async () => (await import('xlsx/dist/xlsx.mjs')) as unknown as XLSXType);
+  }
+  return xlsxPromise;
+}
+
+function detectSheetType(name: string, sampleText: string): '刑事' | '民事' | '未知' {
+  const hay = `${name} ${sampleText}`.toLowerCase();
   const has = (arr: string[]) => arr.some(k => hay.includes(k.toLowerCase()));
   if (has(CRIMINAL_HINTS)) return '刑事';
   if (has(CIVIL_HINTS)) return '民事';
   return '未知';
 }
 
-const KEYWORDS = ['案由','案號','當事人','原告','被告','上訴人','被上訴人','告訴人','被告人','對造','委任律師','聯絡電話','備註'];
-
 function buildTitleRow(row: Record<string, any>) {
   const grabs = KEYWORDS.map(k => row[k]).filter(Boolean).slice(0, 3);
   return grabs.join(' / ');
 }
 
-export function parseExcelToCases(file: File): Promise<ImportedCase[]> {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => {
-      try {
-        const data = new Uint8Array(fr.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: 'array' });
-        const results: ImportedCase[] = [];
+/** 讀 Excel → 轉成 ImportedCase[] */
+export async function parseExcelToCases(file: File): Promise<ImportedCase[]> {
+  const XLSX = await getXLSX();
 
-        wb.SheetNames.forEach((sheetName) => {
-          const ws = wb.Sheets[sheetName];
-          const json: Record<string, any>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
-          if (!json.length) return;
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
 
-          const sampleText = JSON.stringify(json[0]);
-          const sheetType = detectSheetType(sheetName, sampleText);
+  const results: ImportedCase[] = [];
 
-          json.forEach((row) => {
-            const title = buildTitleRow(row) || (row['案由'] || row['案號'] || row['當事人'] || '未命名案件');
-            results.push({
-              type: sheetType,
-              title,
-              fields: row,
-            });
-          });
-        });
+  wb.SheetNames.forEach((sheetName) => {
+    const ws = wb.Sheets[sheetName];
+    if (!ws) return;
 
-        resolve(results);
-      } catch (e) {
-        reject(e);
-      }
-    };
-    fr.onerror = reject;
-    fr.readAsArrayBuffer(file);
+    const json: Record<string, any>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    if (!json.length) return;
+
+    const sampleText = JSON.stringify(json[0]);
+    const sheetType = detectSheetType(sheetName, sampleText);
+
+    json.forEach((row) => {
+      const title = buildTitleRow(row) || (row['案由'] || row['案號'] || row['當事人'] || '未命名案件');
+      results.push({
+        type: sheetType,
+        title,
+        fields: row,
+      });
+    });
   });
+
+  return results;
 }

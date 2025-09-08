@@ -19,8 +19,6 @@ import {
   CheckCircle,
   Folder,
   X,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
 
 import CaseForm from '../components/CaseForm';
