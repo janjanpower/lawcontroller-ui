@@ -507,15 +507,22 @@ export default function CaseOverview() {
     updateStageStatus();
   };
 
-  // Excel 匯入
+  // 用於把任何值轉成字串；空值給預設
+  const S = (v: any, fallback = '') => {
+    if (v === 0) return '0';
+    if (v == null) return fallback;
+    const s = String(v).trim();
+    return s === '' ? fallback : s;
+  };
+
   const handleImportComplete = async (importedCases: any[]) => {
     try {
       setLoading(true);
 
-      if (!Array.isArray(importedCases) || importedCases.length === 0) {
+      if (!Array.isArray(importedCases) || !importedCases.length) {
         setDialogConfig({
           title: '沒有可匯入的資料',
-          message: '未取得任何案件資料，請確認試算表格式或欄位對應。',
+          message: '解析結果為空，請確認 Excel 欄位標題與內容。',
           type: 'warning'
         });
         setShowUnifiedDialog(true);
@@ -524,40 +531,40 @@ export default function CaseOverview() {
 
       const firmCode = getFirmCodeOrThrow();
 
-      const toPayload = (item: any) => ({
-        case_type: item.case_type ?? null,
-        client: item.client ?? null,           // 如果後端是 client_name，這裡改 key
-        lawyer: item.lawyer ?? null,
-        legal_affairs: item.legal_affairs ?? null,
-        case_reason: item.case_reason ?? null,
-        case_number: item.case_number ?? null,
-        opposing_party: item.opposing_party ?? null,
-        court: item.court ?? null,
-        division: item.division ?? null,
-        progress: item.progress ?? '委任',
-        progress_date: item.progress_date ?? null
+      // 👉 把所有文字欄位都轉成字串；case_type/ progress 給預設值避免 null
+      const toPayload = (x: any) => ({
+        case_type: S(x.case_type, '未分類'),
+        client: S(x.client, ''),              // 若後端要 client_name，改 key
+        lawyer: S(x.lawyer, ''),
+        legal_affairs: S(x.legal_affairs, ''),
+        case_reason: S(x.case_reason, ''),
+        case_number: S(x.case_number, ''),
+        opposing_party: S(x.opposing_party, ''),
+        court: S(x.court, ''),
+        division: S(x.division, ''),
+        progress: S(x.progress, '委任'),
+        // 日期欄位：空就送 null（若後端也不接受 null，可同樣用 S(...,'') 送空字串）
+        progress_date: x.progress_date ? String(x.progress_date) : null
       });
 
-      let okCount = 0;
-      let failCount = 0;
-      const errors: string[] = [];
+      let ok = 0, fail = 0;
+      const errs: string[] = [];
 
-      for (const item of importedCases) {
+      for (const c of importedCases) {
         try {
           const res = await apiFetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`, {
             method: 'POST',
-            body: JSON.stringify(toPayload(item))
+            body: JSON.stringify(toPayload(c))
           });
           if (!res.ok) {
-            const err = await res.text();
-            failCount += 1;
-            errors.push(err || '未知錯誤');
+            fail++;
+            errs.push((await res.text()) || '未知錯誤');
           } else {
-            okCount += 1;
+            ok++;
           }
         } catch (e: any) {
-          failCount += 1;
-          errors.push(e?.message || '網路錯誤');
+          fail++;
+          errs.push(e?.message || '網路錯誤');
         }
       }
 
@@ -565,16 +572,16 @@ export default function CaseOverview() {
 
       setDialogConfig({
         title: '匯入完成',
-        message: `成功新增 ${okCount} 筆案件${failCount ? `，失敗 ${failCount} 筆` : ''}` + (failCount ? `\n\n錯誤：\n- ${errors.slice(0,5).join('\n- ')}${errors.length>5 ? '\n(其餘略)' : ''}` : ''),
-        type: failCount ? 'warning' : 'success'
+        message:
+          `成功新增 ${ok} 筆案件` +
+          (fail ? `，失敗 ${fail} 筆\n\n錯誤（前 5 筆）：\n- ${errs.slice(0, 5).join('\n- ')}${errs.length > 5 ? '\n(其餘略)' : ''}` : ''),
+        type: fail ? 'warning' : 'success'
       });
       setShowUnifiedDialog(true);
-
-    } catch (error: any) {
-      console.error('Excel 匯入失敗:', error);
+    } catch (e: any) {
       setDialogConfig({
         title: '匯入失敗',
-        message: error?.message || '匯入過程發生錯誤',
+        message: e?.message || '發生未知錯誤',
         type: 'error'
       });
       setShowUnifiedDialog(true);
