@@ -43,14 +43,18 @@ export default function UserSelectionDialog({
 
   // 載入用戶列表（僅顯示 is_active=true 由後端控制；DB 預設已改為 true）
   const loadUsers = async () => {
-    if (!firm?.firmCode) return;
+    const firmCode = localStorage.getItem('law_firm_code');
+    if (!firmCode) {
+      console.error('找不到事務所代碼');
+      return;
+    }
     try {
       setLoading(true);
       setError('');
 
-      console.log('DEBUG: 開始載入用戶列表，firm_code:', firm.firmCode);
+      console.log('DEBUG: 開始載入用戶列表，firm_code:', firmCode);
 
-      const res = await fetch(`/api/users?firm_code=${encodeURIComponent(firm.firmCode)}`, {
+      const res = await fetch(`/api/users?firm_code=${encodeURIComponent(firmCode)}`, {
         method: 'GET'
       });
 
@@ -158,7 +162,7 @@ export default function UserSelectionDialog({
       localStorage.setItem('law_user_name', selectedUser.fullName || selectedUser.username);
       localStorage.setItem('law_user_role', selectedUser.role);
       localStorage.setItem('law_last_login', new Date().toISOString());
-      
+
       console.log('登入資訊已儲存到 localStorage:', {
         user_id: selectedUser.id,
         user_name: selectedUser.fullName || selectedUser.username,
@@ -209,9 +213,13 @@ export default function UserSelectionDialog({
 
     setLoading(true);
     try {
+      const firmCode = localStorage.getItem('law_firm_code');
+      if (!firmCode) {
+        throw new Error('找不到事務所代碼');
+      }
 
       // 檢查是否為第一個用戶，如果是則設為管理員
-      const existingUsersResponse = await fetch(`/api/users?firm_code=${firm.firmCode}`);
+      const existingUsersResponse = await fetch(`/api/users?firm_code=${encodeURIComponent(firmCode)}`);
       const existingUsersData = await existingUsersResponse.json();
       const isFirstUser = !existingUsersData.items || existingUsersData.items.length === 0;
 
@@ -219,7 +227,7 @@ export default function UserSelectionDialog({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          firm_code: firm.firmCode,
+          firm_code: firmCode,
           username: createUserData.username,
           full_name: createUserData.fullName,
           email: `${createUserData.username}@${firm.firmName}.com`,
