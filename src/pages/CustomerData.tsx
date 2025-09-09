@@ -12,8 +12,7 @@ export default function CustomerData() {
   // 載入客戶資料列表
   const loadCustomers = async () => {
     try {
-      const firmCode = localStorage.getItem('law_firm_code') || 'default';
-      const response = await fetch(`/api/clients?firm_code=${firmCode}`);
+      const response = await apiFetch('/api/clients');
       const data = await response.json();
       
       if (response.ok) {

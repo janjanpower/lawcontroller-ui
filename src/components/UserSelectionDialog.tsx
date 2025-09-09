@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Users as UsersIcon, Plus, Trash2, Loader, Eye, EyeOff } from 'lucide-react';
 import type { User as UserType, Firm, CreateUserData } from '../types';
 import { PLANS } from '../types';
-import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
+import { apiFetch } from '../utils/api';
 
 interface UserSelectionDialogProps {
   isOpen: boolean;
@@ -100,11 +100,10 @@ export default function UserSelectionDialog({
 
   // 對話框打開時刷新清單
   useEffect(() => {
-    if (isOpen && firm?.firmCode) {
+    if (isOpen && firm) {
       loadUsers();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, firm?.firmCode]);
 
   // 選擇用戶
   const handleUserSelect = (user: UserType) => {
@@ -156,9 +155,15 @@ export default function UserSelectionDialog({
       // 成功：寫入 localStorage 並完成登入
       localStorage.setItem('law_user_id', selectedUser.id);
       localStorage.setItem('law_user_name', selectedUser.fullName || selectedUser.username);
-      localStorage.setItem('law_firm_id', firm.id);
-      localStorage.setItem('law_firm_code', firm.firmCode);
+      localStorage.setItem('law_user_role', selectedUser.role);
       localStorage.setItem('law_last_login', new Date().toISOString());
+      
+      console.log('登入資訊已儲存到 localStorage:', {
+        user_id: selectedUser.id,
+        user_name: selectedUser.fullName || selectedUser.username,
+        user_role: selectedUser.role,
+        firm_code: localStorage.getItem('law_firm_code') // 使用已存在的
+      });
 
       onComplete();
     } catch (e: any) {

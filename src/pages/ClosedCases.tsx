@@ -99,8 +99,7 @@ export default function ClosedCases() {
   // 載入結案案件列表
   const loadClosedCases = async () => {
     try {
-      const firmCode = localStorage.getItem('law_firm_code') || 'default';
-      const response = await fetch(`/api/cases?firm_code=${firmCode}&status=closed`);
+      const response = await apiFetch('/api/cases?status=closed');
       const data = await response.json();
       
       if (response.ok) {

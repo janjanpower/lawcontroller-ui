@@ -235,14 +235,9 @@ export default function UserManagement() {
     }
 
     try {
-      const firmCode = localStorage.getItem('law_firm_code') || 'default';
       const response = await apiFetch('/api/users', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
-          firm_code: firmCode,
           username: createUserData.username,
           full_name: createUserData.fullName,
           email: createUserData.email,

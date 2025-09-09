@@ -64,11 +64,6 @@ export default function FileUploadDialog({
     setIsUploading(true);
 
     try {
-      const firmCode = localStorage.getItem('law_firm_code');
-      if (!firmCode) {
-        throw new Error('找不到事務所代碼');
-      }
-
       // 將資料夾名稱轉換為 folder_type
       const folderTypeMapping: Record<string, string> = {
         '狀紙': 'pleadings',
@@ -92,7 +87,7 @@ export default function FileUploadDialog({
         formData.append('folder_type', folderType);
 
         // 呼叫上傳 API
-        const response = await fetch(`/api/cases/${selectedCase}/files?firm_code=${encodeURIComponent(firmCode)}`, {
+        const response = await apiFetch(`/api/cases/${selectedCase}/files`, {
           method: 'POST',
           body: formData
         });
