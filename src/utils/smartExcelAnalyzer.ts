@@ -1,4 +1,43 @@
 // src/utils/smartExcelAnalyzer.ts
+
+
+// 全形→半形
+const toHalfWidth = (s: string) =>
+  s.replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)).replace(/\u3000/g, ' ');
+
+// 標題正規化：去空白→全轉半形→移除空白/冒號等→小寫
+const normalizeHeader = (s: any) =>
+  String(s ?? '')
+    .trim()
+    ? toHalfWidth(String(s))
+        .trim()
+        .replace(/[:：\s\-/_.]/g, '')
+        .toLowerCase()
+    : '';
+
+// 簡易 Levenshtein（容忍 1~2 個字差）
+const lev = (a: string, b: string) => {
+  const m = a.length, n = b.length;
+  if (m === 0) return n; if (n === 0) return m;
+  const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return dp[m][n];
+};
+const sim = (a: string, b: string) => {
+  const d = lev(a, b);
+  return 1 - d / Math.max(1, a.length, b.length); // 0~1
+};
+
 export type AnalyzedCase = {
   case_type?: string | null;
   client?: string | null;
@@ -21,22 +60,57 @@ type SheetResult = {
   warnings: string[];
 };
 
-const HEADER_CANONICAL: Record<string, keyof AnalyzedCase> = {
-  '案件類型': 'case_type',
-  '案由': 'case_reason',
-  '案號': 'case_number',
-  '字號': 'case_number',
-  '當事人': 'client',
-  '客戶': 'client',
-  '律師': 'lawyer',
-  '法務': 'legal_affairs',
-  '對造': 'opposing_party',
-  '法院': 'court',
-  '股別': 'division',
-  '進度': 'progress',
-  '進度日期': 'progress_date',
-  '日期': 'progress_date',
+
+// 支援更寬鬆的標題比對：同義詞、關鍵字、正則
+type Key = keyof AnalyzedCase;
+const FLEX_HEADERS: Record<Key, { synonyms: string[]; keywords?: string[]; patterns?: RegExp[] }> = {
+  case_type: {
+    synonyms: ['案件類型', '類型', '案類', '案件分類'],
+    keywords: ['類型', '案類', '分類'],
+  },
+  case_reason: {
+    synonyms: ['案由', '案情', '事由', '案件事由'],
+    keywords: ['案由', '事由'],
+  },
+  case_number: {
+    synonyms: ['案號', '字號', '案件編號', '案件號'],
+    keywords: ['案', '字號', '編號'],
+  },
+  client: {
+    synonyms: ['當事人', '客戶', '委任人', '委託人', '原告', '被告'],
+    keywords: ['當事', '客戶', '委任', '委託', '當事人姓名'],
+  },
+  lawyer: {
+    synonyms: ['律師', '負責律師', '主辦律師', '承辦律師'],
+    keywords: ['律師'],
+  },
+  legal_affairs: {
+    synonyms: ['法務', '承辦法務', '負責法務'],
+    keywords: ['法務'],
+  },
+  opposing_party: {
+    synonyms: ['對造', '對造當事人', '相對人'],
+    keywords: ['對造', '相對'],
+  },
+  court: {
+    synonyms: ['法院', '負責法院', '法院名稱'],
+    keywords: ['法院'],
+  },
+  division: {
+    synonyms: ['股別', '庭別', '承辦股別'],
+    keywords: ['股', '庭'],
+  },
+  progress: {
+    synonyms: ['進度', '案件進度', '委任進度'],
+    keywords: ['進度'],
+  },
+  progress_date: {
+    synonyms: ['進度日期', '日期', '開庭日期', '收文日期'],
+    keywords: ['日期', '開庭', '收文'],
+    patterns: [/^\s*(日期|日期\(進度\))\s*$/i],
+  },
 };
+
 
 const isDateLike = (v: any) => {
   if (v === 0) return true;
@@ -74,28 +148,31 @@ const normalizeDate = (XLSX: any, v: any) => {
 const toStr = (v: any) => (v == null ? null : String(v).trim() || null);
 
 const detectHeaderRow = (rows: any[][]): number => {
-  let bestRow = 0;
-  let bestScore = -1;
+  let bestRow = 0, bestScore = -1;
   for (let r = 0; r < Math.min(rows.length, 30); r++) {
     const row = rows[r] || [];
-    const score = row.reduce((acc: number, cell: any) => {
-      const name = String(cell || '').trim();
-      return acc + (HEADER_CANONICAL[name] ? 1 : 0);
-    }, 0);
-    if (score > bestScore) {
-      bestScore = score;
-      bestRow = r;
-    }
-    if (score >= 3) return r;
+    const score = row.reduce((acc, cell) => acc + (matchHeaderKey(cell).score > 0 ? 1 : 0), 0);
+    if (score > bestScore) { bestScore = score; bestRow = r; }
+    if (score >= 3) return r; // 超過 3 個已知欄，直接認定
   }
   return bestRow;
 };
 
-const buildHeaderMap = (header: any[]): Record<number, keyof AnalyzedCase> => {
-  const map: Record<number, keyof AnalyzedCase> = {};
-  header.forEach((cell, i) => {
-    const name = String(cell || '').trim();
-    if (HEADER_CANONICAL[name]) map[i] = HEADER_CANONICAL[name];
+// 從標題列建立：欄位索引 → 我們資料鍵 的映射
+const buildHeaderMap = (headerRowValues: any[]): Record<number, Key> => {
+  const map: Record<number, Key> = {};
+  headerRowValues.forEach((cell, idx) => {
+    const m = matchHeaderKey(cell);
+    if (m.key && m.score >= 50) {
+      // 若重複映射到相同 key，保留分數較高的那一欄
+      const existingIdx = Object.entries(map).find(([_, key]) => key === m.key)?.[0];
+      if (existingIdx) {
+        const prevScore = matchHeaderKey(headerRowValues[Number(existingIdx)]).score;
+        if (m.score > prevScore) { delete map[Number(existingIdx)]; map[idx] = m.key; }
+      } else {
+        map[idx] = m.key;
+      }
+    }
   });
   return map;
 };
@@ -154,4 +231,42 @@ export async function analyzeExcelFile(file: File): Promise<{ cases: AnalyzedCas
   }
 
   return { cases: allCases, sheets };
+}
+
+// 輸入一個標題字串，回傳最可能對應的 key 與分數
+function matchHeaderKey(raw: any): { key?: Key; score: number } {
+  const name = normalizeHeader(raw);
+  if (!name) return { score: 0 };
+
+  let best: { key?: Key; score: number } = { score: 0 };
+
+  for (const [k, cfg] of Object.entries(FLEX_HEADERS) as [Key, (typeof FLEX_HEADERS)[Key]][]) {
+    // 1) 同義詞完全相等（最強）
+    for (const syn of cfg.synonyms) {
+      const s = normalizeHeader(syn);
+      if (s === name) {
+        return { key: k, score: 100 };
+      }
+    }
+    // 2) 正則
+    for (const rx of cfg.patterns || []) {
+      if (rx.test(String(raw))) {
+        best = best.score < 85 ? { key: k, score: 85 } : best;
+      }
+    }
+    // 3) 關鍵字包含/開頭
+    for (const kw of cfg.keywords || []) {
+      const s = normalizeHeader(kw);
+      if (!s) continue;
+      if (name.startsWith(s)) best = best.score < 70 ? { key: k, score: 70 } : best;
+      if (name.includes(s))  best = best.score < 60 ? { key: k, score: 60 } : best;
+    }
+    // 4) 同義詞相似度（容忍小錯字）
+    for (const syn of cfg.synonyms) {
+      const s = normalizeHeader(syn);
+      const score = Math.round(sim(name, s) * 100); // 0~100
+      if (score >= 80 && score > best.score) best = { key: k, score };
+    }
+  }
+  return best;
 }
