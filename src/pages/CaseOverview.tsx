@@ -18,6 +18,8 @@ import { FolderManager } from '../utils/folderManager';
 import { hasClosedStage } from '../utils/caseStage';
 import { apiFetch, getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
 import type { TableCase, Stage, CaseStatus, VisibleColumns, DialogConfig } from '../types';
+import CaseEditDialog, { CaseEditFormData } from '@/components/CaseEditDialog';
+import { updateCase } from '@/utils/api';
 
 export default function CaseOverview() {
   // 基本狀態
@@ -36,6 +38,7 @@ export default function CaseOverview() {
   const [error, setError] = useState('');
 
   // 對話框狀態
+
   const [showCaseForm, setShowCaseForm] = useState(false);
   const [showStageDialog, setShowStageDialog] = useState(false);
   const [showFileUpload, setShowFileUpload] = useState(false);
@@ -852,6 +855,31 @@ export default function CaseOverview() {
         )}
 
 
+        <CaseEditDialog
+          isOpen={!!editingCase}
+          initial={editingCase || undefined}
+          onClose={() => setEditingCase(null)}
+          onSave={async (data) => {
+            if (!editingCase?.id) return false;
+
+            // 把空字串轉成 null，避免覆蓋成空字串
+            const payload = Object.fromEntries(
+              Object.entries(data).map(([k, v]) => [k, v === '' ? null : v])
+            );
+
+            try {
+              await updateCase(editingCase.id, payload);
+              await loadCases?.(); // ← 如果你的刷新函式叫 fetchCases，就改成 await fetchCases();
+              return true;
+            } catch (err) {
+              console.error(err);
+              alert('更新失敗，請稍後再試');
+              return false;
+            }
+          }}
+        />
+
+
         {/* 搜尋結果統計 */}
         {searchTerm && (
           <div className="mt-2 text-sm text-green-600">
@@ -1150,15 +1178,33 @@ export default function CaseOverview() {
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => {
-                      if (!selectedCase.id) {
+                      if (!selectedCase?.id) {
                         alert('案件 ID 不存在，無法編輯');
                         return;
                       }
+
+                      // 正規化工具
+                      const toStr = (v: any) => (v === null || v === undefined ? '' : String(v));
+                      const normalizeDate = (v: any) => (typeof v === 'string' ? v.slice(0, 10) : '');
+
+                      // 建立送入表單的初始資料（確保欄位完整）
+                      const formData = {
+                        id: selectedCase.id,
+                        case_id: selectedCase.id,               // 確保 case_id 存在
+                        client_id: selectedCase.client_id ?? null,
+                        case_type: toStr(selectedCase.case_type),
+                        case_reason: toStr(selectedCase.case_reason),
+                        case_number: toStr(selectedCase.case_number),
+                        court: toStr(selectedCase.court),
+                        division: toStr(selectedCase.division),
+                        progress: toStr(selectedCase.progress),
+                        progress_date: normalizeDate(selectedCase.progress_date),
+                        is_closed: !!selectedCase.is_closed,
+                        // ...視需要補齊其他欄位
+                      };
+
                       setCaseFormMode('edit');
-                      setEditingCase({
-                        ...selectedCase,
-                        case_id: selectedCase.id // 確保 case_id 存在
-                      });
+                      setEditingCase(formData);
                       setShowCaseForm(true);
                     }}
                     className="bg-[#334d6d] text-white px-3 py-1.5 rounded-md hover:bg-[#3f5a7d] transition-colors flex items-center space-x-1 text-sm"
@@ -1166,6 +1212,7 @@ export default function CaseOverview() {
                     <Edit className="w-3 h-3" />
                     <span>編輯</span>
                   </button>
+
                   {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
                   <button
                     onClick={() => setSelectedCase(null)}

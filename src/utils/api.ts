@@ -20,7 +20,7 @@ export function hasAuthToken(): boolean {
   const token = localStorage.getItem('auth_token');
   const firmCode = localStorage.getItem('law_firm_code');
   const userId = localStorage.getItem('law_user_id');
-  
+
   // 需要有基本的登入資訊
   return !!(token && firmCode && userId);
 }
@@ -31,7 +31,7 @@ export function isFullyLoggedIn(): boolean {
   const firmCode = localStorage.getItem('law_firm_code');
   const userId = localStorage.getItem('law_user_id');
   const userName = localStorage.getItem('law_user_name');
-  
+
   return !!(token && firmCode && userId && userName);
 }
 
@@ -43,7 +43,7 @@ export function clearLoginAndRedirect(): void {
   localStorage.removeItem('law_last_login');
   localStorage.removeItem('auth_token');
   localStorage.removeItem('law_firm_code');
-  
+
   // 只在不是登入頁面時才跳轉
   if (!window.location.pathname.includes('/login')) {
     window.location.replace('/login');
@@ -65,18 +65,18 @@ export async function initializeAppState(): Promise<boolean> {
   const token = localStorage.getItem('auth_token');
   const firmCode = localStorage.getItem('law_firm_code');
   const userId = localStorage.getItem('law_user_id');
-  
+
   if (!token || !firmCode) {
     console.log('缺少基本登入資訊:', { hasToken: !!token, hasFirmCode: !!firmCode });
     return false;
   }
-  
+
   // 如果沒有用戶資訊，表示還在登入流程中，不算完整登入
   if (!userId) {
     console.log('尚未完成用戶選擇，跳過狀態驗證');
     return true; // 允許繼續，但不驗證 API
   }
-  
+
   try {
     // 驗證 token 是否有效（使用健康檢查）
     const response = await apiFetch('/api/healthz');
@@ -93,4 +93,18 @@ export async function initializeAppState(): Promise<boolean> {
     clearLoginAndRedirect();
     return false;
   }
+}
+
+// 假設已經有 BASE_URL 與帶 Token 的 fetch
+export async function updateCase(caseId: string, payload: any) {
+  const res = await fetch(`/api/cases/${caseId}`, {
+    method: 'PUT', // 或 PATCH 依你的後端路由而定
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || '更新案件失敗');
+  }
+  return res.json();
 }
