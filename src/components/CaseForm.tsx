@@ -51,6 +51,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
   useEffect(() => {
     if (isOpen) {
       if (mode === 'edit' && caseData) {
+        console.log('編輯模式 - 收到的案件資料:', caseData);
         setFormData({
           case_id: caseData.case_id,
           case_type: caseData.case_type || '',
@@ -65,7 +66,9 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           progress: caseData.progress || '委任',
           progress_date: caseData.progress_date || new Date().toISOString().split('T')[0]
         });
+        console.log('設定表單資料完成');
       } else {
+        console.log('新增模式 - 使用預設資料');
         setFormData({
           case_type: '',
           client: '',
@@ -85,12 +88,6 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
   }, [isOpen, mode, caseData]);
 
   const validateForm = (): boolean => {
-    // 編輯模式下必須有 case_id
-    if (mode === 'edit' && !formData.case_id) {
-      setErrors({ submit: '案件 ID 不存在，無法編輯' });
-      return false;
-    }
-
     const newErrors: Record<string, string> = {};
 
     if (!formData.case_type.trim()) {

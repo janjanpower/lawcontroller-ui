@@ -1,7 +1,7 @@
 // src/components/FolderTree.tsx
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2 } from 'lucide-react';
-import { getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect, apiFetch } from '../utils/api';
+import { getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
 import { FolderManager } from '../utils/folderManager';
 
 interface FolderNode {
@@ -591,27 +591,18 @@ export default function FolderTree({
   };
 
   const handleFolderCreate = (parentPath: string) => {
-    const folderName = prompt('請輸入資料夾名稱:');
-    if (folderName) {
-      console.log(`在 ${parentPath} 建立資料夾: ${folderName}`);
-      if (onFolderCreate) {
-        onFolderCreate(parentPath);
-      }
-      // TODO: 實現資料夾建立邏輯
+    // TODO: 實現自訂對話框來輸入資料夾名稱
+    console.log(`建立資料夾功能開發中: ${parentPath}`);
+    if (onFolderCreate) {
+      onFolderCreate(parentPath);
     }
   };
 
   const handleDelete = (path: string, type: 'folder' | 'file') => {
-    const confirmMessage = type === 'folder'
-      ? `確定要刪除資料夾「${path}」及其所有內容嗎？`
-      : `確定要刪除檔案「${path}」嗎？`;
-
-    if (confirm(confirmMessage)) {
-      console.log(`刪除 ${type}: ${path}`);
-      if (onDelete) {
-        onDelete(path, type);
-      }
-      // TODO: 實現後端刪除邏輯
+    // TODO: 實現自訂確認對話框
+    console.log(`刪除功能開發中: ${type} ${path}`);
+    if (onDelete) {
+      onDelete(path, type);
     }
   };
 

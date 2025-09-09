@@ -875,13 +875,14 @@ export default function CaseOverview() {
                     ? '進度日期'
                     : key === 'court'
                     ? '法院'
-                    : key === 'division'
+        <ConfirmDialog
                     ? '股別'
-                    : key}
                 </span>
               </label>
             ))}
-          </div>
+          onConfirm={dialogConfig.onConfirm || (() => setDialogConfig(null))}
+          onCancel={() => setDialogConfig(null)}
+          showCancel={dialogConfig.type === 'warning' || dialogConfig.type === 'error'}
         </div>
       )}
 
