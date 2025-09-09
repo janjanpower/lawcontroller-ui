@@ -512,22 +512,69 @@ export default function CaseOverview() {
     try {
       setLoading(true);
 
-      console.log('匯入的案件:', importedCases);
+      if (!Array.isArray(importedCases) || importedCases.length === 0) {
+        setDialogConfig({
+          title: '沒有可匯入的資料',
+          message: '未取得任何案件資料，請確認試算表格式或欄位對應。',
+          type: 'warning'
+        });
+        setShowUnifiedDialog(true);
+        return;
+      }
+
+      const firmCode = getFirmCodeOrThrow();
+
+      const toPayload = (item: any) => ({
+        case_type: item.case_type ?? null,
+        client: item.client ?? null,           // 如果後端是 client_name，這裡改 key
+        lawyer: item.lawyer ?? null,
+        legal_affairs: item.legal_affairs ?? null,
+        case_reason: item.case_reason ?? null,
+        case_number: item.case_number ?? null,
+        opposing_party: item.opposing_party ?? null,
+        court: item.court ?? null,
+        division: item.division ?? null,
+        progress: item.progress ?? '委任',
+        progress_date: item.progress_date ?? null
+      });
+
+      let okCount = 0;
+      let failCount = 0;
+      const errors: string[] = [];
+
+      for (const item of importedCases) {
+        try {
+          const res = await apiFetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`, {
+            method: 'POST',
+            body: JSON.stringify(toPayload(item))
+          });
+          if (!res.ok) {
+            const err = await res.text();
+            failCount += 1;
+            errors.push(err || '未知錯誤');
+          } else {
+            okCount += 1;
+          }
+        } catch (e: any) {
+          failCount += 1;
+          errors.push(e?.message || '網路錯誤');
+        }
+      }
+
+      await loadCases();
 
       setDialogConfig({
-        title: '匯入成功',
-        message: `成功匯入 ${importedCases.length} 筆案件資料`,
-        type: 'success'
+        title: '匯入完成',
+        message: `成功新增 ${okCount} 筆案件${failCount ? `，失敗 ${failCount} 筆` : ''}` + (failCount ? `\n\n錯誤：\n- ${errors.slice(0,5).join('\n- ')}${errors.length>5 ? '\n(其餘略)' : ''}` : ''),
+        type: failCount ? 'warning' : 'success'
       });
       setShowUnifiedDialog(true);
 
-      // 重新載入案件列表
-      await loadCases();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Excel 匯入失敗:', error);
       setDialogConfig({
         title: '匯入失敗',
-        message: error.message || '匯入過程發生錯誤',
+        message: error?.message || '匯入過程發生錯誤',
         type: 'error'
       });
       setShowUnifiedDialog(true);
@@ -535,6 +582,8 @@ export default function CaseOverview() {
       setLoading(false);
     }
   };
+
+
 
   // 轉移到結案案件
   const handleTransferToClosed = async (payload?: { targetPath?: string }) => {
@@ -1178,22 +1227,28 @@ export default function CaseOverview() {
 
                       // 正規化工具
                       const toStr = (v: any) => (v === null || v === undefined ? '' : String(v));
-                      const normalizeDate = (v: any) => (typeof v === 'string' ? v.slice(0, 10) : '');
+                      const normalizeDate = (v: any) =>
+                        typeof v === 'string'
+                          ? v.slice(0, 10)
+                          : v instanceof Date
+                          ? v.toISOString().slice(0, 10)
+                          : '';
 
-                      // 建立送入表單的初始資料（確保欄位完整）
+                      // 將 TableCase（camelCase）→ CaseForm 需要的 snake_case
                       const formData = {
-                        id: selectedCase.id,
-                        case_id: selectedCase.id,               // 確保 case_id 存在
-                        client_id: selectedCase.client_id ?? null,
-                        case_type: toStr(selectedCase.case_type),
-                        case_reason: toStr(selectedCase.case_reason),
-                        case_number: toStr(selectedCase.case_number),
+                        case_id: selectedCase.id,
+                        case_number: toStr(selectedCase.caseNumber),
+                        client: toStr(selectedCase.client),
+                        case_type: toStr(selectedCase.caseType),
+                        lawyer: toStr(selectedCase.lawyer),
+                        legal_affairs: toStr(selectedCase.legalAffairs),
+                        case_reason: toStr(selectedCase.caseReason),
+                        opposing_party: toStr(selectedCase.opposingParty),
                         court: toStr(selectedCase.court),
                         division: toStr(selectedCase.division),
                         progress: toStr(selectedCase.progress),
-                        progress_date: normalizeDate(selectedCase.progress_date),
-                        is_closed: !!selectedCase.is_closed,
-                        // ...視需要補齊其他欄位
+                        progress_date: normalizeDate(selectedCase.progressDate),
+                        // 若表單還有其他欄位，這裡一併補上
                       };
 
                       setCaseFormMode('edit');
