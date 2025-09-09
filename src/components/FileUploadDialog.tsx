@@ -52,9 +52,10 @@ export default function FileUploadDialog({
     const path = folder.path || '';
 
     // 1) 固定對應
-    if (name === '案件資訊') return { folder_type: 'case_info' as const };
-    if (name === '狀紙')     return { folder_type: 'writs' as const };
-    if (name === '進度追蹤') return { folder_type: 'tracking' as const };
+    if (name === '案件資訊') return { folder_type: 'info' as const };
+    if (name === '狀紙')     return { folder_type: 'pleadings' as const };
+    if (name === '進度追蹤') return { folder_type: 'progress' as const };
+    if (name === '案件進度') return { folder_type: 'progress' as const };
 
     // 2) 案件進度/某階段
     if (path.includes('案件進度/')) {
@@ -62,7 +63,7 @@ export default function FileUploadDialog({
       const parts = path.split('/').filter(Boolean);
       const stage = decodeURIComponent(parts[parts.length - 1] || '');
       if (stage && stage !== '案件進度') {
-        return { folder_type: 'stage' as const, stage_name: stage };
+        return { folder_type: 'progress' as const, stage_name: stage };
       }
       // 若只點到「案件進度」根，就當一般 progress 類
       return { folder_type: 'progress' as const };
@@ -93,7 +94,7 @@ export default function FileUploadDialog({
         alert('找不到事務所代碼，請重新登入');
         return;
       }
-      
+
       const folder = availableFolders.find(f => f.path === selectedFolder);
       if (!folder) throw new Error('找不到指定的資料夾');
 
@@ -102,7 +103,7 @@ export default function FileUploadDialog({
       for (const file of selectedFiles) {
         const form = new FormData();
         form.append('folder_type', target.folder_type);
-        if (target.folder_type === 'stage' && target.stage_name) {
+        if (target.stage_name) {
           form.append('stage_name', target.stage_name);
         }
         form.append('file', file);

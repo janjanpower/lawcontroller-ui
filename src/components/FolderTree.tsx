@@ -226,7 +226,7 @@ export default function FolderTree({
       console.warn('登入狀態不完整，無法載入資料夾');
       return;
     }
-    
+
     try {
       let firmCode;
       try {
@@ -283,12 +283,12 @@ export default function FolderTree({
       } else {
         const errorText = await response.text();
         console.error('載入檔案列表失敗:', response.status, errorText);
-        
+
         // 如果是 401 或 403 錯誤，可能是登入狀態問題
         if (response.status === 401 || response.status === 403) {
           console.warn('可能是登入狀態過期，設定預設資料夾');
         }
-        
+
         // 設定預設資料夾結構
         setFolderData({
           id: 'root',
@@ -304,7 +304,7 @@ export default function FolderTree({
       }
     } catch (error) {
       console.error('載入資料夾結構失敗:', error);
-      
+
       // 設定預設資料夾結構作為備援
       setFolderData({
         id: 'root',
@@ -374,6 +374,7 @@ export default function FolderTree({
 
       // 處理檔案資料：{ pleadings: [...], info: [...], progress: [...] }
       const folderMapping: Record<string, string> = {
+        pleadings: '狀紙',
         info: '案件資訊',
         progress: '案件進度' // 如果後端實際叫「進度追蹤」，這裡改成 '進度追蹤'
       };
@@ -488,7 +489,7 @@ export default function FolderTree({
     if (!hasAuthToken()) {
       throw new Error('登入狀態已過期，請重新登入');
     }
-    
+
     try {
       let firmCode;
       try {
@@ -499,16 +500,23 @@ export default function FolderTree({
 
       // 將資料夾路徑轉換為 folder_type
       const folderTypeMapping: Record<string, string> = {
-        '/案件資訊': 'info',
-        '/案件進度': 'progress'
+        '案件資訊': 'info',
+        '狀紙': 'pleadings',
+        '案件進度': 'progress',
       };
 
-      const folderTypeKey = Object.keys(folderTypeMapping).find(key =>
-        folderPath.includes(key)
-      );
-      const mappedType = folderTypeKey ? folderTypeMapping[folderTypeKey] : 'progress';
+      // 從資料夾路徑中提取資料夾名稱
+      let folderName = '';
+      if (folderPath.includes('/')) {
+        const parts = folderPath.split('/').filter(Boolean);
+        folderName = parts[parts.length - 1] || parts[0] || '';
+      } else {
+        folderName = folderPath;
+      }
 
-      console.log('資料夾路徑對應:', { folderPath, folderTypeKey, mappedType });
+      const mappedType = folderTypeMapping[folderName] || 'progress';
+
+      console.log('資料夾路徑對應:', { folderPath, folderName, mappedType });
 
       const finalFolderType = mappedType;
 
@@ -562,7 +570,7 @@ export default function FolderTree({
   // 檔案挑選器（多檔）＋逐一上傳
   const handleFileUpload = (opts: { folderId?: string; folderPath: string }) => {
    const { folderId, folderPath } = opts;
-    
+
     // 檢查登入狀態
     if (!hasAuthToken()) {
       alert('請先登入系統');
