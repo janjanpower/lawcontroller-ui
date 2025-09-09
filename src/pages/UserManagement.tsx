@@ -42,7 +42,7 @@ export default function UserManagement() {
     try {
       setLoading(true);
       const firmCode = localStorage.getItem('law_firm_code') || 'default';
-      const response = await fetch(`/api/users?firm_code=${firmCode}`);
+      const response = await apiFetch(`/api/users?firm_code=${encodeURIComponent(firmCode)}`);
       const data = await response.json();
 
       if (response.ok) {

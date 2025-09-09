@@ -35,13 +35,6 @@ export class FolderManager {
   static createDefaultFolders(caseId: string): CaseFolder[] {
     const defaultFolders: CaseFolder[] = [
       {
-        id: `${caseId}_pleadings`,
-        name: '狀紙',
-        path: `/cases/${caseId}/狀紙`,
-        type: 'default',
-        children: []
-      },
-      {
         id: `${caseId}_info`,
         name: '案件資訊',
         path: `/cases/${caseId}/案件資訊`,

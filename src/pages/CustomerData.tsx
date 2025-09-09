@@ -13,7 +13,8 @@ export default function CustomerData() {
   // 載入客戶資料列表
   const loadCustomers = async () => {
     try {
-      const response = await apiFetch('/api/clients');
+      const firmCode = getFirmCodeOrThrow();
+      const response = await apiFetch(`/api/clients?firm_code=${encodeURIComponent(firmCode)}`);
       const data = await response.json();
       
       if (response.ok) {

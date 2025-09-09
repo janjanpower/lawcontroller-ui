@@ -100,7 +100,8 @@ export default function ClosedCases() {
   // 載入結案案件列表
   const loadClosedCases = async () => {
     try {
-      const response = await apiFetch('/api/cases?status=closed');
+      const firmCode = getFirmCodeOrThrow();
+      const response = await apiFetch(`/api/cases?status=closed&firm_code=${encodeURIComponent(firmCode)}`);
       const data = await response.json();
       
       if (response.ok) {

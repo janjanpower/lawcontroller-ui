@@ -72,9 +72,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
               </button>
 
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-[#334d6d] rounded-full flex items-center justify-center">
-                  <Building className="w-4 h-4 text-white" />
-                </div>
                 <h1 className="text-lg lg:text-xl font-semibold text-[#334d6d]">
                   {getPageTitle()}
                 </h1>

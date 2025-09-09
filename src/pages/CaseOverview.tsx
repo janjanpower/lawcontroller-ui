@@ -481,14 +481,14 @@ export default function CaseOverview() {
             },
             body: JSON.stringify({
               firm_code: firmCode,
-              case_type: newCase.caseType,
-              client_name: newCase.client,
-              case_reason: newCase.caseReason || null,
-              case_number: newCase.caseNumber || null,
-              court: newCase.court || null,
-              division: newCase.division || null,
-              lawyer_name: newCase.lawyer || null,
-              legal_affairs_name: newCase.legalAffairs || null
+              case_type: fields.case_type || newCase.caseType,
+              client_name: fields.client || newCase.client,
+              case_reason: fields.case_reason || null,
+              case_number: fields.case_number || null,
+              court: fields.court || null,
+              division: fields.division || null,
+              lawyer_name: fields.lawyer || null,
+              legal_affairs_name: fields.legal_affairs || null
             }),
           });
 
@@ -1005,23 +1005,25 @@ export default function CaseOverview() {
                     <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                       <button
                         onClick={() => toggleFolder(row.id)}
-                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1"
+                        className="text-blue-600 hover:text-blue-800 p-1 rounded"
+                        title="檔案"
                       >
                         <FileText className="w-4 h-4" />
-                        <span>檔案</span>
                       </button>
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleEditCase(row)}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
+                          className="text-blue-600 hover:text-blue-800 p-1 rounded"
+                          title="編輯"
                         >
-                          編輯
+                          <Edit className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteCase(row.id)}
-                          className="text-red-600 hover:text-red-800 text-sm"
+                          className="text-red-600 hover:text-red-800 p-1 rounded"
+                          title="刪除"
                         >
-                          刪除
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -1225,20 +1227,12 @@ export default function CaseOverview() {
         onClose={() => setShowImportDialog(false)}
         onImportComplete={handleImportComplete}
       />
-
-      {/* 轉移結案對話框 */}
+      {/* 結案轉移對話框 */}
       <ClosedTransferDialog
         isOpen={showClosedTransfer}
-        cases={selectedCaseIds.map(id => {
-          const caseData = cases.find(c => c.id === id);
-          return {
-            id,
-            caseNo: caseData?.caseNumber,
-            title: caseData?.client
-          };
-        })}
         onClose={() => setShowClosedTransfer(false)}
         onConfirm={handleConfirmTransfer}
+        selectedCases={cases.filter(c => selectedCaseIds.includes(c.id))}
       />
 
       {/* 自訂確認對話框 */}
