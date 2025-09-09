@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search, Filter, Plus, Upload, Download, Eye, Edit, Trash2,
   FileText, User, Building, Calendar, Clock, ChevronDown, ChevronUp,
-  MoreVertical, X, CheckCircle, AlertCircle, Archive
+  MoreVertical, X, CheckCircle, AlertCircle, Archive, Folder,
+  MoreHorizontal
 } from 'lucide-react';
 import CaseForm from '../components/CaseForm';
 import StageEditDialog, { type StageFormData } from '../components/StageEditDialog';
@@ -57,8 +58,8 @@ export default function CaseOverview() {
     legalAffairs: true,
     progress: true,
     progressDate: true,
-    court: true,
-    division: true
+    court: false,
+    division: false
   });
 
   // 檢查登入狀態
@@ -523,15 +524,24 @@ export default function CaseOverview() {
     setSelectedCaseIds(checked ? filteredCases.map(c => c.id) : []);
   };
 
+  // 資料夾樹管理
+  const handleFolderToggle = (caseId: string) => {
+    if (expandedCaseId === caseId) {
+      setExpandedCaseId(null); // 收合當前展開的
+    } else {
+      setExpandedCaseId(caseId); // 展開新的，自動收合舊的
+    }
+  };
+
   // 取得狀態顏色
   const getStatusColor = (status: CaseStatus) => {
     switch (status) {
       case 'active':
-        return 'bg-green-100 text-green-800';
+        return 'bg-blue-100 text-blue-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'completed':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-green-100 text-green-800';
       case 'urgent':
         return 'bg-red-100 text-red-800';
       default:
@@ -559,25 +569,31 @@ export default function CaseOverview() {
       {/* 頂部工具列 */}
       <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          {/* 左側：標題和基本操作 */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <h2 className="text-xl font-semibold text-[#334d6d]">案件總覽</h2>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => {
                   setCaseFormMode('add');
                   setEditingCase(null);
                   setShowCaseForm(true);
                 }}
-                className="bg-[#3498db] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-2"
+                className="bg-[#3498db] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <Plus className="w-4 h-4" />
                 <span>新增案件</span>
               </button>
 
-              <label className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors cursor-pointer flex items-center space-x-2">
+              <button
+                onClick={() => setShowFileUpload(true)}
+                className="bg-[#27ae60] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#229954] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
+              >
                 <Upload className="w-4 h-4" />
-                <span>匯入Excel</span>
+                <span>上傳檔案</span>
+              </button>
+
+              <label className="bg-green-600 text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-green-700 transition-colors cursor-pointer flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center">
+                <Download className="w-4 h-4" />
+                <span>匯入資料</span>
                 <input
                   type="file"
                   accept=".xlsx,.xls"
@@ -585,12 +601,57 @@ export default function CaseOverview() {
                   className="hidden"
                 />
               </label>
+
+              <button
+                onClick={handleTransferToClosed}
+                className="bg-[#f39c12] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#d68910] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span>轉移結案</span>
+              </button>
+
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <Filter className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          {/* 右側：搜尋和過濾 */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-4">
+            {/* 跑馬燈：日期提醒 */}
+            <div className="w-full sm:w-64 order-2 sm:order-1">
+              <DateReminderWidget
+                caseData={cases.map(c => ({
+                  case_id: c.id,
+                  client: c.client,
+                  case_type: c.caseType,
+                  progress_stages: c.stages.reduce((acc, stage) => {
+                    acc[stage.name] = stage.date;
+                    return acc;
+                  }, {} as Record<string, string>),
+                  progress_times: c.stages.reduce((acc, stage) => {
+                    if (stage.time) acc[stage.name] = stage.time;
+                    return acc;
+                  }, {} as Record<string, string>),
+                  progress_notes: c.stages.reduce((acc, stage) => {
+                    if (stage.note) acc[stage.name] = stage.note;
+                    return acc;
+                  }, {} as Record<string, string>)
+                }))}
+                onCaseSelect={(caseData) => {
+                  const foundCase = cases.find(c => c.id === caseData.case_id);
+                  if (foundCase) {
+                    setSelectedCase(foundCase);
+                    setExpandedCaseId(foundCase.id);
+                  }
+                }}
+              />
+            </div>
+
+            {/* 搜尋 */}
+            <div className="relative flex-1 sm:flex-none order-1 sm:order-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
@@ -600,12 +661,6 @@ export default function CaseOverview() {
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-sm w-full sm:w-64"
               />
             </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors self-center sm:self-auto"
-            >
-              <Filter className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
@@ -643,23 +698,6 @@ export default function CaseOverview() {
           </div>
         )}
 
-        {/* 過濾器 */}
-        {showFilters && (
-          <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">狀態篩選：</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-            >
-              <option value="all">全部</option>
-              <option value="active">進行中</option>
-              <option value="pending">待處理</option>
-              <option value="urgent">緊急</option>
-            </select>
-          </div>
-        )}
-
         {/* 搜尋結果統計 */}
         {searchTerm && (
           <div className="mt-2 text-sm text-green-600">
@@ -668,35 +706,50 @@ export default function CaseOverview() {
         )}
       </div>
 
-      {/* 提醒小工具 */}
-      <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3">
-        <DateReminderWidget
-          caseData={cases.map(c => ({
-            case_id: c.id,
-            client: c.client,
-            case_type: c.caseType,
-            progress_stages: c.stages.reduce((acc, stage) => {
-              acc[stage.name] = stage.date;
-              return acc;
-            }, {} as Record<string, string>),
-            progress_times: c.stages.reduce((acc, stage) => {
-              if (stage.time) acc[stage.name] = stage.time;
-              return acc;
-            }, {} as Record<string, string>),
-            progress_notes: c.stages.reduce((acc, stage) => {
-              if (stage.note) acc[stage.name] = stage.note;
-              return acc;
-            }, {} as Record<string, string>)
-          }))}
-          onCaseSelect={(caseData) => {
-            const foundCase = cases.find(c => c.id === caseData.case_id);
-            if (foundCase) {
-              setSelectedCase(foundCase);
-              setExpandedCaseId(foundCase.id);
-            }
-          }}
-        />
-      </div>
+      {/* 欄位控制區域 */}
+      {showFilters && (
+        <div className="bg-gray-50 border-b border-gray-200 px-4 lg:px-6 py-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            <span className="text-sm font-medium text-gray-700">顯示欄位：</span>
+            {Object.entries(visibleColumns).map(([key, visible]) => (
+              <label key={key} className="flex items-center space-x-1 text-xs sm:text-sm whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={visible}
+                  onChange={(e) =>
+                    setVisibleColumns((prev) => ({
+                      ...prev,
+                      [key]: e.target.checked,
+                    }))
+                  }
+                  className="rounded border-gray-300 text-[#334d6d] focus:ring-[#334d6d]"
+                />
+                <span className="text-gray-600 text-xs sm:text-sm">
+                  {key === 'caseNumber'
+                    ? '案號'
+                    : key === 'client'
+                    ? '當事人'
+                    : key === 'caseType'
+                    ? '案件類型'
+                    : key === 'lawyer'
+                    ? '律師'
+                    : key === 'legalAffairs'
+                    ? '法務'
+                    : key === 'progress'
+                    ? '進度'
+                    : key === 'progressDate'
+                    ? '進度日期'
+                    : key === 'court'
+                    ? '法院'
+                    : key === 'division'
+                    ? '股別'
+                    : key}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 案件列表 + 右側詳情 */}
       <div className="flex-1 flex flex-col lg:flex-row">
@@ -724,22 +777,17 @@ export default function CaseOverview() {
               <table className="w-full">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-6 py-3 text-left w-12">
-                      <input
-                        type="checkbox"
-                        checked={selectedCaseIds.length === filteredCases.length && filteredCases.length > 0}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                        className="rounded border-gray-300 text-[#334d6d] focus:ring-[#334d6d]"
-                      />
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                      選擇
                     </th>
-                    {visibleColumns.caseNumber && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        案號
-                      </th>
-                    )}
                     {visibleColumns.client && (
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         當事人
+                      </th>
+                    )}
+                    {visibleColumns.caseNumber && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        案號
                       </th>
                     )}
                     {visibleColumns.caseType && (
@@ -767,63 +815,94 @@ export default function CaseOverview() {
                         進度日期
                       </th>
                     )}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    {visibleColumns.court && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        法院
+                      </th>
+                    )}
+                    {visibleColumns.division && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        股別
+                      </th>
+                    )}
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                       操作
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredCases.map((caseItem, index) => (
-                    <React.Fragment key={caseItem.id}>
+                  {filteredCases.map((row, index) => (
+                    <>
                       <tr
+                        key={row.id}
                         className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                          selectedCase?.id === caseItem.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''
+                          selectedCase?.id === row.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''
                         } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-                        onClick={() => setSelectedCase(caseItem)}
+                        onClick={() => setSelectedCase(row)}
                       >
-                        <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="checkbox"
-                            checked={selectedCaseIds.includes(caseItem.id)}
-                            onChange={(e) => handleCaseSelect(caseItem.id, e.target.checked)}
                             className="rounded border-gray-300 text-[#334d6d] focus:ring-[#334d6d]"
+                            checked={selectedCaseIds.includes(row.id)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleCaseSelect(row.id, e.target.checked);
+                            }}
                           />
                         </td>
-                        {visibleColumns.caseNumber && (
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {caseItem.caseNumber}
-                          </td>
-                        )}
+
                         {visibleColumns.client && (
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {caseItem.client}
+                            {row.client}
+                          </td>
+                        )}
+                        {visibleColumns.caseNumber && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {row.caseNumber}
                           </td>
                         )}
                         {visibleColumns.caseType && (
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(caseItem.status)}`}>
-                              {caseItem.caseType}
+                            <span
+                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                                row.status
+                              )}`}
+                            >
+                              {row.caseType}
                             </span>
                           </td>
                         )}
                         {visibleColumns.lawyer && (
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {caseItem.lawyer}
+                            <div className="flex items-center space-x-2">
+                              {row.lawyer}
+                            </div>
                           </td>
                         )}
                         {visibleColumns.legalAffairs && (
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {caseItem.legalAffairs}
+                            {row.legalAffairs}
                           </td>
                         )}
                         {visibleColumns.progress && (
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {caseItem.progress}
+                            {row.progress}
                           </td>
                         )}
                         {visibleColumns.progressDate && (
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {caseItem.progressDate}
+                            {row.progressDate}
+                          </td>
+                        )}
+                        {visibleColumns.court && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {row.court}
+                          </td>
+                        )}
+                        {visibleColumns.division && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {row.division}
                           </td>
                         )}
                         <td
@@ -832,25 +911,36 @@ export default function CaseOverview() {
                         >
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => setSelectedCase(caseItem)}
-                              className="text-gray-400 hover:text-[#334d6d] transition-colors"
-                              title="檢視"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setCaseFormMode('edit');
-                                setEditingCase(caseItem);
+                                setEditingCase(row);
                                 setShowCaseForm(true);
                               }}
-                              className="text-gray-400 hover:text-blue-600 transition-colors"
+                              className="text-gray-400 hover:text-[#334d6d] transition-colors"
                               title="編輯"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleDeleteCase(caseItem.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFolderToggle(row.id);
+                              }}
+                              className={`transition-colors ${
+                                expandedCaseId === row.id
+                                  ? 'text-blue-600 hover:text-blue-700'
+                                  : 'text-gray-400 hover:text-blue-600'
+                              }`}
+                              title="展開/收合資料夾"
+                            >
+                              <Folder className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCase(row.id);
+                              }}
                               className="text-gray-400 hover:text-red-600 transition-colors"
                               title="刪除"
                             >
@@ -860,121 +950,29 @@ export default function CaseOverview() {
                         </td>
                       </tr>
 
-                      {/* 展開的詳細資訊 */}
-                      {expandedCaseId === caseItem.id && (
-                        <tr>
-                          <td colSpan={Object.values(visibleColumns).filter(Boolean).length + 2} className="px-6 py-4 bg-gray-50">
-                            <div className="space-y-4">
-                              {/* 案件詳細資訊 */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                                <div>
-                                  <span className="font-medium text-gray-700">案由：</span>
-                                  <span className="text-gray-900">{caseItem.caseReason || '未設定'}</span>
-                                </div>
-                                <div>
-                                  <span className="font-medium text-gray-700">對造：</span>
-                                  <span className="text-gray-900">{caseItem.opposingParty || '未設定'}</span>
-                                </div>
-                                <div>
-                                  <span className="font-medium text-gray-700">負責法院：</span>
-                                  <span className="text-gray-900">{caseItem.court || '未設定'}</span>
-                                </div>
-                                <div>
-                                  <span className="font-medium text-gray-700">負責股別：</span>
-                                  <span className="text-gray-900">{caseItem.division || '未設定'}</span>
-                                </div>
-                              </div>
-
-                              {/* 階段管理 */}
-                              <div>
-                                <div className="flex items-center justify-between mb-3">
-                                  <h4 className="font-medium text-gray-900">案件階段</h4>
-                                  <button
-                                    onClick={() => {
-                                      setStageDialogMode('add');
-                                      setEditingStage(null);
-                                      setShowStageDialog(true);
-                                    }}
-                                    className="bg-[#27ae60] text-white px-3 py-1 rounded text-sm hover:bg-[#229954] flex items-center space-x-1"
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                    <span>新增階段</span>
-                                  </button>
-                                </div>
-
-                                <div className="space-y-2">
-                                  {caseItem.stages.length === 0 ? (
-                                    <div className="text-sm text-gray-500 text-center py-4">
-                                      尚未新增任何階段
-                                    </div>
-                                  ) : (
-                                    caseItem.stages.map((stage, stageIndex) => (
-                                      <div
-                                        key={stageIndex}
-                                        className="flex items-center justify-between p-3 border border-gray-200 rounded-md hover:bg-gray-50"
-                                      >
-                                        <div className="flex items-center space-x-3">
-                                          <button
-                                            onClick={() => toggleStageCompletion(stageIndex)}
-                                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                              stage.completed
-                                                ? 'bg-green-500 border-green-500 text-white'
-                                                : 'border-gray-300 hover:border-green-500'
-                                            }`}
-                                          >
-                                            {stage.completed && <CheckCircle className="w-3 h-3" />}
-                                          </button>
-                                          <div>
-                                            <div className={`text-sm font-medium ${stage.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                                              {stage.name}
-                                            </div>
-                                            <div className="text-xs text-gray-500 flex items-center space-x-2">
-                                              <span className="flex items-center">
-                                                <Calendar className="w-3 h-3 mr-1" />
-                                                {stage.date}
-                                              </span>
-                                              {stage.time && (
-                                                <span className="flex items-center">
-                                                  <Clock className="w-3 h-3 mr-1" />
-                                                  {stage.time}
-                                                </span>
-                                              )}
-                                            </div>
-                                            {stage.note && (
-                                              <div className="text-xs text-gray-600 mt-1">
-                                                備註：{stage.note}
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                        <button
-                                          onClick={() => {
-                                            setStageDialogMode('edit');
-                                            setEditingStage({ index: stageIndex, stage });
-                                            setShowStageDialog(true);
-                                          }}
-                                          className="text-gray-400 hover:text-blue-600 transition-colors"
-                                        >
-                                          <Edit className="w-4 h-4" />
-                                        </button>
-                                      </div>
-                                    ))
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* 資料夾樹 */}
+                      {/* 資料夾樹展開區域 - 緊接在對應案件下方 */}
+                      {expandedCaseId === row.id && (
+                        <tr key={`folder-${row.id}`} className="bg-gray-50">
+                          <td colSpan={10} className="px-0 py-0">
+                            <div className="px-6 py-4">
                               <FolderTree
-                                caseId={caseItem.id}
-                                clientName={caseItem.client}
-                                isExpanded={expandedCaseId === caseItem.id}
-                                onToggle={() => setExpandedCaseId(expandedCaseId === caseItem.id ? null : caseItem.id)}
+                                caseId={row.id}
+                                clientName={row.client}
+                                isExpanded={true}
+                                onToggle={() => handleFolderToggle(row.id)}
+                                s3Config={{
+                                  endpoint: process.env.VITE_SPACES_ENDPOINT || 'https://sgp1.digitaloceanspaces.com',
+                                  accessKey: process.env.VITE_SPACES_ACCESS_KEY || '',
+                                  secretKey: process.env.VITE_SPACES_SECRET_KEY || '',
+                                  bucket: process.env.VITE_SPACES_BUCKET || '',
+                                  region: process.env.VITE_SPACES_REGION || 'sgp1'
+                                }}
                               />
                             </div>
                           </td>
                         </tr>
                       )}
-                    </React.Fragment>
+                    </>
                   ))}
                 </tbody>
               </table>
@@ -1007,6 +1005,9 @@ export default function CaseOverview() {
                   >
                     <Edit className="w-3 h-3" />
                     <span>編輯</span>
+                  </button>
+                  <button className="text-gray-400 hover:text-gray-600" title="更多">
+                    <MoreHorizontal className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -1051,7 +1052,7 @@ export default function CaseOverview() {
 
               <hr className="my-6" />
 
-              {/* 案件進度 */}
+              {/* 進度階段 */}
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="text-sm font-semibold text-gray-900">案件進度</h4>
@@ -1061,25 +1062,26 @@ export default function CaseOverview() {
                       setEditingStage(null);
                       setShowStageDialog(true);
                     }}
-                    className="bg-[#27ae60] text-white px-2 py-1 rounded text-xs hover:bg-[#229954] flex items-center space-x-1"
+                    className="bg-[#27ae60] text-white px-3 py-1.5 rounded-md transition-colors flex items-center space-x-1"
                   >
                     <Plus className="w-3 h-3" />
-                    <span>新增</span>
+                    <span>新增階段</span>
                   </button>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {selectedCase.stages.length === 0 ? (
                     <div className="text-sm text-gray-500 text-center py-4">
                       尚未新增任何階段
                     </div>
                   ) : (
-                    selectedCase.stages.map((stage, stageIndex) => (
-                      <div
-                        key={stageIndex}
-                        className="flex items-center justify-between p-2 border border-gray-200 rounded-md hover:bg-gray-50"
-                      >
-                        <div className="flex items-center space-x-2">
+                    selectedCase.stages.map((stage, stageIndex) => {
+                      const isCurrent = stage.name === selectedCase.progress;
+                      return (
+                        <div
+                          key={`${stage.name}-${stageIndex}`}
+                          className="flex items-start space-x-3 p-2 rounded-md hover:bg-gray-50 group"
+                        >
                           <button
                             onClick={() => toggleStageCompletion(stageIndex)}
                             className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
@@ -1090,27 +1092,58 @@ export default function CaseOverview() {
                           >
                             {stage.completed && <CheckCircle className="w-2 h-2" />}
                           </button>
-                          <div>
-                            <div className={`text-xs font-medium ${stage.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                              {stage.name}
+
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span
+                                className={`text-sm font-medium cursor-pointer hover:text-blue-600 ${
+                                  stage.completed ? 'line-through text-gray-500' : 'text-gray-900'
+                                }`}
+                                onClick={() => {
+                                  setStageDialogMode('edit');
+                                  setEditingStage({ index: stageIndex, stage });
+                                  setShowStageDialog(true);
+                                }}
+                                title="點擊編輯此進度"
+                              >
+                                {stage.name}
+                              </span>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs text-gray-500">
+                                  {stage.date}
+                                  {stage.time ? ` ${stage.time}` : ''}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    const folderPath = FolderManager.getStageFolder(selectedCase.id, stage.name);
+                                    console.log(`開啟階段資料夾: ${folderPath}`);
+                                    alert(`開啟階段資料夾：${stage.name}\n路徑：${folderPath}`);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-all"
+                                  title="開啟階段資料夾"
+                                >
+                                  <Folder className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setStageDialogMode('edit');
+                                    setEditingStage({ index: stageIndex, stage });
+                                    setShowStageDialog(true);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-all"
+                                  title="編輯階段"
+                                >
+                                  <Edit className="w-3 h-3" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {stage.date} {stage.time && `${stage.time}`}
-                            </div>
+                            {stage.note && (
+                              <p className="text-xs text-gray-500 mt-1">{stage.note}</p>
+                            )}
                           </div>
                         </div>
-                        <button
-                          onClick={() => {
-                            setStageDialogMode('edit');
-                            setEditingStage({ index: stageIndex, stage });
-                            setShowStageDialog(true);
-                          }}
-                          className="text-gray-400 hover:text-blue-600 transition-colors"
-                        >
-                          <Edit className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
