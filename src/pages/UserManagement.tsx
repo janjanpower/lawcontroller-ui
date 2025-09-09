@@ -598,14 +598,6 @@ export default function UserManagement() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">用戶詳情</h3>
                 <div className="flex items-center space-x-2">
-                  {/* 手機版關閉按鈕 */}
-                  <button
-                    onClick={() => setSelectedUser(null)}
-                    className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                    title="關閉詳情"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
                   <button
                     onClick={() => {
                       setEditUserData({
@@ -622,6 +614,14 @@ export default function UserManagement() {
                       <Edit className="w-3 h-3" />
                       <span>編輯</span>
                     </>
+                  </button>
+                  {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
+                  <button
+                    onClick={() => setSelectedUser(null)}
+                    className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    title="關閉詳情"
+                  >
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>

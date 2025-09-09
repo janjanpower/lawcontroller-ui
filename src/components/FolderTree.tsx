@@ -1,7 +1,7 @@
 // src/components/FolderTree.tsx
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2 } from 'lucide-react';
-import { getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
+import { getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect, apiFetch } from '../utils/api';
 import { FolderManager } from '../utils/folderManager';
 
 interface FolderNode {

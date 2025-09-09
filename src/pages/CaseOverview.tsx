@@ -680,6 +680,34 @@ export default function CaseOverview() {
     }
   };
 
+  // Helper functions for stage status
+  const getStageStatus = (stage: Stage) => {
+    if (stage.completed) return 'completed';
+    if (!stage.date) return 'no-date';
+    
+    const stageDate = new Date(stage.date);
+    const today = new Date();
+    const diffDays = Math.ceil((stageDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+    
+    if (diffDays < 0) return 'overdue';
+    if (diffDays <= 3) return 'urgent';
+    return 'normal';
+  };
+
+  const getStageStatusText = (stage: Stage) => {
+    if (stage.completed) return '已完成';
+    if (!stage.date) return '未設定日期';
+    
+    const stageDate = new Date(stage.date);
+    const today = new Date();
+    const diffDays = Math.ceil((stageDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+    
+    if (diffDays < 0) return '已逾期';
+    if (diffDays === 0) return '今日到期';
+    if (diffDays <= 3) return `${diffDays}天後到期`;
+    return '正常';
+  };
+
   return (
     <div className="flex-1 flex flex-col">
       {/* 頂部工具列 */}
@@ -1100,14 +1128,6 @@ export default function CaseOverview() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">案件詳情</h3>
                 <div className="flex items-center space-x-2">
-                  {/* 手機版關閉按鈕 */}
-                  <button
-                    onClick={() => setSelectedCase(null)}
-                    className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                    title="關閉詳情"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
                   <button
                     onClick={() => {
                       if (!selectedCase.id) {
@@ -1125,6 +1145,14 @@ export default function CaseOverview() {
                   >
                     <Edit className="w-3 h-3" />
                     <span>編輯</span>
+                  </button>
+                  {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
+                  <button
+                    onClick={() => setSelectedCase(null)}
+                    className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    title="關閉詳情"
+                  >
+                    <X className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => setSelectedCase(null)}

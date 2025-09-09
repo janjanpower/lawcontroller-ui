@@ -236,25 +236,26 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           console.log('DEBUG: onSave 失敗');
         }
       } else {
-        // 編輯案件 - 呼叫後端 API
+        // 編輯案件 - 呼叫後端 API（已改）
         if (!formData.case_id) {
           setErrors({ submit: '案件 ID 不存在，無法編輯' });
           return;
         }
 
         const updateData = {
-          case_type: formData.case_type || null,
-          case_reason: formData.case_reason || null,
-          case_number: formData.case_number || null,
-          opposing_party: formData.opposing_party || null,
-          court: formData.court || null,
-          division: formData.division || null,
-          progress: formData.progress || null,
-          progress_date: formData.progress_date || null,
+          case_type: formData.case_type,
+          case_reason: formData.case_reason ?? null,
+          case_number: formData.case_number ?? null,
+          opposing_party: formData.opposing_party ?? null,
+          court: formData.court ?? null,
+          division: formData.division ?? null,
+          progress: formData.progress ?? null,
+          progress_date: formData.progress_date ?? null,
+
           // 新增：名稱欄位，後端會轉成 *_id
-          client_name: formData.client || null,
-          lawyer_name: formData.lawyer || null,
-          legal_affairs_name: formData.legal_affairs || null,
+          client_name: formData.client ?? null,
+          lawyer_name: formData.lawyer ?? null,
+          legal_affairs_name: formData.legal_affairs ?? null,
         };
 
         console.log('發送到後端的更新案件資料:', updateData);
@@ -311,6 +312,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         } else {
           console.log('DEBUG: onSave (編輯模式) 失敗');
         }
+
       }
     } catch (error) {
       console.error('保存案件失敗:', error);

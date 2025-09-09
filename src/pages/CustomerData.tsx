@@ -229,17 +229,17 @@ export default function CustomerData() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">客戶詳情</h3>
                 <div className="flex items-center space-x-2">
-                  {/* 手機版關閉按鈕 */}
+                  <button className="bg-[#334d6d] text-white px-4 py-2 rounded-md hover:bg-[#3f5a7d] transition-colors flex items-center space-x-2">
+                    <Edit className="w-4 h-4" />
+                    <span>編輯</span>
+                  </button>
+                  {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
                   <button
                     onClick={() => setSelectedCustomer(null)}
                     className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                     title="關閉詳情"
                   >
                     <X className="w-5 h-5" />
-                  </button>
-                  <button className="bg-[#334d6d] text-white px-4 py-2 rounded-md hover:bg-[#3f5a7d] transition-colors flex items-center space-x-2">
-                    <Edit className="w-4 h-4" />
-                    <span>編輯</span>
                   </button>
                 </div>
               </div>
