@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Users as UsersIcon, Plus, Trash2, Loader, Eye, EyeOff } from 'lucide-react';
 import type { User as UserType, Firm, CreateUserData } from '../types';
 import { PLANS } from '../types';
-import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
+import { apiFetch } from '../utils/api';
 
 interface UserSelectionDialogProps {
   isOpen: boolean;
@@ -160,7 +160,7 @@ export default function UserSelectionDialog({
       localStorage.setItem('law_firm_id', firm.id);
       localStorage.setItem('law_firm_code', firm.firmCode);
       localStorage.setItem('law_last_login', new Date().toISOString());
-      
+
       console.log('登入資訊已儲存到 localStorage:', {
         user_id: selectedUser.id,
         user_name: selectedUser.fullName || selectedUser.username,

@@ -1,6 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, User, Building, Menu, X, Users, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { isLoggedIn, clearLoginAndRedirect } from '../utils/api';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -14,25 +15,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   // 檢查登入狀態
   useEffect(() => {
-    const userId = localStorage.getItem('law_user_id');
-    const firmCode = localStorage.getItem('law_firm_code');
-    const firmId = localStorage.getItem('law_firm_id');
-    
-    if (!userId || !firmCode) {
+    if (!isLoggedIn()) {
       console.warn('登入狀態不完整，重新導向到登入頁面');
-      navigate('/login', { replace: true });
-      return;
-    }
-    
-    // 檢查登入資訊的完整性
-    if (!firmId) {
-      console.warn('缺少事務所 ID，清除登入狀態');
-      localStorage.removeItem('law_user_id');
-      localStorage.removeItem('law_user_name');
-      localStorage.removeItem('law_firm_id');
-      localStorage.removeItem('law_firm_code');
-      localStorage.removeItem('law_last_login');
-      navigate('/login', { replace: true });
+      clearLoginAndRedirect();
       return;
     }
   }, [navigate]);
@@ -58,15 +43,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   };
 
   const confirmLogout = () => {
-    // 清除所有登入資訊
-    localStorage.removeItem('law_user_id');
-    localStorage.removeItem('law_user_name');
-    localStorage.removeItem('law_firm_id');
-    localStorage.removeItem('law_firm_code');
-    localStorage.removeItem('law_last_login');
-    
-    // 跳轉到登入頁面
-    navigate('/login', { replace: true });
+    clearLoginAndRedirect();
   };
 
   return (
@@ -180,7 +157,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 <span className="font-medium">人員權限</span>
               </NavLink>
             </div>
-          
+
             {/* 登出按鈕 - 放在導覽頁最下面 */}
             <div className="mt-auto pt-4 border-t border-[#34495e]">
               <button
@@ -199,7 +176,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           {children}
         </main>
       </div>
-      
+
       {/* 登出確認對話框 */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

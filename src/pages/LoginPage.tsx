@@ -5,7 +5,7 @@ import PlanSelectionDialog from '../components/PlanSelectionDialog';
 import UserSelectionDialog from '../components/UserSelectionDialog';
 import '../styles/login.css';
 import type { LoginCredentials, Firm, User as UserType } from '../types';
-import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
+import { apiFetch } from '../utils/api';
 
 export default function LoginPage() {
   // 基本狀態
@@ -163,7 +163,7 @@ export default function LoginPage() {
         // 先儲存基本的事務所資訊到 localStorage（以防後續步驟失敗）
         localStorage.setItem('law_firm_id', data.firm_id);
         localStorage.setItem('law_firm_code', loginCredentials.account);
-        
+
         setCurrentFirm(firmInfo);
 
         console.log('Firm Info:', firmInfo);
