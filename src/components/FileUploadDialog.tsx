@@ -67,6 +67,7 @@ export default function FileUploadDialog({
     try {
       // 將資料夾名稱轉換為 folder_type
       const folderTypeMapping: Record<string, string> = {
+        '狀紙': 'pleadings',
         '案件資訊': 'info',
         '進度追蹤': 'progress'
       };
@@ -87,8 +88,7 @@ export default function FileUploadDialog({
         formData.append('folder_type', folderType);
 
         // 呼叫上傳 API
-        const firmCode = getFirmCodeOrThrow();
-        const response = await apiFetch(`/api/cases/${selectedCase}/files?firm_code=${encodeURIComponent(firmCode)}`, {
+        const response = await apiFetch(`/api/cases/${selectedCase}/files`, {
           method: 'POST',
           body: formData
         });

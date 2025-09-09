@@ -83,13 +83,13 @@ export default function ImportDataDialog({
       const importedCases = await parseExcelToCases(selectedFile);
       
       // 過濾出有效案件（民事或刑事）
-      const validCases = importedCases.filter(c => c.type === '民事' || c.type === '刑事' || c.type === '未知');
+      const validCases = importedCases.filter(c => c.type === '民事' || c.type === '刑事');
       
       if (validCases.length > 0) {
         console.log('準備匯入的案件:', validCases);
         onImportComplete(validCases);
       } else {
-        setError('沒有找到有效的案件資料。請檢查Excel檔案格式是否正確。');
+        setError('沒有找到有效的案件資料');
       }
     } catch (error) {
       console.error('匯入失敗:', error);
@@ -140,10 +140,9 @@ export default function ImportDataDialog({
           <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
             <h3 className="font-medium text-blue-900 mb-2">Excel匯入功能說明：</h3>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>• 智慧識別：自動偵測「民事」或「刑事」工作表</li>
-              <li>• 智慧標題列：自動尋找包含欄位名稱的標題列</li>
-              <li>• 智慧欄位對應：自動匹配「當事人」、「案由」、「案號」、「法院」等欄位</li>
-              <li>• 支援案號合併：自動合併多個案號相關欄位</li>
+              <li>• 請確認Excel中包含「民事」或「刑事」的工作表</li>
+              <li>• 系統會自動截取相關必要資料並新增案件</li>
+              <li>• 支援的欄位：案由、案號、當事人、原告、被告等</li>
             </ul>
           </div>
 

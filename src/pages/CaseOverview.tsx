@@ -164,10 +164,9 @@ export default function CaseOverview() {
   // 載入案件列表
   const loadCases = async () => {
     try {
-      const firmCode = getFirmCodeOrThrow();
-      const response = await apiFetch(`/api/cases?status=open&firm_code=${encodeURIComponent(firmCode)}`);
+      const response = await apiFetch('/api/cases?status=open');
       const data = await response.json();
-
+      
       if (response.ok) {
         const transformedCases = (data.items || []).map((apiCase: any) => ({
           id: apiCase.id,
@@ -306,7 +305,7 @@ export default function CaseOverview() {
         }
       } else {
         // 編輯案件
-        setCases(prev => prev.map(c =>
+        setCases(prev => prev.map(c => 
           c.id === caseData.case_id ? {
             ...c,
             caseType: caseData.case_type,
@@ -396,8 +395,8 @@ export default function CaseOverview() {
 
       if (stageDialogMode === 'add') {
         // 新增階段
-        setCases(prev => prev.map(c =>
-          c.id === selectedCase.id
+        setCases(prev => prev.map(c => 
+          c.id === selectedCase.id 
             ? { ...c, stages: [...c.stages, newStage] }
             : c
         ));
@@ -406,11 +405,11 @@ export default function CaseOverview() {
         FolderManager.createStageFolder(selectedCase.id, stageData.stageName);
       } else {
         // 編輯階段
-        setCases(prev => prev.map(c =>
-          c.id === selectedCase.id
-            ? {
-                ...c,
-                stages: c.stages.map((stage, index) =>
+        setCases(prev => prev.map(c => 
+          c.id === selectedCase.id 
+            ? { 
+                ...c, 
+                stages: c.stages.map((stage, index) => 
                   index === editingStageIndex ? newStage : stage
                 )
               }
@@ -432,10 +431,10 @@ export default function CaseOverview() {
 
       for (const importedCase of importedCases) {
         const caseId = `imported_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
+        
         // 從匯入的欄位中提取資料
         const fields = importedCase.fields || {};
-
+        
         const newCase: TableCase = {
           id: caseId,
           caseNumber: fields['案號'] || fields['案件編號'] || '',
@@ -482,14 +481,14 @@ export default function CaseOverview() {
             },
             body: JSON.stringify({
               firm_code: firmCode,
-              case_type: fields.case_type || newCase.caseType,
-              client_name: fields.client || newCase.client,
-              case_reason: fields.case_reason || null,
-              case_number: fields.case_number || null,
-              court: fields.court || null,
-              division: fields.division || null,
-              lawyer_name: fields.lawyer || null,
-              legal_affairs_name: fields.legal_affairs || null
+              case_type: newCase.caseType,
+              client_name: newCase.client,
+              case_reason: newCase.caseReason || null,
+              case_number: newCase.caseNumber || null,
+              court: newCase.court || null,
+              division: newCase.division || null,
+              lawyer_name: newCase.lawyer || null,
+              legal_affairs_name: newCase.legalAffairs || null
             }),
           });
 
@@ -563,7 +562,7 @@ export default function CaseOverview() {
   const handleConfirmTransfer = async () => {
     try {
       const selectedCases = cases.filter(c => selectedCaseIds.includes(c.id));
-
+      
       // 移除已轉移的案件
       setCases(prev => prev.filter(c => !selectedCaseIds.includes(c.id)));
       setSelectedCaseIds([]);
@@ -666,10 +665,10 @@ export default function CaseOverview() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <h2 className="text-xl font-semibold text-[#334d6d]">案件總覽</h2>
-
+            
             {/* 日期提醒組件 */}
             <div className="w-full sm:w-80">
-              <DateReminderWidget
+              <DateReminderWidget 
                 caseData={reminderCaseData}
                 onCaseSelect={(caseData) => {
                   const foundCase = cases.find(c => c.id === caseData.case_id);
@@ -731,10 +730,10 @@ export default function CaseOverview() {
         )}
 
         {/* 操作按鈕 */}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <button
             onClick={handleAddCase}
-            className="bg-[#334d6d] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#3f5a7d] transition-colors flex items-center space-x-2"
+            className="bg-[#334d6d] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#3f5a7d] transition-colors flex items-center justify-center space-x-2"
           >
             <Plus className="w-4 h-4" />
             <span>新增案件</span>
@@ -742,7 +741,7 @@ export default function CaseOverview() {
 
           <button
             onClick={() => setShowFileUpload(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors flex items-center space-x-2"
+            className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
           >
             <Upload className="w-4 h-4" />
             <span>上傳檔案</span>
@@ -750,7 +749,7 @@ export default function CaseOverview() {
 
           <button
             onClick={() => setShowImportDialog(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
           >
             <Download className="w-4 h-4" />
             <span>匯入資料</span>
@@ -759,38 +758,11 @@ export default function CaseOverview() {
           <button
             onClick={handleTransferToClosed}
             disabled={selectedCaseIds.length === 0}
-            className="bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            className="bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
             <FileText className="w-4 h-4" />
             <span>轉移結案</span>
           </button>
-
-          {/* 批量操作工具列 */}
-          {selectedCaseIds.length > 0 && (
-            <div className="flex items-center space-x-2 ml-4 pl-4 border-l border-gray-300">
-              <span className="text-sm text-gray-600">
-                已選擇 {selectedCaseIds.length} 個案件
-              </span>
-              <button
-                onClick={() => {
-                  if (confirm(`確定要刪除選中的 ${selectedCaseIds.length} 個案件嗎？此操作無法復原。`)) {
-                    setCases(prev => prev.filter(c => !selectedCaseIds.includes(c.id)));
-                    setSelectedCaseIds([]);
-                  }
-                }}
-                className="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700 flex items-center space-x-1"
-              >
-                <Trash2 className="w-3 h-3" />
-                <span>批量刪除</span>
-              </button>
-              <button
-                onClick={() => setSelectedCaseIds([])}
-                className="bg-gray-500 text-white px-3 py-1 rounded text-xs hover:bg-gray-600"
-              >
-                取消選擇
-              </button>
-            </div>
-          )}
         </div>
 
         {/* 搜尋結果統計 */}
@@ -965,7 +937,7 @@ export default function CaseOverview() {
                           </div>
                         </td>
                       </tr>
-
+                      
                       {/* 資料夾展開區域 */}
                       {expandedFolders[row.id] && (
                         <tr>
@@ -1031,29 +1003,25 @@ export default function CaseOverview() {
                     </div>
 
                     <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => toggleFolder(row.id)}
-                          className="text-blue-600 hover:text-blue-800 p-1 rounded"
-                          title="檔案"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => toggleFolder(row.id)}
+                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center space-x-1"
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span>檔案</span>
+                      </button>
+                      <div className="flex space-x-2">
                         <button
                           onClick={() => handleEditCase(row)}
-                          className="text-blue-600 hover:text-blue-800 p-1 rounded"
-                          title="編輯"
+                          className="text-blue-600 hover:text-blue-800 text-sm"
                         >
-                          <Edit className="w-4 h-4" />
+                          編輯
                         </button>
                         <button
                           onClick={() => handleDeleteCase(row.id)}
-                          className="text-red-600 hover:text-red-800 p-1 rounded"
-                          title="刪除"
+                          className="text-red-600 hover:text-red-800 text-sm"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          刪除
                         </button>
                       </div>
                     </div>
@@ -1078,7 +1046,7 @@ export default function CaseOverview() {
 
         {/* 右側詳情 */}
         {selectedCase && (
-          <div className="w-full lg:w-96 bg-white border-l border-gray-200 overflow-auto fixed lg:relative inset-0 lg:inset-auto z-40 lg:z-auto">
+          <div className="w-full lg:w-96 bg-white border-l border-gray-200 overflow-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">案件詳情</h3>
@@ -1090,10 +1058,10 @@ export default function CaseOverview() {
                     <Edit className="w-4 h-4" />
                     <span>編輯</span>
                   </button>
-                  {/* 手機版關閉按鈕 */}
+                  {/* 只保留一個關閉按鈕 */}
                   <button
                     onClick={() => setSelectedCase(null)}
-                    className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                    className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                     title="關閉詳情"
                   >
                     <X className="w-5 h-5" />
@@ -1101,80 +1069,8 @@ export default function CaseOverview() {
                 </div>
               </div>
 
-              {/* 案件基本資訊 */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                  <Building className="w-4 h-4 mr-2 text-[#334d6d]" />
-                  案件基本資訊
-                </h4>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-medium text-gray-500">案號</label>
-                      <p className="text-sm text-gray-900 mt-1">{selectedCase.caseNumber}</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500">案件類型</label>
-                      <p className="text-sm text-gray-900 mt-1">{selectedCase.caseType}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-500">當事人</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedCase.client}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-medium text-gray-500">委任律師</label>
-                      <p className="text-sm text-gray-900 mt-1">{selectedCase.lawyer || '未指定'}</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500">法務</label>
-                      <p className="text-sm text-gray-900 mt-1">{selectedCase.legalAffairs || '未指定'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 案件詳細資訊 */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                  <FileText className="w-4 h-4 mr-2 text-[#334d6d]" />
-                  案件詳細資訊
-                </h4>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-500">案由</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedCase.caseReason || '未填寫'}</p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-500">對造</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedCase.opposingParty || '未填寫'}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-medium text-gray-500">負責法院</label>
-                      <p className="text-sm text-gray-900 mt-1">{selectedCase.court || '未填寫'}</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500">負責股別</label>
-                      <p className="text-sm text-gray-900 mt-1">{selectedCase.division || '未填寫'}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-medium text-gray-500">目前進度</label>
-                      <p className="text-sm text-gray-900 mt-1">{selectedCase.progress || '未填寫'}</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500">進度日期</label>
-                      <p className="text-sm text-gray-900 mt-1">{selectedCase.progressDate || '未填寫'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 舊的基本資訊區塊移除，替換為上面的新結構 */}
-              <div className="space-y-4 mb-6" style={{ display: 'none' }}>
+              {/* 基本資訊 */}
+              <div className="space-y-4 mb-6">
                 <div>
                   <label className="text-sm font-medium text-gray-500">案號</label>
                   <p className="text-sm text-gray-900 mt-1">{selectedCase.caseNumber}</p>
@@ -1206,10 +1102,7 @@ export default function CaseOverview() {
               {/* 案件進度 */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-semibold text-gray-900 flex items-center">
-                    <Calendar className="w-4 h-4 mr-2 text-[#334d6d]" />
-                    案件進度
-                  </h4>
+                  <h4 className="text-sm font-semibold text-gray-900">案件進度</h4>
                   <button
                     onClick={() => handleAddStage(selectedCase)}
                     className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 flex items-center space-x-1"
@@ -1262,10 +1155,7 @@ export default function CaseOverview() {
               {/* 檔案管理 */}
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-semibold text-gray-900 flex items-center">
-                    <FileText className="w-4 h-4 mr-2 text-[#334d6d]" />
-                    檔案管理
-                  </h4>
+                  <h4 className="text-sm font-semibold text-gray-900">檔案管理</h4>
                   <button
                     onClick={() => toggleFolder(selectedCase.id)}
                     className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700 flex items-center space-x-1"
@@ -1274,7 +1164,7 @@ export default function CaseOverview() {
                     <span>{expandedFolders[selectedCase.id] ? '收合' : '展開'}</span>
                   </button>
                 </div>
-
+                
                 {expandedFolders[selectedCase.id] && (
                   <FolderTree
                     caseId={selectedCase.id}
@@ -1335,12 +1225,20 @@ export default function CaseOverview() {
         onClose={() => setShowImportDialog(false)}
         onImportComplete={handleImportComplete}
       />
-      {/* 結案轉移對話框 */}
+
+      {/* 轉移結案對話框 */}
       <ClosedTransferDialog
         isOpen={showClosedTransfer}
+        cases={selectedCaseIds.map(id => {
+          const caseData = cases.find(c => c.id === id);
+          return {
+            id,
+            caseNo: caseData?.caseNumber,
+            title: caseData?.client
+          };
+        })}
         onClose={() => setShowClosedTransfer(false)}
         onConfirm={handleConfirmTransfer}
-        selectedCases={cases.filter(c => selectedCaseIds.includes(c.id))}
       />
 
       {/* 自訂確認對話框 */}

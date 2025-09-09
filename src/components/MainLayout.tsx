@@ -72,6 +72,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
               </button>
 
               <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-[#334d6d] rounded-full flex items-center justify-center">
+                  <Building className="w-4 h-4 text-white" />
+                </div>
                 <h1 className="text-lg lg:text-xl font-semibold text-[#334d6d]">
                   {getPageTitle()}
                 </h1>
@@ -164,7 +167,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 <span className="font-medium">人員權限</span>
               </NavLink>
             </div>
-
+          
             {/* 登出按鈕 - 放在導覽頁最下面 */}
             <div className="mt-auto pt-4 border-t border-[#34495e]">
               <button
@@ -179,11 +182,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </nav>
 
         {/* 主要內容區域 - 只有這裡會切換 */}
-        <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <main className="flex-1 flex flex-col overflow-hidden min-w-0 lg:ml-0">
           {children}
         </main>
       </div>
-
+      
       {/* 登出確認對話框 */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
