@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, FileText, AlertCircle, CheckCircle, Download } from 'lucide-react';
-import { analyzeExcelFile } from '@/utils/smartExcelAnalyzer';
+import { analyzeExcelFile } from '../utils/smartExcelAnalyzer';
 
 interface ImportDataDialogProps {
   isOpen: boolean;
