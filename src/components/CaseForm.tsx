@@ -85,6 +85,10 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
   }, [isOpen, mode, caseData]);
 
   const validateForm = (): boolean => {
+      if (!formData.case_id) {
+        throw new Error('案件 ID 不存在，無法編輯');
+      }
+
     const newErrors: Record<string, string> = {};
 
     if (!formData.case_type.trim()) {

@@ -241,12 +241,12 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
                         <div
                           className={`text-xs font-bold ${
                             stage.is_overdue
-                              ? 'bg-red-500 animate-pulse'
+                              ? 'bg-red-500 text-white px-2 py-1 rounded animate-pulse'
                               : stage.is_today
-                              ? 'bg-orange-500 animate-pulse'
+                              ? 'bg-orange-500 text-white px-2 py-1 rounded animate-pulse'
                               : stage.days_until === 1
-                              ? 'bg-yellow-500 animate-pulse'
-                              : 'bg-blue-500'
+                              ? 'bg-yellow-500 text-black px-2 py-1 rounded animate-pulse'
+                              : 'bg-blue-500 text-white px-2 py-1 rounded'
                           }`}
                         >
                           {stage.is_overdue
@@ -257,7 +257,7 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
                             ? '明日'
                             : `${stage.days_until}天`}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 mt-1">
                           {stage.stage_date.toLocaleDateString('zh-TW', {
                             month: '2-digit',
                             day: '2-digit',

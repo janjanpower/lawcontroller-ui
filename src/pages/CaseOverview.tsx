@@ -994,7 +994,7 @@ export default function CaseOverview() {
                   </button>
                   <button
                     onClick={() => setSelectedCase(null)}
-                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors"
+                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md p-2 transition-colors"
                     title="關閉詳情"
                   >
                     <X className="w-5 h-5" />
