@@ -1,19 +1,27 @@
 // src/utils/api.ts
-export async function apiFetch(path: string, init?: RequestInit) {
-  const token = localStorage.getItem('auth_token');
-  const headers = new Headers(init?.headers || {});
-  headers.set('Content-Type', 'application/json');
+
+export async function apiFetch(url: string, init: RequestInit = {}) {
+  // 轉成完整 URL（支援相對路徑）
+  const u = new URL(url, window.location.origin);
+
+  // 只對自己家的 /api/* 自動帶 firm_code
+  if (u.pathname.startsWith('/api/')) {
+    const fc = getFirmCodeOrThrow();
+    if (!u.searchParams.has('firm_code')) {
+      u.searchParams.set('firm_code', fc);
+    }
+  }
+
+  const headers = new Headers(init.headers || {});
+  if (init.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const token = localStorage.getItem('token');
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const res = await fetch(path, { ...init, headers });
-
-  if (res.status === 401) {
-    // 統一過期行為：讓上層顯示「請重新登入」
-    localStorage.removeItem('auth_token');
-    throw new Error('登入狀態已過期，請重新登入');
-  }
-  return res;
+  return fetch(u.toString(), { ...init, headers });
 }
+
 
 // 檢查是否有登入 token
 export function hasAuthToken(): boolean {
@@ -52,12 +60,11 @@ export function clearLoginAndRedirect(): void {
 
 // 取得事務所代碼，找不到時清除登入狀態並跳轉
 export function getFirmCodeOrThrow(): string {
-  const firmCode = localStorage.getItem('law_firm_code');
-  if (!firmCode) {
-    clearLoginAndRedirect();
-    throw new Error('找不到事務所代碼，請重新登入');
+  const fc = localStorage.getItem('firm_code')?.trim();
+  if (!fc) {
+    throw new Error('firm_code 缺失，請重新登入');
   }
-  return firmCode;
+  return fc; // 允許像 26134402red 這種含字母
 }
 
 // 初始化應用程式狀態

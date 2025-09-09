@@ -371,10 +371,12 @@ export default function CaseOverview() {
 
       // 更新本地狀態
       setCases(prev => prev.map(c =>
-        c.id === selectedCase.id
-          ? { ...c, stages: [...c.stages, newStage] }
-          : c
+        c.id === selectedCase.id ? { ...c, stages: [...c.stages, newStage] } : c
       ));
+      // ✅ 同步右側詳情
+      setSelectedCase(prev =>
+        prev && prev.id === selectedCase.id ? { ...prev, stages: [...prev.stages, newStage] } : prev
+      );
 
       // 建立階段資料夾
       FolderManager.createStageFolder(selectedCase.id, stageData.stageName);
@@ -427,14 +429,16 @@ export default function CaseOverview() {
       // 更新本地狀態
       setCases(prev => prev.map(c =>
         c.id === selectedCase.id
-          ? {
-              ...c,
-              stages: c.stages.map((stage, index) =>
-                index === editingStage.index ? updatedStage : stage
-              )
-            }
+          ? { ...c, stages: c.stages.map((s, i) => i === editingStage.index ? updatedStage : s) }
           : c
       ));
+      // ✅ 同步右側詳情
+      setSelectedCase(prev =>
+        prev && prev.id === selectedCase.id
+          ? { ...prev, stages: prev.stages.map((s, i) => i === editingStage.index ? updatedStage : s) }
+          : prev
+      );
+
 
       console.log('階段編輯成功:', updatedStage);
       return true;
@@ -450,23 +454,105 @@ export default function CaseOverview() {
     }
   };
 
-  // 切換階段完成狀態
+  const handleDeleteStage = async (stageName: string, stageIndex: number) => {
+    if (!selectedCase) return;
+
+    const folderPath = FolderManager.getStageFolder(selectedCase.id, stageName);
+
+    let hasFiles = false;
+    try {
+      hasFiles = await FolderManager.hasFilesInFolder(folderPath);
+    } catch {
+      // 取不到清單時保守視為有檔案，避免誤刪
+      hasFiles = true;
+    }
+
+    if (hasFiles) {
+      setDialogConfig({
+        title: '資料夾內仍有檔案',
+        message: `階段「${stageName}」的資料夾仍有檔案，確定要一併刪除嗎？此操作無法復原。`,
+        type: 'warning',
+        onConfirm: async () => {
+          await actuallyDeleteStage(stageName, stageIndex);
+        },
+      });
+      setShowUnifiedDialog(true);
+      return;
+    }
+
+    await actuallyDeleteStage(stageName, stageIndex);
+  };
+
+  const actuallyDeleteStage = async (stageName: string, stageIndex: number) => {
+    if (!selectedCase) return;
+
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      // 先刪後端的階段
+      const resp = await apiFetch(
+        `/api/cases/${selectedCase.id}/stages/${stageIndex}?firm_code=${encodeURIComponent(firmCode)}`,
+        { method: 'DELETE' }
+      );
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(text || '刪除階段失敗');
+      }
+
+      // 再刪對應階段資料夾（有無檔案都清乾淨）
+      const folderPath = FolderManager.getStageFolder(selectedCase.id, stageName);
+      try {
+        await FolderManager.deleteFolderRecursive(folderPath);
+      } catch (e) {
+        console.warn('刪除階段資料夾失敗（略過，不阻斷流程）', e);
+      }
+
+      // 更新前端列表
+      setCases(prev => prev.map(c =>
+        c.id === selectedCase.id ? { ...c, stages: c.stages.filter((_, i) => i !== stageIndex) } : c
+      ));
+      // ✅ 同步右側詳情
+      setSelectedCase(prev =>
+        prev && prev.id === selectedCase.id
+          ? { ...prev, stages: prev.stages.filter((_, i) => i !== stageIndex) }
+          : prev
+      );
+
+      setDialogConfig({
+        title: '刪除成功',
+        message: `已刪除階段「${stageName}」。`,
+        type: 'success',
+      });
+      setShowUnifiedDialog(true);
+    } catch (err: any) {
+      setDialogConfig({
+        title: '刪除失敗',
+        message: err?.message || '刪除階段時發生錯誤',
+        type: 'error',
+      });
+      setShowUnifiedDialog(true);
+    }
+  };
+
+  // 切換階段完成狀態（含樂觀更新與回滾，同步列表與右側詳情）
   const toggleStageCompletion = (stageIndex: number) => {
     if (!selectedCase) return;
 
     const stage = selectedCase.stages[stageIndex];
     if (!stage) return;
 
+    const newCompleted = !stage.completed; // 用固定值避免多次取反不一致
+
     // 呼叫後端 API 更新階段完成狀態
     const updateStageStatus = async () => {
       try {
         const firmCode = getFirmCodeOrThrow();
-        const response = await apiFetch(`/api/cases/${selectedCase.id}/stages/${stageIndex}?firm_code=${encodeURIComponent(firmCode)}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            is_completed: !stage.completed
-          })
-        });
+        const response = await apiFetch(
+          `/api/cases/${selectedCase.id}/stages/${stageIndex}?firm_code=${encodeURIComponent(firmCode)}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ is_completed: newCompleted }),
+          }
+        );
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -474,38 +560,61 @@ export default function CaseOverview() {
         }
       } catch (error) {
         console.error('更新階段狀態失敗:', error);
-        // 恢復原狀態
+
+        // 🔁 回滾：列表
         setCases(prev => prev.map(c =>
           c.id === selectedCase.id
             ? {
                 ...c,
-                stages: c.stages.map((s, index) =>
-                  index === stageIndex
-                    ? { ...s, completed: stage.completed }
-                    : s
-                )
+                stages: c.stages.map((s, i) =>
+                  i === stageIndex ? { ...s, completed: stage.completed } : s
+                ),
               }
             : c
         ));
+
+        // 🔁 回滾：右側詳情
+        setSelectedCase(prev =>
+          prev && prev.id === selectedCase.id
+            ? {
+                ...prev,
+                stages: prev.stages.map((s, i) =>
+                  i === stageIndex ? { ...s, completed: stage.completed } : s
+                ),
+              }
+            : prev
+        );
       }
     };
 
+    // ✅ 樂觀更新：列表
     setCases(prev => prev.map(c =>
       c.id === selectedCase.id
         ? {
             ...c,
-            stages: c.stages.map((stage, index) =>
-              index === stageIndex
-                ? { ...stage, completed: !stage.completed }
-                : stage
-            )
+            stages: c.stages.map((s, i) =>
+              i === stageIndex ? { ...s, completed: newCompleted } : s
+            ),
           }
         : c
     ));
 
-    // 異步更新後端
+    // ✅ 樂觀更新：右側詳情
+    setSelectedCase(prev =>
+      prev && prev.id === selectedCase.id
+        ? {
+            ...prev,
+            stages: prev.stages.map((s, i) =>
+              i === stageIndex ? { ...s, completed: newCompleted } : s
+            ),
+          }
+        : prev
+    );
+
+    // ▶ 實際送後端
     updateStageStatus();
   };
+
 
 
   // 工具：轉字串、裁長度、去空白
@@ -1434,42 +1543,7 @@ export default function CaseOverview() {
                                     <Folder className="w-3 h-3" />
                                   </button>
                                   <button
-                                    onClick={() => {
-                                      if (confirm(`確定要刪除階段「${stage.name}」嗎？`)) {
-                                        const deleteStage = async () => {
-                                          try {
-                                            const firmCode = getFirmCodeOrThrow();
-                                            const response = await apiFetch(`/api/cases/${selectedCase.id}/stages/${stageIndex}?firm_code=${encodeURIComponent(firmCode)}`, {
-                                              method: 'DELETE'
-                                            });
-
-                                            if (!response.ok) {
-                                              const errorData = await response.json();
-                                              throw new Error(errorData.detail || '刪除階段失敗');
-                                            }
-
-                                            // 成功後更新本地狀態
-                                            setCases(prev => prev.map(c =>
-                                              c.id === selectedCase.id
-                                                ? {
-                                                    ...c,
-                                                    stages: c.stages.filter((_, index) => index !== stageIndex)
-                                                  }
-                                                : c
-                                            ));
-                                          } catch (error) {
-                                            console.error('刪除階段失敗:', error);
-                                            setDialogConfig({
-                                              title: '刪除階段失敗',
-                                              message: error.message || '刪除階段失敗',
-                                              type: 'error'
-                                            });
-                                            setShowUnifiedDialog(true);
-                                          }
-                                        };
-                                        deleteStage();
-                                      }
-                                    }}
+                                    onClick={() => handleDeleteStage(stage.name, stageIndex)}
                                     className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all p-1 rounded"
                                     title="刪除階段"
                                   >
