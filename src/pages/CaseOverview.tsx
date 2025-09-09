@@ -507,14 +507,58 @@ export default function CaseOverview() {
     updateStageStatus();
   };
 
-  // 把任何值轉成字串；空給預設（或變 null）
-  const S = (v: any) => {
-    if (v === 0) return '0';
-    if (v == null) return '';
-    const s = String(v).trim();
-    return s;
+  // 工具：轉字串、裁長度、去空白
+  const S = (v: any) => (v == null ? '' : String(v).trim());
+  const cut = (s: string, max: number) => (s.length > max ? s.slice(0, max) : s);
+
+  // 必要欄位門檻（依你後端慣例）
+  const REQUIRED = {
+    client_name: true,   // 當事人必填
+    case_type: true,     // 案件類型必填（至少給「未分類」）
+  };
+  // 欄位長度上限（猜合理上限，避免 DB 長度炸掉）
+  const LIMITS: Record<string, number> = {
+    client_name: 100,
+    case_type: 50,
+    case_reason: 200,
+    case_number: 100,
+    court: 100,
+    division: 100,
+    lawyer_name: 100,
+    legal_affairs_name: 100,
   };
 
+  const sanitize = (x: any) => {
+    // 先把解析出的欄位對齊 CaseForm 新增的命名
+    let obj: any = {
+      case_type: S(x.case_type) || '未分類',
+      client_name: S(x.client),
+      case_reason: S(x.case_reason) || '',
+      case_number: S(x.case_number) || '',
+      court: S(x.court) || '',
+      division: S(x.division) || '',
+      lawyer_name: S(x.lawyer) || '',
+      legal_affairs_name: S(x.legal_affairs) || '',
+    };
+
+    // 長度裁切
+    for (const k of Object.keys(obj)) {
+      const lim = LIMITS[k];
+      if (lim && typeof obj[k] === 'string') obj[k] = cut(obj[k], lim);
+    }
+
+    // 把空字串轉 null（除了必填欄位）
+    for (const k of Object.keys(obj)) {
+      if (!obj[k] && !REQUIRED[k as keyof typeof REQUIRED]) obj[k] = null;
+    }
+
+    return obj;
+  };
+
+  const isValid = (payload: any) =>
+    (!!payload.client_name && !!payload.case_type);
+
+  // 主流程：驗證→清理→分批送出
   const handleImportComplete = async (importedCases: any[]) => {
     try {
       setLoading(true);
@@ -531,32 +575,19 @@ export default function CaseOverview() {
 
       const firmCode = getFirmCodeOrThrow();
 
-      // ✅ 完全比照 CaseForm.tsx 新增的 body 形狀（包含 firm_code）
-      const toCreatePayload = (x: any) => ({
-        firm_code: firmCode,
-        case_type: S(x.case_type) || '未分類',
-        client_name: S(x.client) || '',                 // 必填字串 → 給空字串也比 null 安全
-        case_reason: S(x.case_reason) || null,
-        case_number: S(x.case_number) || null,
-        court: S(x.court) || null,
-        division: S(x.division) || null,
-        lawyer_name: S(x.lawyer) || null,
-        legal_affairs_name: S(x.legal_affairs) || null,
-        // 不送 progress / progress_date / opposing_party（與 CaseForm 新增一致）
-      });
+      // 清理並分組
+      const prepared = importedCases.map(sanitize);
+      const valid = prepared.filter(isValid);
+      const skipped = prepared.length - valid.length; // 略過不合格（少必填）
 
-      // （可選）先做健康檢查，與 CaseForm 相同風格
+      // 健康檢查（可保留）
       try {
-        const healthRes = await fetch('/api/health');
-        if (!healthRes.ok) throw new Error('後端服務不可用');
-        const health = await healthRes.json();
-        if (!health?.ok) throw new Error(`服務異常（db=${health?.db ?? 'unknown'}）`);
+        const res = await fetch('/api/health');
+        if (!res.ok) throw new Error('後端服務不可用');
+        const h = await res.json();
+        if (!h?.ok) throw new Error(`服務異常（db=${h?.db ?? 'unknown'}）`);
       } catch (e: any) {
-        setDialogConfig({
-          title: '服務異常',
-          message: e?.message || '健康檢查失敗',
-          type: 'error'
-        });
+        setDialogConfig({ title: '服務異常', message: e?.message || '健康檢查失敗', type: 'error' });
         setShowUnifiedDialog(true);
         return;
       }
@@ -564,16 +595,15 @@ export default function CaseOverview() {
       let ok = 0, fail = 0;
       const errs: string[] = [];
 
-      for (const c of importedCases) {
-        const payload = toCreatePayload(c);
-
+      // 逐筆按「和 CaseForm 一樣」送：URL 帶 firm_code，body 也帶 firm_code
+      for (const item of valid) {
+        const payload = { firm_code: firmCode, ...item };
         try {
           const res = await fetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
-
           if (!res.ok) {
             const text = await res.text();
             console.error('Create case failed:', res.status, text, 'payload=', payload);
@@ -593,6 +623,7 @@ export default function CaseOverview() {
         title: '匯入完成',
         message:
           `成功新增 ${ok} 筆案件` +
+          (skipped ? `（略過 ${skipped} 筆：缺少必填欄位）` : '') +
           (fail ? `，失敗 ${fail} 筆\n\n錯誤（前 5 筆）：\n- ${errs.slice(0, 5).join('\n- ')}${errs.length > 5 ? '\n(其餘略)' : ''}` : ''),
         type: fail ? 'warning' : 'success'
       });
