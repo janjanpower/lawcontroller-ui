@@ -24,26 +24,36 @@ export function setFirmCode(fc: string) {
  * 任一取得到就寫回 localStorage，以後就穩定有值
  */
 export function tryGetFirmCode(): string | null {
-  try {
-    const lc = localStorage.getItem('firm_code')?.trim();
-    if (lc) return lc;
-  } catch {}
+  // 1) 先看新鍵
+  const lc = localStorage.getItem('firm_code')?.trim();
+  if (lc) return lc;
 
+  // 2) 兼容舊鍵
+  const legacy = localStorage.getItem('law_firm_code')?.trim()
+             || localStorage.getItem('LAW_FIRM_CODE')?.trim()
+             || localStorage.getItem('firmCode')?.trim();
+  if (legacy) {
+    localStorage.setItem('firm_code', legacy);
+    return legacy;
+  }
+
+  // 3) URL 參數
   const urlFc = new URLSearchParams(window.location.search).get('firm_code');
   if (urlFc) {
-    try { localStorage.setItem('firm_code', urlFc); } catch {}
+    localStorage.setItem('firm_code', urlFc);
     return urlFc;
   }
 
-  // 可在 .env 或 .env.local 設定：VITE_DEFAULT_FIRM_CODE=26134402red
+  // 4) .env 預設
   const envFc = (import.meta as any)?.env?.VITE_DEFAULT_FIRM_CODE as string | undefined;
   if (envFc) {
-    try { localStorage.setItem('firm_code', envFc); } catch {}
+    localStorage.setItem('firm_code', envFc);
     return envFc;
   }
 
   return null;
 }
+
 
 /** 取得 firm_code（取不到就丟錯） */
 export function getFirmCodeOrThrow(): string {
