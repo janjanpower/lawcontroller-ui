@@ -1,117 +1,133 @@
 // src/utils/api.ts
 
+/** 清除登入狀態並回登入頁 */
+export function clearLoginAndRedirect() {
+  try {
+    localStorage.removeItem('token');
+    localStorage.removeItem('firm_code');
+  } catch {}
+  // 視你的路由而定
+  window.location.href = '/login';
+}
+
+/** 設定/覆寫 firm_code（登入或使用者切換事務所時可用） */
+export function setFirmCode(fc: string) {
+  if (fc && typeof fc === 'string') {
+    localStorage.setItem('firm_code', fc.trim());
+  }
+}
+
+/** 嘗試取得 firm_code（不丟錯）：
+ * 1) localStorage
+ * 2) 網址列 ?firm_code=
+ * 3) .env：VITE_DEFAULT_FIRM_CODE
+ * 任一取得到就寫回 localStorage，以後就穩定有值
+ */
+export function tryGetFirmCode(): string | null {
+  try {
+    const lc = localStorage.getItem('firm_code')?.trim();
+    if (lc) return lc;
+  } catch {}
+
+  const urlFc = new URLSearchParams(window.location.search).get('firm_code');
+  if (urlFc) {
+    try { localStorage.setItem('firm_code', urlFc); } catch {}
+    return urlFc;
+  }
+
+  // 可在 .env 或 .env.local 設定：VITE_DEFAULT_FIRM_CODE=26134402red
+  const envFc = (import.meta as any)?.env?.VITE_DEFAULT_FIRM_CODE as string | undefined;
+  if (envFc) {
+    try { localStorage.setItem('firm_code', envFc); } catch {}
+    return envFc;
+  }
+
+  return null;
+}
+
+/** 取得 firm_code（取不到就丟錯） */
+export function getFirmCodeOrThrow(): string {
+  const fc = tryGetFirmCode();
+  if (!fc) throw new Error('firm_code 缺失，請重新登入');
+  return fc;
+}
+
+/** 同 getFirmCodeOrThrow，語義化別名 */
+export function ensureFirmCode(): string {
+  return getFirmCodeOrThrow();
+}
+
+/** 取得/檢查 token（沿用你專案既有介面） */
+export function hasAuthToken(): boolean {
+  try {
+    return !!localStorage.getItem('token');
+  } catch {
+    return false;
+  }
+}
+export function getAuthToken(): string | null {
+  try {
+    return localStorage.getItem('token');
+  } catch {
+    return null;
+  }
+}
+export function setAuthToken(token: string) {
+  try {
+    localStorage.setItem('token', token);
+  } catch {}
+}
+
+/** 判斷此路徑是否需要帶 firm_code */
+function pathRequiresFirmCode(pathname: string): boolean {
+  if (!pathname.startsWith('/api/')) return false;
+  // 登入/驗證相關端點通常不需要 firm_code
+  if (pathname.startsWith('/api/login')) return false;
+  if (pathname.startsWith('/api/auth')) return false;
+  return true;
+}
+
+/** 安全的 fetch 包裝：
+ * - 自動補上 ?firm_code=...
+ * - 自動加 Authorization: Bearer <token>（若存在）
+ * - body 是 FormData 時不設 Content-Type（避免上傳壞掉）
+ */
 export async function apiFetch(url: string, init: RequestInit = {}) {
-  // 轉成完整 URL（支援相對路徑）
   const u = new URL(url, window.location.origin);
 
-  // 只對自己家的 /api/* 自動帶 firm_code
-  if (u.pathname.startsWith('/api/')) {
-    const fc = getFirmCodeOrThrow();
-    if (!u.searchParams.has('firm_code')) {
+  // 需要 firm_code 的路徑 → 自動補上（若未帶）
+  if (pathRequiresFirmCode(u.pathname) && !u.searchParams.has('firm_code')) {
+    try {
+      const fc = ensureFirmCode();
       u.searchParams.set('firm_code', fc);
+    } catch (e) {
+      // 沒拿到 firm_code → 清除登入並拋錯
+      clearLoginAndRedirect();
+      throw e;
     }
   }
 
   const headers = new Headers(init.headers || {});
-  if (init.body && !headers.has('Content-Type')) {
+  const hasBody = typeof init.body !== 'undefined' && init.body !== null;
+
+  // 只有 JSON body 才自動設 Content-Type；FormData 不要設（browser 會自動帶 boundary）
+  if (hasBody && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
-  const token = localStorage.getItem('token');
-  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  // 自動帶上 token
+  const token = getAuthToken();
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
 
   return fetch(u.toString(), { ...init, headers });
 }
 
-
-// 檢查是否有登入 token
-export function hasAuthToken(): boolean {
-  const token = localStorage.getItem('auth_token');
-  const firmCode = localStorage.getItem('law_firm_code');
-  const userId = localStorage.getItem('law_user_id');
-
-  // 需要有基本的登入資訊
-  return !!(token && firmCode && userId);
-}
-
-// 檢查是否完整登入（包含用戶選擇）
-export function isFullyLoggedIn(): boolean {
-  const token = localStorage.getItem('auth_token');
-  const firmCode = localStorage.getItem('law_firm_code');
-  const userId = localStorage.getItem('law_user_id');
-  const userName = localStorage.getItem('law_user_name');
-
-  return !!(token && firmCode && userId && userName);
-}
-
-// 清除登入狀態並跳轉
-export function clearLoginAndRedirect(): void {
-  localStorage.removeItem('law_user_id');
-  localStorage.removeItem('law_user_name');
-  localStorage.removeItem('law_user_role');
-  localStorage.removeItem('law_last_login');
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('law_firm_code');
-
-  // 只在不是登入頁面時才跳轉
-  if (!window.location.pathname.includes('/login')) {
-    window.location.replace('/login');
-  }
-}
-
-// 取得事務所代碼，找不到時清除登入狀態並跳轉
-export function getFirmCodeOrThrow(): string {
-  const fc = localStorage.getItem('firm_code')?.trim();
-  if (!fc) {
-    throw new Error('firm_code 缺失，請重新登入');
-  }
-  return fc; // 允許像 26134402red 這種含字母
-}
-
-// 初始化應用程式狀態
-export async function initializeAppState(): Promise<boolean> {
-  const token = localStorage.getItem('auth_token');
-  const firmCode = localStorage.getItem('law_firm_code');
-  const userId = localStorage.getItem('law_user_id');
-
-  if (!token || !firmCode) {
-    console.log('缺少基本登入資訊:', { hasToken: !!token, hasFirmCode: !!firmCode });
-    return false;
-  }
-
-  // 如果沒有用戶資訊，表示還在登入流程中，不算完整登入
-  if (!userId) {
-    console.log('尚未完成用戶選擇，跳過狀態驗證');
-    return true; // 允許繼續，但不驗證 API
-  }
-
-  try {
-    // 驗證 token 是否有效（使用健康檢查）
-    const response = await apiFetch('/api/healthz');
-    if (response.ok) {
-      console.log('API 連線正常');
-      return true;
-    } else {
-      console.log('API 連線失敗，清除登入狀態');
-      clearLoginAndRedirect();
-      return false;
-    }
-  } catch (error) {
-    console.log('API 連線錯誤，清除登入狀態:', error);
-    clearLoginAndRedirect();
-    return false;
-  }
-}
-
-// 假設已經有 BASE_URL 與帶 Token 的 fetch
-export async function updateCase(caseId: string, payload: any) {
-  const res = await fetch(`/api/cases/${caseId}`, {
-    method: 'PUT', // 或 PATCH 依你的後端路由而定
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || '更新案件失敗');
-  }
-  return res.json();
+/** 小工具：在既有 URL 上安全加入/覆蓋 firm_code（少用；通常用 apiFetch 即可） */
+export function withFirmCode(url: string, firmCode?: string): string {
+  const u = new URL(url, window.location.origin);
+  const fc = (firmCode ?? tryGetFirmCode()) || '';
+  if (fc) u.searchParams.set('firm_code', fc);
+  return u.toString();
 }

@@ -5,7 +5,7 @@ import PlanSelectionDialog from '../components/PlanSelectionDialog';
 import UserSelectionDialog from '../components/UserSelectionDialog';
 import '../styles/login.css';
 import type { LoginCredentials, Firm, User as UserType } from '../types';
-import { apiFetch } from '../utils/api';
+import { apiFetch, setFirmCode, setAuthToken } from '../utils/api';
 
 export default function LoginPage() {
   // 基本狀態
@@ -130,17 +130,34 @@ export default function LoginPage() {
           localStorage.removeItem('law_remember_me');
         }
 
-        // 立即儲存事務所基本資訊
-        localStorage.setItem('law_firm_id', data.firm_id);
-        
-        // 儲存事務所代碼（使用登入帳號作為 firm_code）
-        localStorage.setItem('law_firm_code', loginCredentials.account);
-        
-        // 儲存認證 token（使用 firm_id 作為臨時 token）
-        localStorage.setItem('auth_token', data.firm_id || 'temp_token');
-        
-        // 儲存事務所資訊（但不再使用 firm_code）
-        localStorage.setItem('law_firm_name', data.firm_name);
+        // // 立即儲存事務所基本資訊
+        // localStorage.setItem('law_firm_id', data.firm_id);
+
+        // // 儲存事務所代碼（使用登入帳號作為 firm_code）
+        // localStorage.setItem('law_firm_code', loginCredentials.account);
+
+        // // 儲存認證 token（使用 firm_id 作為臨時 token）
+        // localStorage.setItem('auth_token', data.firm_id || 'temp_token');
+
+        // // 儲存事務所資訊（但不再使用 firm_code）
+        // localStorage.setItem('law_firm_name', data.firm_name);
+
+        // ✅ 統一專案用的 key：firm_code / token
+        // 優先用後端回傳的 firm_code，沒有就退回使用者輸入的 account（你們的帳號即 firm_code）
+        const resolvedFirmCode = (data.firm_code || loginCredentials.account || '').trim();
+        setFirmCode(resolvedFirmCode);
+
+        // 優先用後端回傳的 token；沒有就先用 firm_id 當臨時 token
+        const resolvedToken = data.token || data.access_token || data.firm_id || 'temp_token';
+        setAuthToken(resolvedToken);
+
+        // 其他資訊（可保留為輔助顯示，不影響 API）
+        localStorage.setItem('law_firm_id', data.firm_id || '');
+        localStorage.setItem('law_firm_name', data.firm_name || '');
+        // 清掉舊有的混用 key（避免之後有人誤用）
+        localStorage.removeItem('law_firm_code');
+        localStorage.removeItem('auth_token');
+
 
         // 建立事務所資訊
         const firmInfo = {
