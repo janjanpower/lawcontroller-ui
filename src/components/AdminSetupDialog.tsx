@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, User, Mail, Phone, Loader } from 'lucide-react';
+import { apiFetch } from '../utils/api';
 
 interface AdminSetupData {
   adminName: string;

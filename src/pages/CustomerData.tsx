@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Eye, Edit, X } from 'lucide-react';
-import { apiFetch } from '../utils/api';
+import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 export default function CustomerData() {
   const [customers, setCustomers] = useState([]);

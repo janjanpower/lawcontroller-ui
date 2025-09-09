@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Search, Filter, FileText, User, Building, Eye, Folder, X } from 'lucide-react';
-import { apiFetch } from '../utils/api';
+import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 // 自訂確認對話框組件
 interface CustomConfirmDialogProps {

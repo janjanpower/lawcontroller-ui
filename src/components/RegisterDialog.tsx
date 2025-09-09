@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Building, User, Lock, Loader, Eye, EyeOff } from 'lucide-react';
-import { apiFetch } from '../utils/api';
+import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 interface SimpleRegisterData {
   firmName: string;
