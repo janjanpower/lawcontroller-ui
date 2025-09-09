@@ -91,11 +91,6 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
       return false;
     }
 
-      if (!formData.case_id) {
-        throw new Error('案件 ID 不存在，無法編輯');
-        setErrors({ submit: '更新案件失敗，請稍後再試' });
-      }
-
     const newErrors: Record<string, string> = {};
 
     if (!formData.case_type.trim()) {
@@ -241,21 +236,25 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           console.log('DEBUG: onSave 失敗');
         }
       } else {
-        // 編輯案件 - 呼叫後端 API（已改）
+        // 編輯案件 - 呼叫後端 API
         if (!formData.case_id) {
           setErrors({ submit: '案件 ID 不存在，無法編輯' });
           return;
         }
-          opposing_party: formData.opposing_party ?? null,
-          court: formData.court ?? null,
-          division: formData.division ?? null,
-          progress: formData.progress ?? null,
-          progress_date: formData.progress_date ?? null,
 
+        const updateData = {
+          case_type: formData.case_type || null,
+          case_reason: formData.case_reason || null,
+          case_number: formData.case_number || null,
+          opposing_party: formData.opposing_party || null,
+          court: formData.court || null,
+          division: formData.division || null,
+          progress: formData.progress || null,
+          progress_date: formData.progress_date || null,
           // 新增：名稱欄位，後端會轉成 *_id
-          client_name: formData.client ?? null,
-          lawyer_name: formData.lawyer ?? null,
-          legal_affairs_name: formData.legal_affairs ?? null,
+          client_name: formData.client || null,
+          lawyer_name: formData.lawyer || null,
+          legal_affairs_name: formData.legal_affairs || null,
         };
 
         console.log('發送到後端的更新案件資料:', updateData);
@@ -312,7 +311,6 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         } else {
           console.log('DEBUG: onSave (編輯模式) 失敗');
         }
-
       }
     } catch (error) {
       console.error('保存案件失敗:', error);
