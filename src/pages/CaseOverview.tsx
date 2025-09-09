@@ -18,8 +18,6 @@ import { FolderManager } from '../utils/folderManager';
 import { hasClosedStage } from '../utils/caseStage';
 import { apiFetch, getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
 import type { TableCase, Stage, CaseStatus, VisibleColumns, DialogConfig } from '../types';
-import CaseEditDialog, { CaseEditFormData } from '@/components/CaseEditDialog';
-import { updateCase } from '@/utils/api';
 
 export default function CaseOverview() {
   // 基本狀態
