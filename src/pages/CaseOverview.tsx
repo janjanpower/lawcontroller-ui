@@ -164,9 +164,10 @@ export default function CaseOverview() {
   // 載入案件列表
   const loadCases = async () => {
     try {
-      const response = await apiFetch('/api/cases?status=open');
+      const firmCode = getFirmCodeOrThrow();
+      const response = await apiFetch(`/api/cases?status=open&firm_code=${encodeURIComponent(firmCode)}`);
       const data = await response.json();
-      
+
       if (response.ok) {
         const transformedCases = (data.items || []).map((apiCase: any) => ({
           id: apiCase.id,
@@ -305,7 +306,7 @@ export default function CaseOverview() {
         }
       } else {
         // 編輯案件
-        setCases(prev => prev.map(c => 
+        setCases(prev => prev.map(c =>
           c.id === caseData.case_id ? {
             ...c,
             caseType: caseData.case_type,
@@ -395,8 +396,8 @@ export default function CaseOverview() {
 
       if (stageDialogMode === 'add') {
         // 新增階段
-        setCases(prev => prev.map(c => 
-          c.id === selectedCase.id 
+        setCases(prev => prev.map(c =>
+          c.id === selectedCase.id
             ? { ...c, stages: [...c.stages, newStage] }
             : c
         ));
@@ -405,11 +406,11 @@ export default function CaseOverview() {
         FolderManager.createStageFolder(selectedCase.id, stageData.stageName);
       } else {
         // 編輯階段
-        setCases(prev => prev.map(c => 
-          c.id === selectedCase.id 
-            ? { 
-                ...c, 
-                stages: c.stages.map((stage, index) => 
+        setCases(prev => prev.map(c =>
+          c.id === selectedCase.id
+            ? {
+                ...c,
+                stages: c.stages.map((stage, index) =>
                   index === editingStageIndex ? newStage : stage
                 )
               }
@@ -431,10 +432,10 @@ export default function CaseOverview() {
 
       for (const importedCase of importedCases) {
         const caseId = `imported_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
+
         // 從匯入的欄位中提取資料
         const fields = importedCase.fields || {};
-        
+
         const newCase: TableCase = {
           id: caseId,
           caseNumber: fields['案號'] || fields['案件編號'] || '',
@@ -562,7 +563,7 @@ export default function CaseOverview() {
   const handleConfirmTransfer = async () => {
     try {
       const selectedCases = cases.filter(c => selectedCaseIds.includes(c.id));
-      
+
       // 移除已轉移的案件
       setCases(prev => prev.filter(c => !selectedCaseIds.includes(c.id)));
       setSelectedCaseIds([]);
@@ -665,10 +666,10 @@ export default function CaseOverview() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <h2 className="text-xl font-semibold text-[#334d6d]">案件總覽</h2>
-            
+
             {/* 日期提醒組件 */}
             <div className="w-full sm:w-80">
-              <DateReminderWidget 
+              <DateReminderWidget
                 caseData={reminderCaseData}
                 onCaseSelect={(caseData) => {
                   const foundCase = cases.find(c => c.id === caseData.case_id);
@@ -937,7 +938,7 @@ export default function CaseOverview() {
                           </div>
                         </td>
                       </tr>
-                      
+
                       {/* 資料夾展開區域 */}
                       {expandedFolders[row.id] && (
                         <tr>
@@ -1166,7 +1167,7 @@ export default function CaseOverview() {
                     <span>{expandedFolders[selectedCase.id] ? '收合' : '展開'}</span>
                   </button>
                 </div>
-                
+
                 {expandedFolders[selectedCase.id] && (
                   <FolderTree
                     caseId={selectedCase.id}
