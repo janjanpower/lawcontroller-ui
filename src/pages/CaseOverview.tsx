@@ -4,7 +4,6 @@ import { parseExcelToCases } from '../utils/importers';
 import { apiFetch } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { hasClosedStage } from '../utils/caseStage';
-import { getFirmCodeOrThrow } from '../utils/firm';
 import StageEditDialog, { StageFormData } from '../components/StageEditDialog';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -125,7 +124,7 @@ export default function CaseOverview() {
   // 載入案件列表
   const loadCases = async () => {
     try {
-      const firmCode = await getFirmCodeWithFallback();
+      let firmCode;
       try {
         firmCode = getFirmCodeOrThrow();
       } catch (error) {
@@ -193,7 +192,6 @@ export default function CaseOverview() {
         console.log('轉換後的案件資料:', transformedCases);
         setCases(transformedCases);
 
-          const firmCode = localStorage.getItem('law_firm_code') || 'default';
         stageManager.setFirmCases(firmCode, transformedCases);
       } catch (parseError) {
         console.error('解析 API 回應失敗:', parseError);
@@ -400,8 +398,7 @@ export default function CaseOverview() {
     }
 
     try {
-      const firmCode = getFirmCodeOrThrow();
-      const response = await fetch(`/api/cases/${selectedCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`, {
+      const response = await apiFetch(`/api/cases/${selectedCase.id}/stages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -645,7 +642,25 @@ export default function CaseOverview() {
 
         // 建立預設資料夾結構
         if (form.case_id) {
-        FolderManager.createCaseInfoExcel(form.case_id, {
+          FolderManager.createCaseInfoExcel(form.case_id, {
+            caseNumber: form.case_number || '',
+            client: form.client,
+            caseType: form.case_type,
+            lawyer: form.lawyer || '',
+            legalAffairs: form.legal_affairs || '',
+            caseReason: form.case_reason || '',
+            opposingParty: form.opposing_party || '',
+            court: form.court || '',
+            division: form.division || '',
+            progress: form.progress || '委任',
+            progressDate: form.progress_date || '',
+            createdDate: new Date().toLocaleDateString('zh-TW')
+          });
+        }
+
+        // 建立新案件物件並加入本地存儲（UI 立即顯示）
+        const newCase: TableCase = {
+          id: form.case_id || `case_${Date.now()}`,
           caseNumber: form.case_number || '',
           client: form.client,
           caseType: form.case_type,
@@ -656,37 +671,19 @@ export default function CaseOverview() {
           court: form.court || '',
           division: form.division || '',
           progress: form.progress || '委任',
-          progressDate: form.progress_date || '',
-          createdDate: new Date().toLocaleDateString('zh-TW')
-        });
-      }
+          progressDate: form.progress_date || new Date().toLocaleDateString('zh-TW'),
+          status: 'active',
+          stages: [],
+        };
 
-      // 建立新案件物件並加入本地存儲（UI 立即顯示）
-      const newCase: TableCase = {
-        id: form.case_id || `case_${Date.now()}`,
-        caseNumber: form.case_number || '',
-        client: form.client,
-        caseType: form.case_type,
-        lawyer: form.lawyer || '',
-        legalAffairs: form.legal_affairs || '',
-        caseReason: form.case_reason || '',
-        opposingParty: form.opposing_party || '',
-        court: form.court || '',
-        division: form.division || '',
-        progress: form.progress || '委任',
-        progressDate: form.progress_date || new Date().toLocaleDateString('zh-TW'),
-        status: 'active',
-        stages: [],
-      };
+        setCases(prev => [...prev, newCase]);
+        stageManager.addCaseToFirm(getFirmCodeOrThrow(), newCase);
 
-      setCases(prev => [...prev, newCase]);
-      stageManager.addCaseToFirm(getFirmCodeOrThrow(), newCase);
+        // 背景重新載入以同步最新資料
+        loadCases();
 
-      // 背景重新載入以同步最新資料
-      loadCases();
-
-      showSuccess('案件新增成功！');
-      return true;
+        showSuccess('案件新增成功！');
+        return true;
       } else {
 
         // 編輯模式：同步 UI → 更新 Excel → 重新載入 → 成功提示
@@ -708,17 +705,17 @@ export default function CaseOverview() {
         try {
           if (updated.id) {
             FolderManager.updateCaseInfoExcel(updated.id, {
-              caseNumber: updated.case_number || '',
+              caseNumber: updated.caseNumber || '',
               client: updated.client || '',
-              caseType: updated.case_type || '',
+              caseType: updated.caseType || '',
               lawyer: updated.lawyer || '',
-              legalAffairs: updated.legal_affairs || '',
-              caseReason: updated.case_reason || '',
-              opposingParty: updated.opposing_party || '',
+              legalAffairs: updated.legalAffairs || '',
+              caseReason: updated.caseReason || '',
+              opposingParty: updated.opposingParty || '',
               court: updated.court || '',
               division: updated.division || '',
               progress: updated.progress || '',
-              progressDate: updated.progress_date || '',
+              progressDate: updated.progressDate || '',
             });
           }
         } catch (e) {
@@ -732,7 +729,6 @@ export default function CaseOverview() {
         return true;
 
       }
-      return true;
     } catch (error) {
       console.error('handleSaveCase 錯誤:', error);
       showError('操作失敗，請稍後再試');
@@ -746,7 +742,7 @@ export default function CaseOverview() {
       message: `確定要刪除案件「${row.client} - ${row.caseNumber}」嗎？此操作無法復原。`,
       type: 'warning',
       onConfirm: () => {
-        const firmKey = 'me';
+        const firmCode = getFirmCodeOrThrow();
 
         // 從本地狀態和存儲中移除
         setCases((prev) => prev.filter((c) => c.id !== row.id));
@@ -820,7 +816,7 @@ export default function CaseOverview() {
           });
 
           if (!res.ok) {
-        stageManager.removeCaseFromFirm(firmKey, caseItem.id);
+            const txt = await res.text();
             console.warn('建立案件失敗：', txt);
             // 不中斷整體流程
           }
@@ -882,7 +878,7 @@ export default function CaseOverview() {
 
               <button
                 onClick={() => setShowFileUploadDialog(true)}
-                className="bg-[#27ae60] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#229954] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify中心"
+                className="bg-[#27ae60] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#229954] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <Upload className="w-4 h-4" />
                 <span>上傳檔案</span>
@@ -901,7 +897,7 @@ export default function CaseOverview() {
 
               <button
                 onClick={handleTransferToClosed}
-                className="bg-[#f39c12] text白 px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#d68910] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify中心"
+                className="bg-[#f39c12] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#d68910] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <CheckCircle className="w-4 h-4" />
                 <span>轉移結案</span>
@@ -1053,7 +1049,7 @@ export default function CaseOverview() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg白 divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-200">
                 {filteredCases.map((row, index) => (
                   <>
                     <tr
@@ -1404,7 +1400,7 @@ export default function CaseOverview() {
                   setShowTransferConfirm(false);
                   navigate('/closed-cases');
                 }}
-                className="px-4 py-2 rounded-md bg-[#f39c12] hover:bg-[#d68910] text白"
+                className="px-4 py-2 rounded-md bg-[#f39c12] hover:bg-[#d68910] text-white"
               >
                 確認轉移
               </button>

@@ -104,6 +104,7 @@ export default function UserSelectionDialog({
       loadUsers();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, firm]);
 
   // 選擇用戶
   const handleUserSelect = (user: UserType) => {

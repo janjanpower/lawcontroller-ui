@@ -1,7 +1,7 @@
 // src/components/FolderTree.tsx
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2 } from 'lucide-react';
-import { getFirmCodeOrThrow, isFullyLoggedIn, clearLoginAndRedirect } from '../utils/api';
+import { getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
 import { FolderManager } from '../utils/folderManager';
 
 interface FolderNode {
@@ -200,7 +200,7 @@ export default function FolderTree({
   useEffect(() => {
     if (isExpanded) {
       // 檢查登入狀態後再載入
-      if (isFullyLoggedIn()) {
+      if (hasAuthToken()) {
         loadFolderStructure();
       } else {
         console.warn('登入狀態不完整，顯示預設資料夾');
@@ -222,7 +222,7 @@ export default function FolderTree({
 
   const loadFolderStructure = async () => {
     // 再次檢查登入狀態
-    if (!isFullyLoggedIn()) {
+    if (!hasAuthToken()) {
       console.warn('登入狀態不完整，無法載入資料夾');
       return;
     }

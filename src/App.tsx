@@ -6,7 +6,7 @@ import CaseOverview from './pages/CaseOverview';
 import ClosedCases from './pages/ClosedCases';
 import CustomerData from './pages/CustomerData';
 import UserManagement from './pages/UserManagement';
-import { initializeAppState, hasBasicAuth } from './utils/api';
+import { initializeAppState, hasAuthToken } from './utils/api';
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -16,7 +16,7 @@ export default function App() {
     const initialize = async () => {
       try {
         // 如果沒有任何登入資訊，直接完成初始化
-        if (!hasBasicAuth()) {
+        if (!hasAuthToken()) {
           setIsInitialized(true);
           setIsLoading(false);
           return;
