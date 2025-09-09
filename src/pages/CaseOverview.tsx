@@ -954,7 +954,7 @@ export default function CaseOverview() {
                                 caseId={row.id}
                                 clientName={row.client}
                                 isExpanded={true}
-                                onToggle={() => handleFolderToggle(row.id)}
+                                onToggle={() => {}} // 空函數，因為已經在這裡展開了
                                 s3Config={{
                                   endpoint: process.env.VITE_SPACES_ENDPOINT || 'https://sgp1.digitaloceanspaces.com',
                                   accessKey: process.env.VITE_SPACES_ACCESS_KEY || '',
