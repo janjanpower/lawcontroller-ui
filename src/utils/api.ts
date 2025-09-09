@@ -131,3 +131,30 @@ export function withFirmCode(url: string, firmCode?: string): string {
   if (fc) u.searchParams.set('firm_code', fc);
   return u.toString();
 }
+
+
+// --- Backward-compat: for App.tsx ---
+// 做兩件事：1) 搬遷舊 key；2) 確保 firm_code 可從 localStorage/URL/.env 任一來源取得並寫回
+export function initializeAppState(): void {
+  try {
+    // 1) 舊 key → 新 key（避免專案其他地方混用）
+    const oldFc = localStorage.getItem('law_firm_code');
+    const oldToken = localStorage.getItem('auth_token');
+
+    if (oldFc && !localStorage.getItem('firm_code')) {
+      setFirmCode(oldFc);
+    }
+    if (oldToken && !localStorage.getItem('token')) {
+      setAuthToken(oldToken);
+    }
+    // 清理舊 key，避免之後再被誤用
+    localStorage.removeItem('law_firm_code');
+    localStorage.removeItem('auth_token');
+
+    // 2) 嘗試從 URL / .env 自動補 firm_code（會自動寫回 localStorage）
+    //    如果 localStorage 已有 firm_code，tryGetFirmCode 會直接回傳，不影響既有值
+    tryGetFirmCode();
+  } catch {
+    // 靜默失敗，不阻斷 App 啟動
+  }
+}
