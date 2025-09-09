@@ -171,6 +171,8 @@ export default function LoginPage() {
         // 判斷邏輯：如果有付費方案或免費方案通行證，直接顯示用戶選擇對話框
         if (data.has_plan || data.can_use_free_plan) {
             console.log('Condition met: Showing UserSelectionDialog');
+            // 確保事務所資訊完整儲存
+            localStorage.setItem('law_firm_name', data.firm_name);
             setShowUserSelectionDialog(true);
         } else {
             console.log('Condition not met: Showing PlanSelectionDialog');

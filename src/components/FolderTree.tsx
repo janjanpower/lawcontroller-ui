@@ -1,7 +1,7 @@
 // src/components/FolderTree.tsx
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2 } from 'lucide-react';
-import { getFirmCodeOrThrow, isLoggedIn, clearLoginAndRedirect } from '../utils/api';
+import { getFirmCodeOrThrow, isFullyLoggedIn, clearLoginAndRedirect } from '../utils/api';
 import { FolderManager } from '../utils/folderManager';
 
 interface FolderNode {
@@ -200,7 +200,7 @@ export default function FolderTree({
   useEffect(() => {
     if (isExpanded) {
       // 檢查登入狀態後再載入
-      if (isLoggedIn()) {
+      if (isFullyLoggedIn()) {
         loadFolderStructure();
       } else {
         console.warn('登入狀態不完整，顯示預設資料夾');
@@ -222,7 +222,7 @@ export default function FolderTree({
 
   const loadFolderStructure = async () => {
     // 再次檢查登入狀態
-    if (!isLoggedIn()) {
+    if (!isFullyLoggedIn()) {
       console.warn('登入狀態不完整，無法載入資料夾');
       return;
     }
@@ -483,7 +483,7 @@ export default function FolderTree({
   // 單檔上傳
   const uploadFileToS3 = async (file: File, folderPath: string, folderId?: string) => {
     // 檢查登入狀態
-    if (!isLoggedIn()) {
+    if (!isFullyLoggedIn()) {
       throw new Error('登入狀態已過期，請重新登入');
     }
 
@@ -558,7 +558,7 @@ export default function FolderTree({
    const { folderId, folderPath } = opts;
 
     // 檢查登入狀態
-    if (!isLoggedIn()) {
+    if (!isFullyLoggedIn()) {
       alert('請先登入系統');
       clearLoginAndRedirect();
       return;
@@ -578,7 +578,7 @@ export default function FolderTree({
           await uploadFileToS3(files[i], folderPath, folderId);
         }
         // 上傳後重新載入資料夾
-        if (isLoggedIn()) {
+        if (isFullyLoggedIn()) {
           await loadFolderStructure();
         }
       }

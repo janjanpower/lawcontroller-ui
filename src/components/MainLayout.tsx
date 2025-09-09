@@ -1,7 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, User, Building, Menu, X, Users, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { isLoggedIn, clearLoginAndRedirect } from '../utils/api';
+import { isFullyLoggedIn, clearLoginAndRedirect } from '../utils/api';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -15,7 +15,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   // 檢查登入狀態
   useEffect(() => {
-    if (!isLoggedIn()) {
+    if (!isFullyLoggedIn()) {
       console.warn('登入狀態不完整，重新導向到登入頁面');
       clearLoginAndRedirect();
       return;

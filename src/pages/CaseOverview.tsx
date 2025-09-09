@@ -185,14 +185,19 @@ export default function CaseOverview() {
         console.log('轉換後的案件資料:', transformedCases);
         setCases(transformedCases);
 
-        // 將案件資料存儲到本地
+          const firmCode = localStorage.getItem('law_firm_code') || 'default';
         stageManager.setFirmCases(firmCode, transformedCases);
       } catch (parseError) {
         console.error('解析 API 回應失敗:', parseError);
         const fallback = stageManager.getFirmCases(firmCode);
         if (fallback.length > 0) {
-          console.log('解析失敗，使用本地存儲的案件資料');
-          setCases(fallback);
+          try {
+            console.log('解析失敗，使用本地存儲的案件資料');
+            setCases(fallback);
+          } catch (localError) {
+            console.error('載入本地資料也失敗:', localError);
+            showError('無法載入案件資料');
+          }
         } else {
           showError('API 回應格式錯誤');
         }

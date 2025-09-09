@@ -157,8 +157,10 @@ export default function UserSelectionDialog({
       localStorage.setItem('law_user_id', selectedUser.id);
       localStorage.setItem('law_user_name', selectedUser.fullName || selectedUser.username);
       localStorage.setItem('law_user_role', selectedUser.role);
-      localStorage.setItem('law_firm_id', firm.id);
-      localStorage.setItem('law_firm_code', firm.firmCode);
+      // 確保事務所資訊完整
+      if (firm.id) localStorage.setItem('law_firm_id', firm.id);
+      if (firm.firmCode) localStorage.setItem('law_firm_code', firm.firmCode);
+      if (firm.firmName) localStorage.setItem('law_firm_name', firm.firmName);
       localStorage.setItem('law_last_login', new Date().toISOString());
 
       console.log('登入資訊已儲存到 localStorage:', {
@@ -166,7 +168,8 @@ export default function UserSelectionDialog({
         user_name: selectedUser.fullName || selectedUser.username,
         user_role: selectedUser.role,
         firm_id: firm.id,
-        firm_code: firm.firmCode
+        firm_code: firm.firmCode,
+        firm_name: firm.firmName
       });
 
       onComplete();
