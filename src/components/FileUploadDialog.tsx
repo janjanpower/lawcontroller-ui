@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, FileText, AlertCircle, Folder } from 'lucide-react';
 import { FolderManager } from '../utils/folderManager';
+import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 interface FileUploadDialogProps {
   isOpen: boolean;
@@ -66,9 +67,8 @@ export default function FileUploadDialog({
     try {
       // 將資料夾名稱轉換為 folder_type
       const folderTypeMapping: Record<string, string> = {
-        '狀紙': 'pleadings',
         '案件資訊': 'info',
-        '案件進度': 'progress'
+        '進度追蹤': 'progress'
       };
 
       const folderType = folderTypeMapping[selectedFolder] || 'progress';
@@ -87,7 +87,8 @@ export default function FileUploadDialog({
         formData.append('folder_type', folderType);
 
         // 呼叫上傳 API
-        const response = await apiFetch(`/api/cases/${selectedCase}/files`, {
+        const firmCode = getFirmCodeOrThrow();
+        const response = await apiFetch(`/api/cases/${selectedCase}/files?firm_code=${encodeURIComponent(firmCode)}`, {
           method: 'POST',
           body: formData
         });

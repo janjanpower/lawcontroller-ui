@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, FileText, AlertCircle, CheckCircle, Download } from 'lucide-react';
-import { parseExcelToCases } from '../utils/importers';
+import { SmartExcelAnalyzer } from '../utils/smartExcelAnalyzer';
 
 interface ImportDataDialogProps {
   isOpen: boolean;
@@ -25,6 +25,7 @@ export default function ImportDataDialog({
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fullAnalysisResult, setFullAnalysisResult] = useState<any>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -33,6 +34,7 @@ export default function ImportDataDialog({
     setSelectedFile(file);
     setError('');
     setAnalysisResult(null);
+    setFullAnalysisResult(null);
 
     // 自動分析檔案
     await analyzeFile(file);
@@ -41,28 +43,41 @@ export default function ImportDataDialog({
   const analyzeFile = async (file: File) => {
     setIsAnalyzing(true);
     try {
-      const importedCases = await parseExcelToCases(file);
+      const analyzer = new SmartExcelAnalyzer();
+      const result = await analyzer.analyzeExcel(file);
       
-      // 統計各類型案件數量
-      const civilCount = importedCases.filter(c => c.type === '民事').length;
-      const criminalCount = importedCases.filter(c => c.type === '刑事').length;
-      const unknownCount = importedCases.filter(c => c.type === '未知').length;
+      setFullAnalysisResult(result);
+      
+      if (result.success && result.data) {
+        const { categorizedSheets } = result.data;
+        const civilCount = categorizedSheets['民事']?.length || 0;
+        const criminalCount = categorizedSheets['刑事']?.length || 0;
+        const unknownCount = categorizedSheets['unknown']?.length || 0;
 
-      if (civilCount > 0 || criminalCount > 0) {
-        setAnalysisResult({
-          success: true,
-          message: `檔案分析完成！找到 ${civilCount} 筆民事案件、${criminalCount} 筆刑事案件${unknownCount > 0 ? `、${unknownCount} 筆未分類案件` : ''}`,
-          civilCount,
-          criminalCount,
-          unknownCount
-        });
+        if (civilCount > 0 || criminalCount > 0) {
+          setAnalysisResult({
+            success: true,
+            message: `檔案分析完成！找到 ${civilCount} 個民事工作表、${criminalCount} 個刑事工作表${unknownCount > 0 ? `、${unknownCount} 個未分類工作表` : ''}`,
+            civilCount,
+            criminalCount,
+            unknownCount
+          });
+        } else {
+          setAnalysisResult({
+            success: false,
+            message: '未找到可匯入的案件資料，請確認Excel檔案包含「民事」或「刑事」相關工作表',
+            civilCount: 0,
+            criminalCount: 0,
+            unknownCount
+          });
+        }
       } else {
         setAnalysisResult({
           success: false,
-          message: '未找到可匯入的案件資料，請確認Excel檔案包含「民事」或「刑事」相關工作表',
+          message: result.message || '檔案分析失敗',
           civilCount: 0,
           criminalCount: 0,
-          unknownCount
+          unknownCount: 0
         });
       }
     } catch (error) {
@@ -74,19 +89,34 @@ export default function ImportDataDialog({
   };
 
   const handleImport = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || !fullAnalysisResult) return;
 
     setIsImporting(true);
     setError('');
 
     try {
-      const importedCases = await parseExcelToCases(selectedFile);
+      const analyzer = new SmartExcelAnalyzer();
+      const extractedCases = await analyzer.extractData(selectedFile, fullAnalysisResult);
       
-      // 過濾出有效案件（民事或刑事）
-      const validCases = importedCases.filter(c => c.type === '民事' || c.type === '刑事');
-      
-      if (validCases.length > 0) {
-        onImportComplete(validCases);
+      if (extractedCases.length > 0) {
+        // 轉換為前端期望的格式
+        const formattedCases = extractedCases.map(extractedCase => ({
+          type: extractedCase.type,
+          title: `${extractedCase.client} - ${extractedCase.type}`,
+          fields: {
+            當事人: extractedCase.client,
+            案由: extractedCase.case_reason,
+            案號: extractedCase.case_number,
+            法院: extractedCase.court,
+            股別: extractedCase.division,
+            委任律師: extractedCase.lawyer,
+            法務: extractedCase.legal_affairs,
+            對造: extractedCase.opposing_party,
+            ...extractedCase.fields
+          }
+        }));
+        
+        onImportComplete(formattedCases);
         handleClose();
       } else {
         setError('沒有找到有效的案件資料');
