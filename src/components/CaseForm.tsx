@@ -242,6 +242,10 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         }
       } else {
         // 編輯案件 - 呼叫後端 API（已改）
+        if (!formData.case_id) {
+          throw new Error('案件 ID 不存在，無法編輯');
+        }
+        
         const updateData = {
           case_type: formData.case_type ?? null,
           case_reason: formData.case_reason ?? null,
