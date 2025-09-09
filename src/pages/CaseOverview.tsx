@@ -125,15 +125,7 @@ export default function CaseOverview() {
   // 載入案件列表
   const loadCases = async () => {
     try {
-      let firmCode;
-      try {
-        firmCode = getFirmCodeOrThrow();
-      } catch (error) {
-        console.error('無法取得事務所代碼:', error);
-        showError('登入狀態異常，請重新登入');
-        return;
-      }
-      
+      const firmCode = getFirmCodeOrThrow();
 
       // 先嘗試從本地存儲載入
       const localCases = stageManager.getFirmCases(firmCode);
@@ -193,19 +185,14 @@ export default function CaseOverview() {
         console.log('轉換後的案件資料:', transformedCases);
         setCases(transformedCases);
 
-          const firmCode = localStorage.getItem('law_firm_code') || 'default';
+        // 將案件資料存儲到本地
         stageManager.setFirmCases(firmCode, transformedCases);
       } catch (parseError) {
         console.error('解析 API 回應失敗:', parseError);
         const fallback = stageManager.getFirmCases(firmCode);
         if (fallback.length > 0) {
-          try {
-            console.log('解析失敗，使用本地存儲的案件資料');
-            setCases(fallback);
-          } catch (localError) {
-            console.error('載入本地資料也失敗:', localError);
-            showError('無法載入案件資料');
-          }
+          console.log('解析失敗，使用本地存儲的案件資料');
+          setCases(fallback);
         } else {
           showError('API 回應格式錯誤');
         }
@@ -688,11 +675,9 @@ export default function CaseOverview() {
       showSuccess('案件新增成功！');
       return true;
       } else {
+        // 編輯模式：同樣重新載入列表
+        console.log('DEBUG: 編輯案件成功，重新載入列表');
 
-        // 編輯模式：同步 UI → 更新 Excel → 重新載入 → 成功提示
-        console.log('DEBUG: 編輯案件成功，準備同步 UI 與資料');
-
-        // 用表單回傳整合成列表用物件
         const updated = formToTableCase(form, selectedCase ?? undefined);
 
         // 即時更新右側詳情
@@ -704,33 +689,27 @@ export default function CaseOverview() {
         // 更新快取
         stageManager.updateCaseInFirm(firmCode, updated);
 
-        // 更新案件資訊 Excel（失敗不影響主流程）
-        try {
-          if (updated.id) {
-            FolderManager.updateCaseInfoExcel(updated.id, {
-              caseNumber: updated.case_number || '',
-              client: updated.client || '',
-              caseType: updated.case_type || '',
-              lawyer: updated.lawyer || '',
-              legalAffairs: updated.legal_affairs || '',
-              caseReason: updated.case_reason || '',
-              opposingParty: updated.opposing_party || '',
-              court: updated.court || '',
-              division: updated.division || '',
-              progress: updated.progress || '',
-              progressDate: updated.progress_date || '',
-            });
-          }
-        } catch (e) {
-          console.warn('更新案件資訊 Excel 失敗（忽略，不影響主流程）:', e);
+        // 更新案件資訊 Excel
+        if (form.case_id) {
+          FolderManager.updateCaseInfoExcel(form.case_id, {
+            caseNumber: form.case_number || '',
+            client: form.client,
+            caseType: form.case_type,
+            lawyer: form.lawyer || '',
+            legalAffairs: form.legal_affairs || '',
+            caseReason: form.case_reason || '',
+            opposingParty: form.opposing_party || '',
+            court: form.court || '',
+            division: form.division || '',
+            progress: form.progress || '',
+            progressDate: form.progress_date || ''
+          });
         }
 
-        // 只重新載入一次列表，確保與 DB 對齊
+        // 背景重新載入以同步最新資料
         await loadCases();
 
         showSuccess('案件更新成功！');
-        return true;
-
       }
       return true;
     } catch (error) {

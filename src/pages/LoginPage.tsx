@@ -5,7 +5,7 @@ import PlanSelectionDialog from '../components/PlanSelectionDialog';
 import UserSelectionDialog from '../components/UserSelectionDialog';
 import '../styles/login.css';
 import type { LoginCredentials, Firm, User as UserType } from '../types';
-import { apiFetch } from '../utils/api';
+import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 export default function LoginPage() {
   // 基本狀態
@@ -130,15 +130,10 @@ export default function LoginPage() {
           localStorage.removeItem('law_remember_me');
         }
 
-        // 立即儲存事務所基本資訊
-        localStorage.setItem('law_firm_id', data.firm_id);
-        localStorage.setItem('law_firm_code', loginCredentials.account);
-        localStorage.setItem('law_firm_name', data.firm_name);
-        
-        // 如果後端有提供 token，也要儲存
-        if (data.token) {
-            localStorage.setItem('auth_token', data.token);
-        }
+        console.log('data.has_plan:', data.has_plan);
+        console.log('data.can_use_free_plan:', data.can_use_free_plan);
+        console.log('data.plan_type:', data.plan_type);
+        console.log('data.users:', data.users);
 
         // 建立事務所資訊
         const firmInfo = {

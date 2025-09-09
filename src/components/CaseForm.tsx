@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, FileText, X } from 'lucide-react';
+import { getFirmCodeOrThrow } from '../utils/firm';
 import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 interface CaseData {
@@ -230,38 +231,28 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           console.log('DEBUG: onSave 失敗');
         }
       } else {
-        // 編輯案件 - 呼叫後端 API（已改）
-        const firmCode = getFirmCodeOrThrow();
-        if (!firmCode) {
-          throw new Error('找不到事務所代碼，請重新登入');
-        }
-
+        // 編輯案件 - 呼叫後端 API
         const updateData = {
-          case_type: formData.case_type ?? null,
-          case_reason: formData.case_reason ?? null,
-          case_number: formData.case_number ?? null,
-          opposing_party: formData.opposing_party ?? null,
-          court: formData.court ?? null,
-          division: formData.division ?? null,
-          progress: formData.progress ?? null,
-          progress_date: formData.progress_date ?? null,
-
-          // 新增：名稱欄位，後端會轉成 *_id
-          client_name: formData.client ?? null,
-          lawyer_name: formData.lawyer ?? null,
-          legal_affairs_name: formData.legal_affairs ?? null,
+          case_type: formData.case_type,
+          case_reason: formData.case_reason,
+          case_number: formData.case_number,
+          opposing_party: formData.opposing_party,
+          court: formData.court,
+          division: formData.division,
+          progress: formData.progress,
+          progress_date: formData.progress_date
         };
 
         console.log('發送到後端的更新案件資料:', updateData);
 
-        const response = await fetch(
-          `/api/cases/${formData.case_id}?firm_code=${encodeURIComponent(firmCode)}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateData),
-          }
-        );
+        const firmCode = getFirmCodeOrThrow();
+        const response = await fetch(`/api/cases/${formData.case_id}?firm_code=${encodeURIComponent(firmCode)}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updateData),
+        });
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -279,37 +270,16 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         const responseData = await response.json();
         console.log('後端更新回應成功:', responseData);
 
-        // 用後端回傳值組合要回傳給父層的資料（以後端為準，缺的再用表單值補）
-        const toParent = {
-          case_id: formData.case_id,
-          case_type: responseData.case_type ?? formData.case_type,
-          case_reason: responseData.case_reason ?? formData.case_reason,
-          case_number: responseData.case_number ?? formData.case_number,
-          opposing_party: responseData.opposing_party ?? formData.opposing_party,
-          court: responseData.court ?? formData.court,
-          division: responseData.division ?? formData.division,
-          progress: responseData.progress ?? formData.progress,
-          progress_date: responseData.progress_date
-            ? String(responseData.progress_date).slice(0, 10)
-            : formData.progress_date,
+        console.log('DEBUG: 準備呼叫 onSave (編輯模式)，資料:', formData);
 
-          // 讓列表立即顯示正確名稱
-          client: responseData.client_name ?? formData.client,
-          lawyer: responseData.lawyer_name ?? formData.lawyer,
-          legal_affairs: responseData.legal_affairs_name ?? formData.legal_affairs,
-        };
-
-        console.log('DEBUG: 準備呼叫 onSave (編輯模式)，資料:', toParent);
-
-        // 呼叫前端的 onSave 回調（用新的 toParent）
-        const success = await onSave(toParent);
+        // 呼叫前端的 onSave 回調
+        const success = await onSave(formData);
         if (success) {
           console.log('DEBUG: onSave (編輯模式) 成功，關閉對話框');
           onClose();
         } else {
           console.log('DEBUG: onSave (編輯模式) 失敗');
         }
-
       }
     } catch (error) {
       console.error('保存案件失敗:', error);

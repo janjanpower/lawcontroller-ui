@@ -1,7 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, User, Building, Menu, X, Users, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { isFullyLoggedIn, clearLoginAndRedirect } from '../utils/api';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -15,9 +14,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   // 檢查登入狀態
   useEffect(() => {
-    if (!isFullyLoggedIn()) {
-      console.warn('登入狀態不完整，重新導向到登入頁面');
-      clearLoginAndRedirect();
+    const userId = localStorage.getItem('law_user_id');
+    const firmCode = localStorage.getItem('law_firm_code');
+    if (!userId || !firmCode) {
+      navigate('/login', { replace: true });
       return;
     }
   }, [navigate]);
@@ -43,7 +43,15 @@ export default function MainLayout({ children }: MainLayoutProps) {
   };
 
   const confirmLogout = () => {
-    clearLoginAndRedirect();
+    // 清除所有登入資訊
+    localStorage.removeItem('law_user_id');
+    localStorage.removeItem('law_user_name');
+    localStorage.removeItem('law_firm_id');
+    localStorage.removeItem('law_firm_code');
+    localStorage.removeItem('law_last_login');
+    
+    // 跳轉到登入頁面
+    navigate('/login', { replace: true });
   };
 
   return (
