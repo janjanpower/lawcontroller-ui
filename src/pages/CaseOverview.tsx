@@ -15,7 +15,6 @@ import UnifiedDialog from '../components/UnifiedDialog';
 import ImportDataDialog from '../components/ImportDataDialog';
 import { parseExcelToCases } from '../utils/importers';
 import { FolderManager } from '../utils/folderManager';
-import ConfirmDialog from '../components/ConfirmDialog';
 import { hasClosedStage } from '../utils/caseStage';
 import { apiFetch, getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
 import type { TableCase, Stage, CaseStatus, VisibleColumns, DialogConfig } from '../types';
@@ -876,14 +875,11 @@ export default function CaseOverview() {
                     ? '進度日期'
                     : key === 'court'
                     ? '法院'
-        <ConfirmDialog
-                    ? '股別'
-                </span>
-              </label>
-            ))}
-          onConfirm={dialogConfig.onConfirm || (() => setDialogConfig(null))}
-          onCancel={() => setDialogConfig(null)}
-          showCancel={dialogConfig.type === 'warning' || dialogConfig.type === 'error'}
+                    : key === 'division' ? '股別' : key}
+                 </span>
+               </label>
+             ))}
+          </div>
         </div>
       )}
 
