@@ -6,36 +6,37 @@ import CaseOverview from './pages/CaseOverview';
 import ClosedCases from './pages/ClosedCases';
 import CustomerData from './pages/CustomerData';
 import UserManagement from './pages/UserManagement';
-import { initializeAppState, hasAuthToken } from './utils/api';
+import { initializeAppState, tryGetFirmCode, hasAuthToken } from './utils/api';
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const initialize = async () => {
-      try {
-        // 檢查基本登入資訊
-        if (!hasAuthToken()) {
-          console.log('沒有基本登入資訊，跳過初始化');
-          setIsInitialized(true);
-          setIsLoading(false);
-          return;
-        }
+    // 1) 轉換舊 key 並盡力補 firm_code（localStorage / URL / .env）
+    initializeAppState();
 
-        console.log('有基本登入資訊，嘗試初始化應用狀態');
-        const success = await initializeAppState();
-        console.log('應用狀態初始化結果:', success);
-        setIsInitialized(success);
-      } catch (error) {
-        console.error('應用初始化失敗:', error);
-        setIsInitialized(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    // 2) 判斷登入與 firm_code 狀態
+    const fc = tryGetFirmCode();
+    const authed = hasAuthToken();
 
-    initialize();
+    // 未登入：不做導轉，交給路由顯示 LoginPage
+    if (!authed) {
+      setIsInitialized(false);
+      setIsLoading(false);
+      return;
+    }
+
+    // 已登入但沒 firm_code：導回登入（帶回跳）
+    if (!fc) {
+      const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/login?returnTo=${returnTo}`;
+      return;
+    }
+
+    // 都 OK
+    setIsInitialized(true);
+    setIsLoading(false);
   }, []);
 
   // 載入中顯示
@@ -53,12 +54,44 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* 未登入預設就是登入頁 */}
         <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/cases" element={<MainLayout><CaseOverview /></MainLayout>} />
-        <Route path="/closed-cases" element={<MainLayout><ClosedCases /></MainLayout>} />
-        <Route path="/customers" element={<MainLayout><CustomerData /></MainLayout>} />
-        <Route path="/users" element={<MainLayout><UserManagement /></MainLayout>} />
+
+        {/* 登入後的頁面 */}
+        <Route
+          path="/cases"
+          element={
+            <MainLayout>
+              <CaseOverview />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/closed-cases"
+          element={
+            <MainLayout>
+              <ClosedCases />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/customers"
+          element={
+            <MainLayout>
+              <CustomerData />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <MainLayout>
+              <UserManagement />
+            </MainLayout>
+          }
+        />
+
         <Route path="*" element={<div>404 Not Found</div>} />
       </Routes>
     </BrowserRouter>

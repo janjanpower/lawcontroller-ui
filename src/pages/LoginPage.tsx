@@ -147,16 +147,17 @@ export default function LoginPage() {
         const resolvedFirmCode = (data.firm_code || loginCredentials.account || '').trim();
         setFirmCode(resolvedFirmCode);
 
-        // 優先用後端回傳的 token；沒有就先用 firm_id 當臨時 token
         const resolvedToken = data.token || data.access_token || data.firm_id || 'temp_token';
         setAuthToken(resolvedToken);
 
-        // 其他資訊（可保留為輔助顯示，不影響 API）
+        // 其他資訊可留作展示
         localStorage.setItem('law_firm_id', data.firm_id || '');
         localStorage.setItem('law_firm_name', data.firm_name || '');
-        // 清掉舊有的混用 key（避免之後有人誤用）
+
+        // 清掉舊鍵，避免混用
         localStorage.removeItem('law_firm_code');
         localStorage.removeItem('auth_token');
+
 
 
         // 建立事務所資訊
