@@ -50,7 +50,7 @@ export class FolderManager {
       },
       {
         id: `${caseId}_progress`,
-        name: '進度追蹤',
+        name: '案件進度',
         path: `/cases/${caseId}/案件進度`,
         type: 'default',
         children: []
@@ -60,7 +60,7 @@ export class FolderManager {
     // 存儲到 localStorage
     localStorage.setItem(this.getStorageKey(caseId), JSON.stringify(defaultFolders));
     
-    console.log(`為案件 ${caseId} 建立預設資料夾結構：狀紙、案件資訊、進度追蹤`);
+    console.log(`為案件 ${caseId} 建立預設資料夾結構：狀紙、案件資訊、案件進度`);
     return defaultFolders;
   }
 
@@ -80,7 +80,7 @@ export class FolderManager {
   // 新增階段資料夾
   static createStageFolder(caseId: string, stageName: string): void {
     const folders = this.getCaseFolders(caseId);
-    const progressFolder = folders.find(f => f.name === '進度追蹤');
+    const progressFolder = folders.find(f => f.name === '案件進度');
     
     if (progressFolder) {
       if (!progressFolder.children) {
@@ -101,7 +101,7 @@ export class FolderManager {
         progressFolder.children.push(stageFolder);
         localStorage.setItem(this.getStorageKey(caseId), JSON.stringify(folders));
         
-        console.log(`為案件 ${caseId} 在進度追蹤資料夾下建立階段資料夾：${stageName}`);
+        console.log(`為案件 ${caseId} 在案件進度資料夾下建立階段資料夾：${stageName}`);
       }
     }
   }

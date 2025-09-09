@@ -311,7 +311,7 @@ export default function ClosedCases() {
                     <Download className="w-4 h-4" />
                     <span>匯出資料</span>
                   </button>
-                  {/* 只保留手機版關閉按鈕 */}
+                  {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
                   <button
                     onClick={() => setSelectedCase(null)}
                     className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
