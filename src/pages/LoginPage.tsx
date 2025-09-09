@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Eye, EyeOff, User, Lock, Building } from 'lucide-react';
 import RegisterDialog from '../components/RegisterDialog';
 import PlanSelectionDialog from '../components/PlanSelectionDialog';
+import UserSelectionDialog from '../components/UserSelectionDialog';
 import '../styles/login.css';
 import type { LoginCredentials, Firm, User as UserType } from '../types';
 import { apiFetch } from '../utils/api';
@@ -131,15 +132,15 @@ export default function LoginPage() {
 
         // 立即儲存事務所基本資訊
         localStorage.setItem('law_firm_id', data.firm_id);
-        
+
         // 儲存事務所代碼（使用登入帳號作為 firm_code）
         localStorage.setItem('law_firm_code', loginCredentials.account);
-        
+
         // 如果後端有提供 token，也要儲存
         if (data.token) {
             localStorage.setItem('auth_token', data.token);
         }
-        
+
         // 儲存事務所資訊（但不再使用 firm_code）
         localStorage.setItem('law_firm_name', data.firm_name);
 
