@@ -675,9 +675,10 @@ export default function CaseOverview() {
       showSuccess('案件新增成功！');
       return true;
       } else {
-        // 編輯模式：同樣重新載入列表
-        console.log('DEBUG: 編輯案件成功，重新載入列表');
+        // 編輯模式：同步 UI → 更新 Excel → 重新載入 → 成功提示
+        console.log('DEBUG: 編輯案件成功，準備同步 UI 與資料');
 
+        // 用表單回傳整合成列表用物件
         const updated = formToTableCase(form, selectedCase ?? undefined);
 
         // 即時更新右側詳情
@@ -689,35 +690,33 @@ export default function CaseOverview() {
         // 更新快取
         stageManager.updateCaseInFirm(firmCode, updated);
 
-        // 更新案件資訊 Excel
-        if (form.case_id) {
-          FolderManager.updateCaseInfoExcel(form.case_id, {
-            caseNumber: form.case_number || '',
-            client: form.client,
-            caseType: form.case_type,
-            lawyer: form.lawyer || '',
-            legalAffairs: form.legal_affairs || '',
-            caseReason: form.case_reason || '',
-            opposingParty: form.opposing_party || '',
-            court: form.court || '',
-            division: form.division || '',
-            progress: form.progress || '',
-            progressDate: form.progress_date || ''
-          });
+        // 更新案件資訊 Excel（失敗不影響主流程）
+        try {
+          if (updated.id) {
+            FolderManager.updateCaseInfoExcel(updated.id, {
+              caseNumber: updated.case_number || '',
+              client: updated.client || '',
+              caseType: updated.case_type || '',
+              lawyer: updated.lawyer || '',
+              legalAffairs: updated.legal_affairs || '',
+              caseReason: updated.case_reason || '',
+              opposingParty: updated.opposing_party || '',
+              court: updated.court || '',
+              division: updated.division || '',
+              progress: updated.progress || '',
+              progressDate: updated.progress_date || '',
+            });
+          }
+        } catch (e) {
+          console.warn('更新案件資訊 Excel 失敗（忽略，不影響主流程）:', e);
         }
 
-        // 背景重新載入以同步最新資料
+        // 只重新載入一次列表，確保與 DB 對齊
         await loadCases();
 
         showSuccess('案件更新成功！');
-      }
-      return true;
-    } catch (error) {
-      console.error('handleSaveCase 錯誤:', error);
-      showError('操作失敗，請稍後再試');
-      return false;
-    }
-  };
+        return true;
+
 
   const confirmDeleteCase = (row: TableCase) => {
     setDialogConfig({
