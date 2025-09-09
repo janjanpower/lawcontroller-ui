@@ -15,15 +15,17 @@ export default function App() {
   useEffect(() => {
     const initialize = async () => {
       try {
-        // 如果沒有任何登入資訊，直接完成初始化
+        // 檢查基本登入資訊
         if (!hasAuthToken()) {
+          console.log('沒有基本登入資訊，跳過初始化');
           setIsInitialized(true);
           setIsLoading(false);
           return;
         }
 
-        // 嘗試初始化應用狀態
+        console.log('有基本登入資訊，嘗試初始化應用狀態');
         const success = await initializeAppState();
+        console.log('應用狀態初始化結果:', success);
         setIsInitialized(success);
       } catch (error) {
         console.error('應用初始化失敗:', error);

@@ -1,7 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, User, Building, Menu, X, Users, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { hasAuthToken, isFullyLoggedIn, clearLoginAndRedirect } from '../utils/api';
+import { hasAuthToken, clearLoginAndRedirect } from '../utils/api';
 
 interface MainLayoutProps {
   children: React.ReactNode;

@@ -483,7 +483,7 @@ export default function FolderTree({
   // 單檔上傳
   const uploadFileToS3 = async (file: File, folderPath: string, folderId?: string) => {
     // 檢查登入狀態
-    if (!isFullyLoggedIn()) {
+    if (!hasAuthToken()) {
       throw new Error('登入狀態已過期，請重新登入');
     }
     

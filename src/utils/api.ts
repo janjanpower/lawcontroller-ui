@@ -17,7 +17,22 @@ export async function apiFetch(path: string, init?: RequestInit) {
 
 // 檢查是否有登入 token
 export function hasAuthToken(): boolean {
-  return !!localStorage.getItem('auth_token');
+  const token = localStorage.getItem('auth_token');
+  const firmCode = localStorage.getItem('law_firm_code');
+  const userId = localStorage.getItem('law_user_id');
+  
+  // 需要有基本的登入資訊
+  return !!(token && firmCode && userId);
+}
+
+// 檢查是否完整登入（包含用戶選擇）
+export function isFullyLoggedIn(): boolean {
+  const token = localStorage.getItem('auth_token');
+  const firmCode = localStorage.getItem('law_firm_code');
+  const userId = localStorage.getItem('law_user_id');
+  const userName = localStorage.getItem('law_user_name');
+  
+  return !!(token && firmCode && userId && userName);
 }
 
 // 清除登入狀態並跳轉
@@ -49,21 +64,32 @@ export function getFirmCodeOrThrow(): string {
 export async function initializeAppState(): Promise<boolean> {
   const token = localStorage.getItem('auth_token');
   const firmCode = localStorage.getItem('law_firm_code');
+  const userId = localStorage.getItem('law_user_id');
   
   if (!token || !firmCode) {
+    console.log('缺少基本登入資訊:', { hasToken: !!token, hasFirmCode: !!firmCode });
     return false;
   }
   
+  // 如果沒有用戶資訊，表示還在登入流程中，不算完整登入
+  if (!userId) {
+    console.log('尚未完成用戶選擇，跳過狀態驗證');
+    return true; // 允許繼續，但不驗證 API
+  }
+  
   try {
-    // 驗證 token 是否有效
-    const response = await apiFetch('/api/users');
+    // 驗證 token 是否有效（使用健康檢查）
+    const response = await apiFetch('/api/healthz');
     if (response.ok) {
+      console.log('API 連線正常');
       return true;
     } else {
+      console.log('API 連線失敗，清除登入狀態');
       clearLoginAndRedirect();
       return false;
     }
   } catch (error) {
+    console.log('API 連線錯誤，清除登入狀態:', error);
     clearLoginAndRedirect();
     return false;
   }
