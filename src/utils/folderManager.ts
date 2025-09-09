@@ -35,6 +35,13 @@ export class FolderManager {
   static createDefaultFolders(caseId: string): CaseFolder[] {
     const defaultFolders: CaseFolder[] = [
       {
+        id: `${caseId}_pleadings`,
+        name: '狀紙',
+        path: `/cases/${caseId}/狀紙`,
+        type: 'default',
+        children: []
+      },
+      {
         id: `${caseId}_info`,
         name: '案件資訊',
         path: `/cases/${caseId}/案件資訊`,
@@ -53,7 +60,7 @@ export class FolderManager {
     // 存儲到 localStorage
     localStorage.setItem(this.getStorageKey(caseId), JSON.stringify(defaultFolders));
     
-    console.log(`為案件 ${caseId} 建立預設資料夾結構：案件資訊、案件進度`);
+    console.log(`為案件 ${caseId} 建立預設資料夾結構：狀紙、案件資訊、案件進度`);
     return defaultFolders;
   }
 

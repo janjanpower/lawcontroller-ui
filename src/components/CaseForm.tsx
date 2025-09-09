@@ -53,18 +53,18 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
       if (mode === 'edit' && caseData) {
         console.log('編輯模式 - 收到的案件資料:', caseData);
         setFormData({
-          case_id: caseData.case_id || caseData.id,
-          case_type: caseData.case_type || caseData.caseType || '',
-          client: caseData.client || caseData.clientName || '',
-          lawyer: caseData.lawyer || caseData.lawyerName || '',
-          legal_affairs: caseData.legal_affairs || caseData.legalAffairs || '',
-          case_reason: caseData.case_reason || caseData.caseReason || '',
-          case_number: caseData.case_number || caseData.caseNumber || '',
-          opposing_party: caseData.opposing_party || caseData.opposingParty || '',
+          case_id: caseData.case_id,
+          case_type: caseData.case_type || '',
+          client: caseData.client || '',
+          lawyer: caseData.lawyer || '',
+          legal_affairs: caseData.legal_affairs || '',
+          case_reason: caseData.case_reason || '',
+          case_number: caseData.case_number || '',
+          opposing_party: caseData.opposing_party || '',
           court: caseData.court || '',
           division: caseData.division || '',
           progress: caseData.progress || '委任',
-          progress_date: caseData.progress_date || caseData.progressDate || new Date().toISOString().split('T')[0]
+          progress_date: caseData.progress_date || new Date().toISOString().split('T')[0]
         });
         console.log('設定表單資料完成');
       } else {

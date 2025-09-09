@@ -211,6 +211,7 @@ export default function FolderTree({
           type: 'folder',
           path: '/',
           children: [
+            { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
             { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
             { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
           ]
@@ -249,6 +250,7 @@ export default function FolderTree({
             type: 'folder',
             path: '/',
             children: [
+              { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
               { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
               { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
             ]
@@ -277,6 +279,7 @@ export default function FolderTree({
           type: 'folder',
           path: '/',
           children: [
+            { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
             { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
             { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
           ]
@@ -292,6 +295,7 @@ export default function FolderTree({
         type: 'folder',
         path: '/',
         children: [
+          { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
           { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
           { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
         ]
@@ -327,6 +331,13 @@ export default function FolderTree({
       } else {
         // 如果沒有 folders 資訊，建立預設資料夾
         rootNode.children = [
+          {
+            id: 'pleadings',
+            name: '狀紙',
+            type: 'folder' as const,
+            path: '/狀紙',
+            children: []
+          },
           {
             id: 'info',
             name: '案件資訊',
