@@ -507,16 +507,14 @@ export default function CaseOverview() {
     updateStageStatus();
   };
 
+
   // 工具：轉字串、裁長度、去空白
   const S = (v: any) => (v == null ? '' : String(v).trim());
   const cut = (s: string, max: number) => (s.length > max ? s.slice(0, max) : s);
 
-  // 必要欄位門檻（依你後端慣例）
-  const REQUIRED = {
-    client_name: true,   // 當事人必填
-    case_type: true,     // 案件類型必填（至少給「未分類」）
-  };
-  // 欄位長度上限（猜合理上限，避免 DB 長度炸掉）
+  // 必填欄位（依後端慣例）
+  const REQUIRED = { client_name: true, case_type: true };
+  // 欄位長度上限（避免 DB 長度爆掉）
   const LIMITS: Record<string, number> = {
     client_name: 100,
     case_type: 50,
@@ -529,10 +527,10 @@ export default function CaseOverview() {
   };
 
   const sanitize = (x: any) => {
-    // 先把解析出的欄位對齊 CaseForm 新增的命名
+    // 對齊 CaseForm 新增的命名與預設
     let obj: any = {
       case_type: S(x.case_type) || '未分類',
-      client_name: S(x.client),
+      client_name: S(x.client),               // client → client_name
       case_reason: S(x.case_reason) || '',
       case_number: S(x.case_number) || '',
       court: S(x.court) || '',
@@ -540,25 +538,20 @@ export default function CaseOverview() {
       lawyer_name: S(x.lawyer) || '',
       legal_affairs_name: S(x.legal_affairs) || '',
     };
-
     // 長度裁切
     for (const k of Object.keys(obj)) {
       const lim = LIMITS[k];
       if (lim && typeof obj[k] === 'string') obj[k] = cut(obj[k], lim);
     }
-
-    // 把空字串轉 null（除了必填欄位）
+    // 空字串→null（但必填欄位除外）
     for (const k of Object.keys(obj)) {
       if (!obj[k] && !REQUIRED[k as keyof typeof REQUIRED]) obj[k] = null;
     }
-
     return obj;
   };
 
-  const isValid = (payload: any) =>
-    (!!payload.client_name && !!payload.case_type);
+  const isValid = (payload: any) => !!payload.client_name && !!payload.case_type;
 
-  // 主流程：驗證→清理→分批送出
   const handleImportComplete = async (importedCases: any[]) => {
     try {
       setLoading(true);
@@ -575,28 +568,16 @@ export default function CaseOverview() {
 
       const firmCode = getFirmCodeOrThrow();
 
-      // 清理並分組
+      // 清理＋驗證
       const prepared = importedCases.map(sanitize);
       const valid = prepared.filter(isValid);
-      const skipped = prepared.length - valid.length; // 略過不合格（少必填）
-
-      // 健康檢查（可保留）
-      try {
-        const res = await fetch('/api/health');
-        if (!res.ok) throw new Error('後端服務不可用');
-        const h = await res.json();
-        if (!h?.ok) throw new Error(`服務異常（db=${h?.db ?? 'unknown'}）`);
-      } catch (e: any) {
-        setDialogConfig({ title: '服務異常', message: e?.message || '健康檢查失敗', type: 'error' });
-        setShowUnifiedDialog(true);
-        return;
-      }
+      const skipped = prepared.length - valid.length; // 因缺必填而略過的數量
 
       let ok = 0, fail = 0;
       const errs: string[] = [];
 
-      // 逐筆按「和 CaseForm 一樣」送：URL 帶 firm_code，body 也帶 firm_code
       for (const item of valid) {
+        // ⚠️ 完全比照 CaseForm：URL 帶 firm_code，body 也帶 firm_code
         const payload = { firm_code: firmCode, ...item };
         try {
           const res = await fetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`, {
@@ -629,17 +610,12 @@ export default function CaseOverview() {
       });
       setShowUnifiedDialog(true);
     } catch (e: any) {
-      setDialogConfig({
-        title: '匯入失敗',
-        message: e?.message || '發生未知錯誤',
-        type: 'error'
-      });
+      setDialogConfig({ title: '匯入失敗', message: e?.message || '發生未知錯誤', type: 'error' });
       setShowUnifiedDialog(true);
     } finally {
       setLoading(false);
     }
   };
-
 
 
 
