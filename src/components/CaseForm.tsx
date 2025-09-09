@@ -249,7 +249,8 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
 
         console.log('發送到後端的更新案件資料:', updateData);
 
-        const response = await apiFetch(`/api/cases/${formData.case_id}`, {
+        const firmCode = getFirmCodeOrThrow();
+        const response = await apiFetch(`/api/cases/${formData.case_id}?firm_code=${encodeURIComponent(firmCode)}`, {
           method: 'PATCH',
           body: JSON.stringify(updateData),
         });

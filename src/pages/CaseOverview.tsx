@@ -12,6 +12,7 @@ import FolderTree from '../components/FolderTree';
 import DateReminderWidget from '../components/DateReminderWidget';
 import ClosedTransferDialog from '../components/ClosedTransferDialog';
 import UnifiedDialog from '../components/UnifiedDialog';
+import ImportDataDialog from '../components/ImportDataDialog';
 import { parseExcelToCases } from '../utils/importers';
 import { FolderManager } from '../utils/folderManager';
 import { hasClosedStage } from '../utils/caseStage';
@@ -36,6 +37,7 @@ export default function CaseOverview() {
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [showClosedTransfer, setShowClosedTransfer] = useState(false);
   const [showUnifiedDialog, setShowUnifiedDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [dialogConfig, setDialogConfig] = useState<DialogConfig>({
     title: '',
     message: '',
@@ -381,13 +383,9 @@ export default function CaseOverview() {
   };
 
   // Excel 匯入
-  const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const handleImportComplete = async (importedCases: any[]) => {
     try {
       setLoading(true);
-      const importedCases = await parseExcelToCases(file);
 
       console.log('匯入的案件:', importedCases);
 
@@ -404,14 +402,12 @@ export default function CaseOverview() {
       console.error('Excel 匯入失敗:', error);
       setDialogConfig({
         title: '匯入失敗',
-        message: error.message || 'Excel 檔案格式錯誤',
+        message: error.message || '匯入過程發生錯誤',
         type: 'error'
       });
       setShowUnifiedDialog(true);
     } finally {
       setLoading(false);
-      // 清除檔案選擇
-      event.target.value = '';
     }
   };
 
@@ -591,16 +587,13 @@ export default function CaseOverview() {
                 <span>上傳檔案</span>
               </button>
 
-              <label className="bg-green-600 text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-green-700 transition-colors cursor-pointer flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center">
+              <button
+                onClick={() => setShowImportDialog(true)}
+                className="bg-green-600 text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-green-700 transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
+              >
                 <Download className="w-4 h-4" />
                 <span>匯入資料</span>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleExcelImport}
-                  className="hidden"
-                />
-              </label>
+              </button>
 
               <button
                 onClick={handleTransferToClosed}
@@ -666,28 +659,26 @@ export default function CaseOverview() {
 
         {/* 批量操作工具列 */}
         {selectedCaseIds.length > 0 && (
-          <div className="mt-4 w-1/4">
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-              <div className="flex flex-col gap-3">
-                <span className="text-sm text-blue-800">
-                  已選擇 {selectedCaseIds.length} 筆案件
-                </span>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handleSelectAll(true)}
-                    className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700 flex items-center space-x-1"
-                  >
-                    <CheckCircle className="w-3 h-3" />
-                    <span>全選</span>
-                  </button>
-                  <button
-                    onClick={handleBatchDelete}
-                    className="bg-red-600 text-white px-3 py-1.5 rounded text-sm hover:bg-red-700 flex items-center space-x-1"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    <span>批量刪除</span>
-                  </button>
-                </div>
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
+            <div className="bg-white border border-gray-300 rounded-lg shadow-lg px-4 py-3 flex items-center space-x-4">
+              <span className="text-sm text-gray-700 font-medium">
+                已選擇 {selectedCaseIds.length} 筆案件
+              </span>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => handleSelectAll(false)}
+                  className="text-gray-600 hover:text-gray-800 text-sm underline"
+                >
+                  取消選擇
+                </button>
+                <div className="w-px h-4 bg-gray-300"></div>
+                <button
+                  onClick={handleBatchDelete}
+                  className="bg-red-600 text-white px-3 py-1.5 rounded-md text-sm hover:bg-red-700 flex items-center space-x-1 transition-colors"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>刪除</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1001,8 +992,12 @@ export default function CaseOverview() {
                     <Edit className="w-3 h-3" />
                     <span>編輯</span>
                   </button>
-                  <button className="text-gray-400 hover:text-gray-600" title="更多">
-                    <MoreHorizontal className="w-5 h-5" />
+                  <button
+                    onClick={() => setSelectedCase(null)}
+                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md p-1 transition-colors"
+                    title="關閉詳情"
+                  >
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -1088,15 +1083,6 @@ export default function CaseOverview() {
                           key={`${stage.name}-${stageIndex}`}
                           className="flex items-start space-x-3 p-2 rounded-md hover:bg-gray-50 group"
                         >
-                          <div
-                            className={`min-w-[88px] px-3 py-1 rounded-xl text-xs font-semibold text-center ${getStageColor(
-                              stage,
-                              isCurrent
-                            )}`}
-                          >
-                            {stage.name}
-                          </div>
-
                           <div className="flex-1">
                             <div className="flex items-center justify-between">
                               <span
@@ -1118,17 +1104,6 @@ export default function CaseOverview() {
                                   {stage.time ? ` ${stage.time}` : ''}
                                 </span>
                                 <button
-                                  onClick={() => toggleStageCompletion(stageIndex)}
-                                  className={`opacity-0 group-hover:opacity-100 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
-                                    stage.completed
-                                      ? 'bg-green-500 border-green-500 text-white'
-                                      : 'border-gray-300 hover:border-green-500'
-                                  }`}
-                                  title="切換完成狀態"
-                                >
-                                  {stage.completed && <CheckCircle className="w-2 h-2" />}
-                                </button>
-                                <button
                                   onClick={() => {
                                     const folderPath = FolderManager.getStageFolder(selectedCase.id, stage.name);
                                     console.log(`開啟階段資料夾: ${folderPath}`);
@@ -1141,14 +1116,21 @@ export default function CaseOverview() {
                                 </button>
                                 <button
                                   onClick={() => {
-                                    setStageDialogMode('edit');
-                                    setEditingStage({ index: stageIndex, stage });
-                                    setShowStageDialog(true);
+                                    if (confirm(`確定要刪除階段「${stage.name}」嗎？`)) {
+                                      setCases(prev => prev.map(c =>
+                                        c.id === selectedCase.id
+                                          ? {
+                                              ...c,
+                                              stages: c.stages.filter((_, index) => index !== stageIndex)
+                                            }
+                                          : c
+                                      ));
+                                    }
                                   }}
-                                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-all"
-                                  title="編輯階段"
+                                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all"
+                                  title="刪除階段"
                                 >
-                                  <Edit className="w-3 h-3" />
+                                  <Trash2 className="w-3 h-3" />
                                 </button>
                               </div>
                             </div>
@@ -1232,6 +1214,12 @@ export default function CaseOverview() {
         message={dialogConfig.message}
         type={dialogConfig.type}
         onConfirm={dialogConfig.onConfirm}
+      />
+
+      <ImportDataDialog
+        isOpen={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImportComplete={handleImportComplete}
       />
     </div>
   );

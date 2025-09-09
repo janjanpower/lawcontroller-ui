@@ -31,8 +31,8 @@ export default function StageEditDialog({
   onSave,
   caseId,
 }: StageEditDialogProps) {
-  const [stageName, setStageName] = useState(initial?.stageName ?? '');
-  const [date, setDate] = useState(initial?.date ?? '');
+  const [stageName, setStageName] = useState('');
+  const [date, setDate] = useState('');
   const [time, setTime] = useState(initial?.time ?? '');
   const [note, setNote] = useState(initial?.note ?? '');
 
@@ -55,7 +55,8 @@ export default function StageEditDialog({
   useEffect(() => {
     if (isOpen) {
       setStageName(initial?.stageName ?? '');
-      setDate(initial?.date ?? '');
+      // 設定日期預設為今日
+      setDate(initial?.date ?? new Date().toISOString().split('T')[0]);
       setTime(initial?.time ?? '');
       setNote(initial?.note ?? '');
     }

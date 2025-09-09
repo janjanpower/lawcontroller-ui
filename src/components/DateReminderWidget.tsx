@@ -241,12 +241,12 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
                         <div
                           className={`text-xs font-bold ${
                             stage.is_overdue
-                              ? 'text-red-600'
+                              ? 'bg-red-500 animate-pulse'
                               : stage.is_today
-                              ? 'text-orange-600'
+                              ? 'bg-orange-500 animate-pulse'
                               : stage.days_until === 1
-                              ? 'text-yellow-600'
-                              : 'text-gray-600'
+                              ? 'bg-yellow-500 animate-pulse'
+                              : 'bg-blue-500'
                           }`}
                         >
                           {stage.is_overdue
