@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect, useState, PropsWithChildren } from 'react';
 import LoginPage from './pages/LoginPage';
 import MainLayout from './components/MainLayout';
 import CaseOverview from './pages/CaseOverview';
@@ -8,39 +8,36 @@ import CustomerData from './pages/CustomerData';
 import UserManagement from './pages/UserManagement';
 import { initializeAppState, tryGetFirmCode, hasAuthToken } from './utils/api';
 
+// 路由守衛：需要「已登入 + 有 firm_code」才放行
+function RequireAuthFirm({ children }: PropsWithChildren) {
+  const location = useLocation();
+  const authed = hasAuthToken();
+  const fc = tryGetFirmCode();
+
+  // 未登入 → 送去登入（帶回跳）
+  if (!authed) {
+    const returnTo = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
+  }
+  // 已登入但沒有 firm_code → 送去登入（帶回跳）
+  if (!fc) {
+    const returnTo = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
+  }
+  // 條件都齊 → 放行
+  return <>{children}</>;
+}
+
 export default function App() {
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // 1) 轉換舊 key 並盡力補 firm_code（localStorage / URL / .env）
+    // 做一次 key 搬遷與自動帶入 firm_code（localStorage / URL / .env）
     initializeAppState();
-
-    // 2) 判斷登入與 firm_code 狀態
-    const fc = tryGetFirmCode();
-    const authed = hasAuthToken();
-
-    // 未登入：不做導轉，交給路由顯示 LoginPage
-    if (!authed) {
-      setIsInitialized(false);
-      setIsLoading(false);
-      return;
-    }
-
-    // 已登入但沒 firm_code：導回登入（帶回跳）
-    if (!fc) {
-      const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.href = `/login?returnTo=${returnTo}`;
-      return;
-    }
-
-    // 都 OK
-    setIsInitialized(true);
-    setIsLoading(false);
+    setReady(true);
   }, []);
 
-  // 載入中顯示
-  if (isLoading) {
+  if (!ready) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -54,41 +51,49 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 未登入預設就是登入頁 */}
+        {/* 未登入預設是登入頁 */}
         <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<LoginPage />} />
 
-        {/* 登入後的頁面 */}
+        {/* 需要登入 + firm_code 的頁面都包上守衛，避免還沒準備好就掛載子頁 */}
         <Route
           path="/cases"
           element={
-            <MainLayout>
-              <CaseOverview />
-            </MainLayout>
+            <RequireAuthFirm>
+              <MainLayout>
+                <CaseOverview />
+              </MainLayout>
+            </RequireAuthFirm>
           }
         />
         <Route
           path="/closed-cases"
           element={
-            <MainLayout>
-              <ClosedCases />
-            </MainLayout>
+            <RequireAuthFirm>
+              <MainLayout>
+                <ClosedCases />
+              </MainLayout>
+            </RequireAuthFirm>
           }
         />
         <Route
           path="/customers"
           element={
-            <MainLayout>
-              <CustomerData />
-            </MainLayout>
+            <RequireAuthFirm>
+              <MainLayout>
+                <CustomerData />
+              </MainLayout>
+            </RequireAuthFirm>
           }
         />
         <Route
           path="/users"
           element={
-            <MainLayout>
-              <UserManagement />
-            </MainLayout>
+            <RequireAuthFirm>
+              <MainLayout>
+                <UserManagement />
+              </MainLayout>
+            </RequireAuthFirm>
           }
         />
 
