@@ -227,7 +227,7 @@ export default function LoginPage() {
     console.log('用戶選擇完成，準備跳轉到案件總覽');
 
     // 跳轉到案件總覽
-    window.location.replace('/cases');
+    window.location.href = '/cases';
   };
 
   return (
