@@ -1,6 +1,7 @@
 // src/components/FolderTree.tsx
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2 } from 'lucide-react';
+import { getFirmCodeOrThrow } from '../utils/api';
 import { FolderManager } from '../utils/folderManager';
 
 interface FolderNode {
@@ -198,16 +199,26 @@ export default function FolderTree({
   // 從 API 載入真實的資料夾結構
   useEffect(() => {
     if (isExpanded && s3Config) {
-      loadFolderStructure();
+      // 檢查登入狀態後再載入
+      const firmCode = localStorage.getItem('law_firm_code');
+      const userId = localStorage.getItem('law_user_id');
+      
+      if (firmCode && userId) {
+        loadFolderStructure();
+      } else {
+        console.warn('登入狀態不完整，跳過資料夾載入');
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId, isExpanded]);
 
   const loadFolderStructure = async () => {
     try {
-      const firmCode = localStorage.getItem('law_firm_code');
-      if (!firmCode) {
-        console.error('找不到事務所代碼');
+      let firmCode;
+      try {
+        firmCode = getFirmCodeOrThrow();
+      } catch (error) {
+        console.error('取得事務所代碼失敗:', error.message);
         return;
       }
 
@@ -224,6 +235,18 @@ export default function FolderTree({
           filesData = JSON.parse(responseText);
         } catch (parseError) {
           console.error('解析 API 回應失敗:', parseError);
+          // 設定預設資料夾結構
+          setFolderData({
+            id: 'root',
+            name: '案件資料夾',
+            type: 'folder',
+            path: '/',
+            children: [
+              { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
+              { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
+              { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+            ]
+          });
           return;
         }
 
@@ -235,9 +258,40 @@ export default function FolderTree({
       } else {
         const errorText = await response.text();
         console.error('載入檔案列表失敗:', response.status, errorText);
+        
+        // 如果是 401 或 403 錯誤，可能是登入狀態問題
+        if (response.status === 401 || response.status === 403) {
+          console.warn('可能是登入狀態過期，設定預設資料夾');
+        }
+        
+        // 設定預設資料夾結構
+        setFolderData({
+          id: 'root',
+          name: '案件資料夾',
+          type: 'folder',
+          path: '/',
+          children: [
+            { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
+            { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
+            { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+          ]
+        });
       }
     } catch (error) {
       console.error('載入資料夾結構失敗:', error);
+      
+      // 設定預設資料夾結構作為備援
+      setFolderData({
+        id: 'root',
+        name: '案件資料夾',
+        type: 'folder',
+        path: '/',
+        children: [
+          { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
+          { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
+          { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+        ]
+      });
     }
   };
 
@@ -421,9 +475,11 @@ export default function FolderTree({
   // 單檔上傳
   const uploadFileToS3 = async (file: File, folderPath: string, folderId?: string) => {
     try {
-      const firmCode = localStorage.getItem('law_firm_code');
-      if (!firmCode) {
-        throw new Error('找不到事務所代碼');
+      let firmCode;
+      try {
+        firmCode = getFirmCodeOrThrow();
+      } catch (error) {
+        throw new Error(`登入狀態錯誤: ${error.message}`);
       }
 
       // 將資料夾路徑轉換為 folder_type
@@ -492,9 +548,19 @@ export default function FolderTree({
   // 檔案挑選器（多檔）＋逐一上傳
   const handleFileUpload = (opts: { folderId?: string; folderPath: string }) => {
    const { folderId, folderPath } = opts;
-    if (!s3Config) {
-      alert('S3 設定未提供，無法上傳檔案');
+    
+    // 檢查登入狀態
+    const firmCode = localStorage.getItem('law_firm_code');
+    const userId = localStorage.getItem('law_user_id');
+    
+    if (!firmCode || !userId) {
+      alert('登入狀態已過期，請重新登入');
+      window.location.replace('/login');
       return;
+    }
+
+    if (!s3Config) {
+      console.warn('S3 設定未提供，但仍允許上傳（由後端處理）');
     }
 
     const input = document.createElement('input');

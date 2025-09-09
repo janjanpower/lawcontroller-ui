@@ -16,7 +16,22 @@ export default function MainLayout({ children }: MainLayoutProps) {
   useEffect(() => {
     const userId = localStorage.getItem('law_user_id');
     const firmCode = localStorage.getItem('law_firm_code');
+    const firmId = localStorage.getItem('law_firm_id');
+    
     if (!userId || !firmCode) {
+      console.warn('登入狀態不完整，重新導向到登入頁面');
+      navigate('/login', { replace: true });
+      return;
+    }
+    
+    // 檢查登入資訊的完整性
+    if (!firmId) {
+      console.warn('缺少事務所 ID，清除登入狀態');
+      localStorage.removeItem('law_user_id');
+      localStorage.removeItem('law_user_name');
+      localStorage.removeItem('law_firm_id');
+      localStorage.removeItem('law_firm_code');
+      localStorage.removeItem('law_last_login');
       navigate('/login', { replace: true });
       return;
     }

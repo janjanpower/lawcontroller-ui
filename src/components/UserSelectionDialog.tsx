@@ -156,9 +156,18 @@ export default function UserSelectionDialog({
       // 成功：寫入 localStorage 並完成登入
       localStorage.setItem('law_user_id', selectedUser.id);
       localStorage.setItem('law_user_name', selectedUser.fullName || selectedUser.username);
+      localStorage.setItem('law_user_role', selectedUser.role);
       localStorage.setItem('law_firm_id', firm.id);
       localStorage.setItem('law_firm_code', firm.firmCode);
       localStorage.setItem('law_last_login', new Date().toISOString());
+      
+      console.log('登入資訊已儲存到 localStorage:', {
+        user_id: selectedUser.id,
+        user_name: selectedUser.fullName || selectedUser.username,
+        user_role: selectedUser.role,
+        firm_id: firm.id,
+        firm_code: firm.firmCode
+      });
 
       onComplete();
     } catch (e: any) {

@@ -160,6 +160,10 @@ export default function LoginPage() {
           adminPassword: 'admin123' // 暫時的管理員密碼
         };
 
+        // 先儲存基本的事務所資訊到 localStorage（以防後續步驟失敗）
+        localStorage.setItem('law_firm_id', data.firm_id);
+        localStorage.setItem('law_firm_code', loginCredentials.account);
+        
         setCurrentFirm(firmInfo);
 
         console.log('Firm Info:', firmInfo);
