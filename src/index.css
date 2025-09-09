@@ -37,3 +37,82 @@ code {
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
 }
+
+/* 案件進度階段標籤樣式 */
+.stage-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: all 0.2s ease-in-out;
+  border: 1px solid transparent;
+}
+
+.stage-tag:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 已完成階段 */
+.stage-tag.completed {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border-color: #059669;
+}
+
+/* 進行中階段 */
+.stage-tag.in-progress {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border-color: #2563eb;
+}
+
+/* 待處理階段 */
+.stage-tag.pending {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border-color: #d97706;
+}
+
+/* 逾期階段 */
+.stage-tag.overdue {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border-color: #dc2626;
+  animation: pulse-glow 2s infinite;
+}
+
+/* 預設階段 */
+.stage-tag.default {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: white;
+  border-color: #4b5563;
+}
+
+/* 脈衝發光動畫 */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.8);
+  }
+}
+
+/* 小尺寸標籤 */
+.stage-tag.small {
+  padding: 4px 8px;
+  font-size: 10px;
+  border-radius: 16px;
+}
+
+/* 大尺寸標籤 */
+.stage-tag.large {
+  padding: 8px 16px;
+  font-size: 14px;
+  border-radius: 24px;
+}
