@@ -226,7 +226,7 @@ export default function FolderTree({
       console.warn('登入狀態不完整，無法載入資料夾');
       return;
     }
-
+    
     try {
       const firmCode = getFirmCodeOrThrow();
 
@@ -266,12 +266,12 @@ export default function FolderTree({
       } else {
         const errorText = await response.text();
         console.error('載入檔案列表失敗:', response.status, errorText);
-
+        
         // 如果是 401 或 403 錯誤，可能是登入狀態問題
         if (response.status === 401 || response.status === 403) {
           console.warn('可能是登入狀態過期，設定預設資料夾');
         }
-
+        
         // 設定預設資料夾結構
         setFolderData({
           id: 'root',
@@ -287,7 +287,7 @@ export default function FolderTree({
       }
     } catch (error) {
       console.error('載入資料夾結構失敗:', error);
-
+      
       // 設定預設資料夾結構作為備援
       setFolderData({
         id: 'root',
@@ -486,7 +486,7 @@ export default function FolderTree({
     if (!isFullyLoggedIn()) {
       throw new Error('登入狀態已過期，請重新登入');
     }
-
+    
     try {
       const firmCode = getFirmCodeOrThrow();
 
@@ -556,7 +556,7 @@ export default function FolderTree({
   // 檔案挑選器（多檔）＋逐一上傳
   const handleFileUpload = (opts: { folderId?: string; folderPath: string }) => {
    const { folderId, folderPath } = opts;
-
+    
     // 檢查登入狀態
     if (!isFullyLoggedIn()) {
       alert('請先登入系統');

@@ -130,10 +130,15 @@ export default function LoginPage() {
           localStorage.removeItem('law_remember_me');
         }
 
-        console.log('data.has_plan:', data.has_plan);
-        console.log('data.can_use_free_plan:', data.can_use_free_plan);
-        console.log('data.plan_type:', data.plan_type);
-        console.log('data.users:', data.users);
+        // 立即儲存事務所基本資訊
+        localStorage.setItem('law_firm_id', data.firm_id);
+        localStorage.setItem('law_firm_code', loginCredentials.account);
+        localStorage.setItem('law_firm_name', data.firm_name);
+        
+        // 如果後端有提供 token，也要儲存
+        if (data.token) {
+            localStorage.setItem('auth_token', data.token);
+        }
 
         // 建立事務所資訊
         const firmInfo = {
@@ -159,11 +164,6 @@ export default function LoginPage() {
           })),
           adminPassword: 'admin123' // 暫時的管理員密碼
         };
-
-        // 先儲存基本的事務所資訊到 localStorage（以防後續步驟失敗）
-        localStorage.setItem('law_firm_id', data.firm_id);
-        localStorage.setItem('law_firm_code', loginCredentials.account);
-        localStorage.setItem('law_firm_name', data.firm_name);
 
         setCurrentFirm(firmInfo);
 

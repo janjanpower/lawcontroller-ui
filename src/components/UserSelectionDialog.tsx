@@ -158,7 +158,7 @@ export default function UserSelectionDialog({
       localStorage.setItem('law_user_name', selectedUser.fullName || selectedUser.username);
       localStorage.setItem('law_user_role', selectedUser.role);
       localStorage.setItem('law_last_login', new Date().toISOString());
-
+      
       console.log('登入資訊已儲存到 localStorage:', {
         user_id: selectedUser.id,
         user_name: selectedUser.fullName || selectedUser.username,

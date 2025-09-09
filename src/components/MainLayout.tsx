@@ -157,7 +157,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 <span className="font-medium">人員權限</span>
               </NavLink>
             </div>
-
+          
             {/* 登出按鈕 - 放在導覽頁最下面 */}
             <div className="mt-auto pt-4 border-t border-[#34495e]">
               <button
@@ -176,7 +176,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           {children}
         </main>
       </div>
-
+      
       {/* 登出確認對話框 */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

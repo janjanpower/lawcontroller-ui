@@ -232,6 +232,9 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
       } else {
         // 編輯案件 - 呼叫後端 API（已改）
         const firmCode = getFirmCodeOrThrow();
+        if (!firmCode) {
+          throw new Error('找不到事務所代碼，請重新登入');
+        }
 
         const updateData = {
           case_type: formData.case_type ?? null,
