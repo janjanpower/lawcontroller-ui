@@ -675,6 +675,7 @@ export default function CaseOverview() {
       showSuccess('案件新增成功！');
       return true;
       } else {
+
         // 編輯模式：同步 UI → 更新 Excel → 重新載入 → 成功提示
         console.log('DEBUG: 編輯案件成功，準備同步 UI 與資料');
 
@@ -717,6 +718,14 @@ export default function CaseOverview() {
         showSuccess('案件更新成功！');
         return true;
 
+      }
+      return true;
+    } catch (error) {
+      console.error('handleSaveCase 錯誤:', error);
+      showError('操作失敗，請稍後再試');
+      return false;
+    }
+  };
 
   const confirmDeleteCase = (row: TableCase) => {
     setDialogConfig({
