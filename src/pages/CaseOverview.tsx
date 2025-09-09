@@ -15,6 +15,7 @@ import UnifiedDialog from '../components/UnifiedDialog';
 import ImportDataDialog from '../components/ImportDataDialog';
 import { parseExcelToCases } from '../utils/importers';
 import { FolderManager } from '../utils/folderManager';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { hasClosedStage } from '../utils/caseStage';
 import { apiFetch, getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
 import type { TableCase, Stage, CaseStatus, VisibleColumns, DialogConfig } from '../types';
@@ -337,7 +338,7 @@ export default function CaseOverview() {
 
     try {
       const firmCode = getFirmCodeOrThrow();
-      
+
       // 呼叫後端 API 新增階段
       const response = await apiFetch(`/api/cases/${selectedCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`, {
         method: 'POST',
@@ -394,7 +395,7 @@ export default function CaseOverview() {
 
     try {
       const firmCode = getFirmCodeOrThrow();
-      
+
       // 呼叫後端 API 更新階段
       const response = await apiFetch(`/api/cases/${selectedCase.id}/stages/${editingStage.index}?firm_code=${encodeURIComponent(firmCode)}`, {
         method: 'PATCH',
@@ -684,11 +685,11 @@ export default function CaseOverview() {
   const getStageStatus = (stage: Stage) => {
     if (stage.completed) return 'completed';
     if (!stage.date) return 'no-date';
-    
+
     const stageDate = new Date(stage.date);
     const today = new Date();
     const diffDays = Math.ceil((stageDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-    
+
     if (diffDays < 0) return 'overdue';
     if (diffDays <= 3) return 'urgent';
     return 'normal';
@@ -697,11 +698,11 @@ export default function CaseOverview() {
   const getStageStatusText = (stage: Stage) => {
     if (stage.completed) return '已完成';
     if (!stage.date) return '未設定日期';
-    
+
     const stageDate = new Date(stage.date);
     const today = new Date();
     const diffDays = Math.ceil((stageDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-    
+
     if (diffDays < 0) return '已逾期';
     if (diffDays === 0) return '今日到期';
     if (diffDays <= 3) return `${diffDays}天後到期`;
@@ -1264,7 +1265,7 @@ export default function CaseOverview() {
                                   <p className="text-xs text-gray-500 mt-2 ml-1">{stage.note}</p>
                                 )}
                               </div>
-                              
+
                               <div className="flex flex-col items-end space-y-1">
                                 <div className="bg-white px-2 py-1 rounded-md shadow-sm border border-gray-200">
                                   <span className="text-xs font-medium text-gray-700">
@@ -1272,7 +1273,7 @@ export default function CaseOverview() {
                                     {stage.time ? ` ${stage.time}` : ''}
                                   </span>
                                 </div>
-                                
+
                                 <div className="flex items-center space-x-1">
                                   <button
                                     onClick={() => {
