@@ -163,6 +163,7 @@ export default function LoginPage() {
         // 先儲存基本的事務所資訊到 localStorage（以防後續步驟失敗）
         localStorage.setItem('law_firm_id', data.firm_id);
         localStorage.setItem('law_firm_code', loginCredentials.account);
+        localStorage.setItem('law_firm_name', data.firm_name);
 
         setCurrentFirm(firmInfo);
 
@@ -171,8 +172,6 @@ export default function LoginPage() {
         // 判斷邏輯：如果有付費方案或免費方案通行證，直接顯示用戶選擇對話框
         if (data.has_plan || data.can_use_free_plan) {
             console.log('Condition met: Showing UserSelectionDialog');
-            // 確保事務所資訊完整儲存
-            localStorage.setItem('law_firm_name', data.firm_name);
             setShowUserSelectionDialog(true);
         } else {
             console.log('Condition not met: Showing PlanSelectionDialog');

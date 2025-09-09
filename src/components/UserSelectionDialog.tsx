@@ -157,10 +157,6 @@ export default function UserSelectionDialog({
       localStorage.setItem('law_user_id', selectedUser.id);
       localStorage.setItem('law_user_name', selectedUser.fullName || selectedUser.username);
       localStorage.setItem('law_user_role', selectedUser.role);
-      // 確保事務所資訊完整
-      if (firm.id) localStorage.setItem('law_firm_id', firm.id);
-      if (firm.firmCode) localStorage.setItem('law_firm_code', firm.firmCode);
-      if (firm.firmName) localStorage.setItem('law_firm_name', firm.firmName);
       localStorage.setItem('law_last_login', new Date().toISOString());
 
       console.log('登入資訊已儲存到 localStorage:', {

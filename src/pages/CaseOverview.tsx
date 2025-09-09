@@ -125,7 +125,15 @@ export default function CaseOverview() {
   // 載入案件列表
   const loadCases = async () => {
     try {
-      const firmCode = getFirmCodeOrThrow();
+      let firmCode;
+      try {
+        firmCode = getFirmCodeOrThrow();
+      } catch (error) {
+        console.error('無法取得事務所代碼:', error);
+        showError('登入狀態異常，請重新登入');
+        return;
+      }
+
 
       // 先嘗試從本地存儲載入
       const localCases = stageManager.getFirmCases(firmCode);

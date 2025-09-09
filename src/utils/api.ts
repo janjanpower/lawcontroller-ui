@@ -4,8 +4,7 @@ export const isUUID = (v: string) => /^[0-9a-fA-F-]{8}-[0-9a-fA-F]{4}-[1-5][0-9a
 export function getFirmCodeOrThrow(): string {
   const firmCode = localStorage.getItem('law_firm_code');
   if (!firmCode) {
-    console.warn('找不到事務所代碼，可能需要重新登入');
-    return '';
+    throw new Error('找不到事務所代碼，請重新登入');
   }
   return firmCode;
 }
