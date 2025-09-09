@@ -853,30 +853,21 @@ export default function CaseOverview() {
         )}
 
 
-        <CaseEditDialog
-          isOpen={!!editingCase}
-          initial={editingCase || undefined}
-          onClose={() => setEditingCase(null)}
-          onSave={async (data) => {
-            if (!editingCase?.id) return false;
-
-            // 把空字串轉成 null，避免覆蓋成空字串
-            const payload = Object.fromEntries(
-              Object.entries(data).map(([k, v]) => [k, v === '' ? null : v])
+        <CaseForm
+          isOpen={showCaseForm}
+          mode={caseFormMode}           // 'add' | 'edit'
+          caseData={editingCase}        // setEditingCase(...) 放進去的資料
+          onClose={() => setShowCaseForm(false)}
+          onSave={async (saved) => {
+            // A. 直接更新目前列表
+            setCases(prev =>
+              prev.map(c => (c.id === saved.case_id ? { ...c, ...saved } : c))
             );
+            // B. 或者你有 loadCases() 就改成 await loadCases();
 
-            try {
-              await updateCase(editingCase.id, payload);
-              await loadCases?.(); // ← 如果你的刷新函式叫 fetchCases，就改成 await fetchCases();
-              return true;
-            } catch (err) {
-              console.error(err);
-              alert('更新失敗，請稍後再試');
-              return false;
-            }
+            return true; // 告訴子元件成功，CaseForm 會自動關閉
           }}
         />
-
 
         {/* 搜尋結果統計 */}
         {searchTerm && (
