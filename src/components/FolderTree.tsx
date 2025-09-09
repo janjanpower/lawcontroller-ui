@@ -228,7 +228,24 @@ export default function FolderTree({
     }
     
     try {
-      const firmCode = getFirmCodeOrThrow();
+      let firmCode;
+      try {
+        firmCode = getFirmCodeOrThrow();
+      } catch (error) {
+        console.warn('找不到事務所代碼，使用預設資料夾結構');
+        setFolderData({
+          id: 'root',
+          name: '案件資料夾',
+          type: 'folder',
+          path: '/',
+          children: [
+            { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
+            { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
+            { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+          ]
+        });
+        return;
+      }
 
       const response = await fetch(`/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`);
 
@@ -473,7 +490,12 @@ export default function FolderTree({
     }
     
     try {
-      const firmCode = getFirmCodeOrThrow();
+      let firmCode;
+      try {
+        firmCode = getFirmCodeOrThrow();
+      } catch (error) {
+        throw new Error('找不到事務所代碼，請重新登入');
+      }
 
       // 將資料夾路徑轉換為 folder_type
       const folderTypeMapping: Record<string, string> = {

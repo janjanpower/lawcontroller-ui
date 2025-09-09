@@ -154,9 +154,9 @@ export default function LoginPage() {
         localStorage.setItem('law_firm_id', data.firm_id || '');
         localStorage.setItem('law_firm_name', data.firm_name || '');
 
-        // 清掉舊鍵，避免混用
-        localStorage.removeItem('law_firm_code');
-        localStorage.removeItem('auth_token');
+        // 保留舊鍵作為備援，但優先使用新鍵
+        localStorage.setItem('law_firm_code', resolvedFirmCode);
+        localStorage.setItem('auth_token', resolvedToken);
 
 
 

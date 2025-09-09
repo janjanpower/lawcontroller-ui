@@ -58,7 +58,13 @@ export function tryGetFirmCode(): string | null {
 /** 取得 firm_code（取不到就丟錯） */
 export function getFirmCodeOrThrow(): string {
   const fc = tryGetFirmCode();
-  if (!fc) throw new Error('firm_code 缺失，請重新登入');
+  if (!fc) {
+    console.error('getFirmCodeOrThrow: 無法取得 firm_code');
+    console.error('localStorage firm_code:', localStorage.getItem('firm_code'));
+    console.error('localStorage law_firm_code:', localStorage.getItem('law_firm_code'));
+    console.error('URL params:', window.location.search);
+    throw new Error('firm_code 缺失，請重新登入');
+  }
   return fc;
 }
 
@@ -157,9 +163,9 @@ export function initializeAppState(): void {
     if (oldToken && !localStorage.getItem('token')) {
       setAuthToken(oldToken);
     }
-    // 清理舊 key，避免之後再被誤用
-    localStorage.removeItem('law_firm_code');
-    localStorage.removeItem('auth_token');
+    // 保留舊 key 作為備援，確保兼容性
+    // localStorage.removeItem('law_firm_code');
+    // localStorage.removeItem('auth_token');
 
     // 2) 嘗試從 URL / .env 自動補 firm_code（會自動寫回 localStorage）
     //    如果 localStorage 已有 firm_code，tryGetFirmCode 會直接回傳，不影響既有值

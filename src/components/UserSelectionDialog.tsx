@@ -43,11 +43,15 @@ export default function UserSelectionDialog({
 
   // 載入用戶列表（僅顯示 is_active=true 由後端控制；DB 預設已改為 true）
   const loadUsers = async () => {
-    const firmCode = localStorage.getItem('law_firm_code');
-    if (!firmCode) {
-      console.error('找不到事務所代碼');
+    let firmCode;
+    try {
+      firmCode = getFirmCodeOrThrow();
+    } catch (error) {
+      console.error('找不到事務所代碼:', error);
+      setError('找不到事務所代碼，請重新登入');
       return;
     }
+    
     try {
       setLoading(true);
       setError('');

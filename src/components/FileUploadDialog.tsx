@@ -86,7 +86,14 @@ export default function FileUploadDialog({
 
     setIsUploading(true);
     try {
-      const firmCode = getFirmCodeOrThrow();
+      let firmCode;
+      try {
+        firmCode = getFirmCodeOrThrow();
+      } catch (error) {
+        alert('找不到事務所代碼，請重新登入');
+        return;
+      }
+      
       const folder = availableFolders.find(f => f.path === selectedFolder);
       if (!folder) throw new Error('找不到指定的資料夾');
 
