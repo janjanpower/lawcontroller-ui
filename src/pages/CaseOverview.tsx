@@ -507,12 +507,12 @@ export default function CaseOverview() {
     updateStageStatus();
   };
 
-  // 用於把任何值轉成字串；空值給預設
-  const S = (v: any, fallback = '') => {
+  // 把任何值轉成字串；空給預設（或變 null）
+  const S = (v: any) => {
     if (v === 0) return '0';
-    if (v == null) return fallback;
+    if (v == null) return '';
     const s = String(v).trim();
-    return s === '' ? fallback : s;
+    return s;
   };
 
   const handleImportComplete = async (importedCases: any[]) => {
@@ -531,40 +531,59 @@ export default function CaseOverview() {
 
       const firmCode = getFirmCodeOrThrow();
 
-      // 👉 把所有文字欄位都轉成字串；case_type/ progress 給預設值避免 null
-      const toPayload = (x: any) => ({
-        case_type: S(x.case_type, '未分類'),
-        client: S(x.client, ''),              // 若後端要 client_name，改 key
-        lawyer: S(x.lawyer, ''),
-        legal_affairs: S(x.legal_affairs, ''),
-        case_reason: S(x.case_reason, ''),
-        case_number: S(x.case_number, ''),
-        opposing_party: S(x.opposing_party, ''),
-        court: S(x.court, ''),
-        division: S(x.division, ''),
-        progress: S(x.progress, '委任'),
-        // 日期欄位：空就送 null（若後端也不接受 null，可同樣用 S(...,'') 送空字串）
-        progress_date: x.progress_date ? String(x.progress_date) : null
+      // ✅ 完全比照 CaseForm.tsx 新增的 body 形狀（包含 firm_code）
+      const toCreatePayload = (x: any) => ({
+        firm_code: firmCode,
+        case_type: S(x.case_type) || '未分類',
+        client_name: S(x.client) || '',                 // 必填字串 → 給空字串也比 null 安全
+        case_reason: S(x.case_reason) || null,
+        case_number: S(x.case_number) || null,
+        court: S(x.court) || null,
+        division: S(x.division) || null,
+        lawyer_name: S(x.lawyer) || null,
+        legal_affairs_name: S(x.legal_affairs) || null,
+        // 不送 progress / progress_date / opposing_party（與 CaseForm 新增一致）
       });
+
+      // （可選）先做健康檢查，與 CaseForm 相同風格
+      try {
+        const healthRes = await fetch('/api/health');
+        if (!healthRes.ok) throw new Error('後端服務不可用');
+        const health = await healthRes.json();
+        if (!health?.ok) throw new Error(`服務異常（db=${health?.db ?? 'unknown'}）`);
+      } catch (e: any) {
+        setDialogConfig({
+          title: '服務異常',
+          message: e?.message || '健康檢查失敗',
+          type: 'error'
+        });
+        setShowUnifiedDialog(true);
+        return;
+      }
 
       let ok = 0, fail = 0;
       const errs: string[] = [];
 
       for (const c of importedCases) {
+        const payload = toCreatePayload(c);
+
         try {
-          const res = await apiFetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`, {
+          const res = await fetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`, {
             method: 'POST',
-            body: JSON.stringify(toPayload(c))
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
           });
+
           if (!res.ok) {
-            fail++;
-            errs.push((await res.text()) || '未知錯誤');
+            const text = await res.text();
+            console.error('Create case failed:', res.status, text, 'payload=', payload);
+            fail++; errs.push(`${res.status}: ${text}`.slice(0, 600));
           } else {
             ok++;
           }
         } catch (e: any) {
-          fail++;
-          errs.push(e?.message || '網路錯誤');
+          console.error('Network error while creating case:', e, 'payload=', payload);
+          fail++; errs.push(e?.message || '網路錯誤');
         }
       }
 
@@ -589,6 +608,7 @@ export default function CaseOverview() {
       setLoading(false);
     }
   };
+
 
 
 
