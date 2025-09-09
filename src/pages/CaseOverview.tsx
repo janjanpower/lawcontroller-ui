@@ -852,23 +852,6 @@ export default function CaseOverview() {
           </div>
         )}
 
-
-        <CaseForm
-          isOpen={showCaseForm}
-          mode={caseFormMode}           // 'add' | 'edit'
-          caseData={editingCase}        // setEditingCase(...) 放進去的資料
-          onClose={() => setShowCaseForm(false)}
-          onSave={async (saved) => {
-            // A. 直接更新目前列表
-            setCases(prev =>
-              prev.map(c => (c.id === saved.case_id ? { ...c, ...saved } : c))
-            );
-            // B. 或者你有 loadCases() 就改成 await loadCases();
-
-            return true; // 告訴子元件成功，CaseForm 會自動關閉
-          }}
-        />
-
         {/* 搜尋結果統計 */}
         {searchTerm && (
           <div className="mt-2 text-sm text-green-600">
@@ -1088,11 +1071,31 @@ export default function CaseOverview() {
                                   alert('案件 ID 不存在，無法編輯');
                                   return;
                                 }
+
+                                // 正規化：將 null/undefined -> ''；日期裁切成 YYYY-MM-DD
+                                const toStr = (v: any) => (v === null || v === undefined ? '' : String(v));
+                                const normalizeDate = (v: any) =>
+                                  typeof v === 'string' ? v.slice(0, 10) : (v instanceof Date ? v.toISOString().slice(0,10) : '');
+
+                                // 將 TableCase(row) 轉為 CaseForm 需要的 snake_case
+                                const formData = {
+                                  case_id: row.id,
+                                  case_number: toStr(row.caseNumber),
+                                  client: toStr(row.client),
+                                  case_type: toStr(row.caseType),
+                                  lawyer: toStr(row.lawyer),
+                                  legal_affairs: toStr(row.legalAffairs),
+                                  case_reason: toStr(row.caseReason),
+                                  opposing_party: toStr(row.opposingParty),
+                                  court: toStr(row.court),
+                                  division: toStr(row.division),
+                                  progress: toStr(row.progress),
+                                  progress_date: normalizeDate(row.progressDate),
+                                  // 若 CaseForm 需要其他欄位，再補上
+                                };
+
                                 setCaseFormMode('edit');
-                                setEditingCase({
-                                  ...row,
-                                  case_id: row.id // 確保 case_id 存在
-                                });
+                                setEditingCase(formData);
                                 setShowCaseForm(true);
                               }}
                               className="text-gray-400 hover:text-[#334d6d] transition-colors"
@@ -1100,6 +1103,7 @@ export default function CaseOverview() {
                             >
                               <Edit className="w-4 h-4" />
                             </button>
+
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
