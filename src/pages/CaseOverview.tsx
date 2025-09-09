@@ -666,33 +666,28 @@ export default function CaseOverview() {
 
         {/* 批量操作工具列 */}
         {selectedCaseIds.length > 0 && (
-          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-md p-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <span className="text-sm text-blue-800">
-                已選擇 {selectedCaseIds.length} 筆案件
-              </span>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setShowFileUpload(true)}
-                  className="bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700 flex items-center space-x-1"
-                >
-                  <Upload className="w-3 h-3" />
-                  <span>上傳檔案</span>
-                </button>
-                <button
-                  onClick={() => setShowClosedTransfer(true)}
-                  className="bg-orange-600 text-white px-3 py-1.5 rounded text-sm hover:bg-orange-700 flex items-center space-x-1"
-                >
-                  <Archive className="w-3 h-3" />
-                  <span>轉移結案</span>
-                </button>
-                <button
-                  onClick={handleBatchDelete}
-                  className="bg-red-600 text-white px-3 py-1.5 rounded text-sm hover:bg-red-700 flex items-center space-x-1"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  <span>批量刪除</span>
-                </button>
+          <div className="mt-4 w-1/4">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <div className="flex flex-col gap-3">
+                <span className="text-sm text-blue-800">
+                  已選擇 {selectedCaseIds.length} 筆案件
+                </span>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleSelectAll(true)}
+                    className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700 flex items-center space-x-1"
+                  >
+                    <CheckCircle className="w-3 h-3" />
+                    <span>全選</span>
+                  </button>
+                  <button
+                    onClick={handleBatchDelete}
+                    className="bg-red-600 text-white px-3 py-1.5 rounded text-sm hover:bg-red-700 flex items-center space-x-1"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>批量刪除</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1077,21 +1072,30 @@ export default function CaseOverview() {
                   ) : (
                     selectedCase.stages.map((stage, stageIndex) => {
                       const isCurrent = stage.name === selectedCase.progress;
+                      const getStageColor = (stage: Stage, isCurrent: boolean): string => {
+                        if (!stage.date) return 'bg-gray-200 text-gray-600';
+                        const stageDate = new Date(stage.date);
+                        const today = new Date();
+                        const diffDays = Math.ceil((stageDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        if (stage.completed) return 'bg-green-500 text-white';
+                        if (diffDays < 0) return 'bg-red-500 text-white';
+                        if (diffDays <= 3) return 'bg-yellow-400 text-black';
+                        return isCurrent ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white';
+                      };
+
                       return (
                         <div
                           key={`${stage.name}-${stageIndex}`}
                           className="flex items-start space-x-3 p-2 rounded-md hover:bg-gray-50 group"
                         >
-                          <button
-                            onClick={() => toggleStageCompletion(stageIndex)}
-                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
-                              stage.completed
-                                ? 'bg-green-500 border-green-500 text-white'
-                                : 'border-gray-300 hover:border-green-500'
-                            }`}
+                          <div
+                            className={`min-w-[88px] px-3 py-1 rounded-xl text-xs font-semibold text-center ${getStageColor(
+                              stage,
+                              isCurrent
+                            )}`}
                           >
-                            {stage.completed && <CheckCircle className="w-2 h-2" />}
-                          </button>
+                            {stage.name}
+                          </div>
 
                           <div className="flex-1">
                             <div className="flex items-center justify-between">
@@ -1113,6 +1117,17 @@ export default function CaseOverview() {
                                   {stage.date}
                                   {stage.time ? ` ${stage.time}` : ''}
                                 </span>
+                                <button
+                                  onClick={() => toggleStageCompletion(stageIndex)}
+                                  className={`opacity-0 group-hover:opacity-100 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                                    stage.completed
+                                      ? 'bg-green-500 border-green-500 text-white'
+                                      : 'border-gray-300 hover:border-green-500'
+                                  }`}
+                                  title="切換完成狀態"
+                                >
+                                  {stage.completed && <CheckCircle className="w-2 h-2" />}
+                                </button>
                                 <button
                                   onClick={() => {
                                     const folderPath = FolderManager.getStageFolder(selectedCase.id, stage.name);
