@@ -98,7 +98,26 @@ export default function CaseOverview() {
       console.log('載入的案件資料:', data);
 
       // 轉換後端資料為前端格式
-      const transformedCases: TableCase[] = (data.items || []).map((apiCase: any) => ({
+      const transformedCases: TableCase[] = await Promise.all((data.items || []).map(async (apiCase: any) => {
+        // 載入案件的階段資料
+        let stages: Stage[] = [];
+        try {
+          const stagesResponse = await apiFetch(`/api/cases/${apiCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`);
+          if (stagesResponse.ok) {
+            const stagesData = await stagesResponse.json();
+            stages = (stagesData || []).map((stage: any) => ({
+              name: stage.stage_name,
+              date: stage.stage_date || '',
+              completed: stage.is_completed || false,
+              note: stage.note || '',
+              time: stage.stage_time || ''
+            }));
+          }
+        } catch (error) {
+          console.error(`載入案件 ${apiCase.id} 的階段失敗:`, error);
+        }
+
+        return {
         id: apiCase.id,
         caseNumber: apiCase.case_number || '未設定',
         client: apiCase.client_name || apiCase.client?.name || '未知客戶',
@@ -112,7 +131,8 @@ export default function CaseOverview() {
         progress: apiCase.progress || '委任',
         progressDate: apiCase.progress_date || new Date().toISOString().split('T')[0],
         status: 'active' as CaseStatus,
-        stages: [] // 階段資料需要另外載入
+        stages: stages
+        };
       }));
 
       setCases(transformedCases);
@@ -219,6 +239,17 @@ export default function CaseOverview() {
 
   // 編輯案件
   const handleEditCase = async (caseData: any): Promise<boolean> => {
+    if (!caseData.case_id) {
+      console.error('編輯案件失敗: 缺少 case_id');
+      setDialogConfig({
+        title: '編輯失敗',
+        message: '案件 ID 不存在，無法編輯',
+        type: 'error'
+      });
+      setShowUnifiedDialog(true);
+      return false;
+    }
+
     try {
       console.log('DEBUG: handleEditCase 收到資料:', caseData);
 
@@ -305,6 +336,26 @@ export default function CaseOverview() {
     if (!selectedCase) return false;
 
     try {
+      const firmCode = getFirmCodeOrThrow();
+      
+      // 呼叫後端 API 新增階段
+      const response = await apiFetch(`/api/cases/${selectedCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          stage_name: stageData.stageName,
+          stage_date: stageData.date,
+          stage_time: stageData.time,
+          note: stageData.note,
+          is_completed: false,
+          sort_order: selectedCase.stages.length
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || '新增階段失敗');
+      }
+
       const newStage: Stage = {
         name: stageData.stageName,
         date: stageData.date,
@@ -327,6 +378,12 @@ export default function CaseOverview() {
       return true;
     } catch (error) {
       console.error('新增階段失敗:', error);
+      setDialogConfig({
+        title: '新增階段失敗',
+        message: error.message || '新增階段失敗',
+        type: 'error'
+      });
+      setShowUnifiedDialog(true);
       return false;
     }
   };
@@ -336,6 +393,24 @@ export default function CaseOverview() {
     if (!selectedCase || !editingStage) return false;
 
     try {
+      const firmCode = getFirmCodeOrThrow();
+      
+      // 呼叫後端 API 更新階段
+      const response = await apiFetch(`/api/cases/${selectedCase.id}/stages/${editingStage.index}?firm_code=${encodeURIComponent(firmCode)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          stage_name: stageData.stageName,
+          stage_date: stageData.date,
+          stage_time: stageData.time,
+          note: stageData.note
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || '更新階段失敗');
+      }
+
       const updatedStage: Stage = {
         name: stageData.stageName,
         date: stageData.date,
@@ -360,6 +435,12 @@ export default function CaseOverview() {
       return true;
     } catch (error) {
       console.error('編輯階段失敗:', error);
+      setDialogConfig({
+        title: '編輯階段失敗',
+        message: error.message || '編輯階段失敗',
+        type: 'error'
+      });
+      setShowUnifiedDialog(true);
       return false;
     }
   };
@@ -367,6 +448,42 @@ export default function CaseOverview() {
   // 切換階段完成狀態
   const toggleStageCompletion = (stageIndex: number) => {
     if (!selectedCase) return;
+
+    const stage = selectedCase.stages[stageIndex];
+    if (!stage) return;
+
+    // 呼叫後端 API 更新階段完成狀態
+    const updateStageStatus = async () => {
+      try {
+        const firmCode = getFirmCodeOrThrow();
+        const response = await apiFetch(`/api/cases/${selectedCase.id}/stages/${stageIndex}?firm_code=${encodeURIComponent(firmCode)}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            is_completed: !stage.completed
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || '更新階段狀態失敗');
+        }
+      } catch (error) {
+        console.error('更新階段狀態失敗:', error);
+        // 恢復原狀態
+        setCases(prev => prev.map(c =>
+          c.id === selectedCase.id
+            ? {
+                ...c,
+                stages: c.stages.map((s, index) =>
+                  index === stageIndex
+                    ? { ...s, completed: stage.completed }
+                    : s
+                )
+              }
+            : c
+        ));
+      }
+    };
 
     setCases(prev => prev.map(c =>
       c.id === selectedCase.id
@@ -380,6 +497,9 @@ export default function CaseOverview() {
           }
         : c
     ));
+
+    // 異步更新後端
+    updateStageStatus();
   };
 
   // Excel 匯入
@@ -659,24 +779,24 @@ export default function CaseOverview() {
 
         {/* 批量操作工具列 */}
         {selectedCaseIds.length > 0 && (
-          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
-            <div className="bg-white border border-gray-300 rounded-lg shadow-lg px-4 py-3 flex items-center space-x-4">
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 animate-slide-up">
+            <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-xl px-6 py-4 flex items-center space-x-6">
               <span className="text-sm text-gray-700 font-medium">
                 已選擇 {selectedCaseIds.length} 筆案件
               </span>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-3">
                 <button
                   onClick={() => handleSelectAll(false)}
-                  className="text-gray-600 hover:text-gray-800 text-sm underline"
+                  className="text-gray-500 hover:text-gray-700 text-sm underline transition-colors"
                 >
                   取消選擇
                 </button>
-                <div className="w-px h-4 bg-gray-300"></div>
+                <div className="w-px h-5 bg-gray-300"></div>
                 <button
                   onClick={handleBatchDelete}
-                  className="bg-red-600 text-white px-3 py-1.5 rounded-md text-sm hover:bg-red-700 flex items-center space-x-1 transition-colors"
+                  className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-600 flex items-center space-x-2 transition-all hover:shadow-md"
                 >
-                  <Trash2 className="w-3 h-3" />
+                  <Trash2 className="w-4 h-4" />
                   <span>刪除</span>
                 </button>
               </div>
@@ -899,8 +1019,15 @@ export default function CaseOverview() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (!row.id) {
+                                  alert('案件 ID 不存在，無法編輯');
+                                  return;
+                                }
                                 setCaseFormMode('edit');
-                                setEditingCase(row);
+                                setEditingCase({
+                                  ...row,
+                                  case_id: row.id // 確保 case_id 存在
+                                });
                                 setShowCaseForm(true);
                               }}
                               className="text-gray-400 hover:text-[#334d6d] transition-colors"
@@ -983,8 +1110,15 @@ export default function CaseOverview() {
                   </button>
                   <button
                     onClick={() => {
+                      if (!selectedCase.id) {
+                        alert('案件 ID 不存在，無法編輯');
+                        return;
+                      }
                       setCaseFormMode('edit');
-                      setEditingCase(selectedCase);
+                      setEditingCase({
+                        ...selectedCase,
+                        case_id: selectedCase.id // 確保 case_id 存在
+                      });
                       setShowCaseForm(true);
                     }}
                     className="bg-[#334d6d] text-white px-3 py-1.5 rounded-md hover:bg-[#3f5a7d] transition-colors flex items-center space-x-1 text-sm"
@@ -1081,62 +1215,92 @@ export default function CaseOverview() {
                       return (
                         <div
                           key={`${stage.name}-${stageIndex}`}
-                          className="flex items-start space-x-3 p-2 rounded-md hover:bg-gray-50 group"
+                          className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 group border border-gray-100 mb-2"
                         >
                           <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <span
-                                className={`text-sm font-medium cursor-pointer hover:text-blue-600 ${
-                                  stage.completed ? 'line-through text-gray-500' : 'text-gray-900'
-                                }`}
-                                onClick={() => {
-                                  setStageDialogMode('edit');
-                                  setEditingStage({ index: stageIndex, stage });
-                                  setShowStageDialog(true);
-                                }}
-                                title="點擊編輯此進度"
-                              >
-                                {stage.name}
-                              </span>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-xs text-gray-500">
-                                  {stage.date}
-                                  {stage.time ? ` ${stage.time}` : ''}
-                                </span>
-                                <button
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div
+                                  className={`inline-block px-3 py-1.5 rounded-full text-sm font-medium cursor-pointer transition-colors ${getStageColor(stage, isCurrent)}`}
                                   onClick={() => {
-                                    const folderPath = FolderManager.getStageFolder(selectedCase.id, stage.name);
-                                    console.log(`開啟階段資料夾: ${folderPath}`);
-                                    alert(`開啟階段資料夾：${stage.name}\n路徑：${folderPath}`);
+                                    setStageDialogMode('edit');
+                                    setEditingStage({ index: stageIndex, stage });
+                                    setShowStageDialog(true);
                                   }}
-                                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-all"
-                                  title="開啟階段資料夾"
+                                  title="點擊編輯此進度"
                                 >
-                                  <Folder className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    if (confirm(`確定要刪除階段「${stage.name}」嗎？`)) {
-                                      setCases(prev => prev.map(c =>
-                                        c.id === selectedCase.id
-                                          ? {
-                                              ...c,
-                                              stages: c.stages.filter((_, index) => index !== stageIndex)
+                                  {stage.name}
+                                </div>
+                                {stage.note && (
+                                  <p className="text-xs text-gray-500 mt-2 ml-1">{stage.note}</p>
+                                )}
+                              </div>
+                              
+                              <div className="flex flex-col items-end space-y-1">
+                                <div className="bg-white px-2 py-1 rounded-md shadow-sm border border-gray-200">
+                                  <span className="text-xs font-medium text-gray-700">
+                                    {stage.date}
+                                    {stage.time ? ` ${stage.time}` : ''}
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-center space-x-1">
+                                  <button
+                                    onClick={() => {
+                                      const folderPath = FolderManager.getStageFolder(selectedCase.id, stage.name);
+                                      console.log(`開啟階段資料夾: ${folderPath}`);
+                                      alert(`開啟階段資料夾：${stage.name}\n路徑：${folderPath}`);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-all p-1 rounded"
+                                    title="開啟階段資料夾"
+                                  >
+                                    <Folder className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (confirm(`確定要刪除階段「${stage.name}」嗎？`)) {
+                                        const deleteStage = async () => {
+                                          try {
+                                            const firmCode = getFirmCodeOrThrow();
+                                            const response = await apiFetch(`/api/cases/${selectedCase.id}/stages/${stageIndex}?firm_code=${encodeURIComponent(firmCode)}`, {
+                                              method: 'DELETE'
+                                            });
+
+                                            if (!response.ok) {
+                                              const errorData = await response.json();
+                                              throw new Error(errorData.detail || '刪除階段失敗');
                                             }
-                                          : c
-                                      ));
-                                    }
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all"
-                                  title="刪除階段"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
+
+                                            // 成功後更新本地狀態
+                                            setCases(prev => prev.map(c =>
+                                              c.id === selectedCase.id
+                                                ? {
+                                                    ...c,
+                                                    stages: c.stages.filter((_, index) => index !== stageIndex)
+                                                  }
+                                                : c
+                                            ));
+                                          } catch (error) {
+                                            console.error('刪除階段失敗:', error);
+                                            setDialogConfig({
+                                              title: '刪除階段失敗',
+                                              message: error.message || '刪除階段失敗',
+                                              type: 'error'
+                                            });
+                                            setShowUnifiedDialog(true);
+                                          }
+                                        };
+                                        deleteStage();
+                                      }
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all p-1 rounded"
+                                    title="刪除階段"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                            {stage.note && (
-                              <p className="text-xs text-gray-500 mt-1">{stage.note}</p>
-                            )}
                           </div>
                         </div>
                       );

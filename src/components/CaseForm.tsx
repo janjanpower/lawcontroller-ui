@@ -85,8 +85,15 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
   }, [isOpen, mode, caseData]);
 
   const validateForm = (): boolean => {
+    // 編輯模式下必須有 case_id
+    if (mode === 'edit' && !formData.case_id) {
+      setErrors({ submit: '案件 ID 不存在，無法編輯' });
+      return false;
+    }
+
       if (!formData.case_id) {
         throw new Error('案件 ID 不存在，無法編輯');
+        setErrors({ submit: '更新案件失敗，請稍後再試' });
       }
 
     const newErrors: Record<string, string> = {};
