@@ -1,7 +1,7 @@
 // src/components/FolderTree.tsx
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2 } from 'lucide-react';
-import { getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
+import { getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect, apiFetch } from '../utils/api';
 import { FolderManager } from '../utils/folderManager';
 
 interface FolderNode {
@@ -213,7 +213,7 @@ export default function FolderTree({
           children: [
             { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
             { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-            { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+            { id: 'progress', name: '進度追蹤', type: 'folder', path: '/進度追蹤', children: [] }
           ]
         });
       }
@@ -252,7 +252,7 @@ export default function FolderTree({
             children: [
               { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
               { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-              { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+              { id: 'progress', name: '進度追蹤', type: 'folder', path: '/進度追蹤', children: [] }
             ]
           });
           return;
@@ -281,7 +281,7 @@ export default function FolderTree({
           children: [
             { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
             { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-            { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+            { id: 'progress', name: '進度追蹤', type: 'folder', path: '/進度追蹤', children: [] }
           ]
         });
       }
@@ -297,7 +297,7 @@ export default function FolderTree({
         children: [
           { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
           { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-          { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+          { id: 'progress', name: '進度追蹤', type: 'folder', path: '/進度追蹤', children: [] }
         ]
       });
     }
@@ -347,9 +347,9 @@ export default function FolderTree({
           },
           {
             id: 'progress',
-            name: '案件進度',
+            name: '進度追蹤',
             type: 'folder' as const,
-            path: '/案件進度',
+            path: '/進度追蹤',
             children: []
           }
         ];
@@ -359,7 +359,7 @@ export default function FolderTree({
       const folderMapping: Record<string, string> = {
         pleadings: '狀紙',
         info: '案件資訊',
-        progress: '案件進度' // 如果後端實際叫「進度追蹤」，這裡改成 '進度追蹤'
+        progress: '進度追蹤'
       };
 
       // 小工具：確保資料夾存在（若不存在則建立）
@@ -424,9 +424,9 @@ export default function FolderTree({
         },
         {
           id: 'progress',
-          name: '案件進度',
+          name: '進度追蹤',
           type: 'folder' as const,
-          path: '/案件進度',
+          path: '/進度追蹤',
           children: []
         }
       ];
@@ -468,9 +468,9 @@ export default function FolderTree({
         },
         {
           id: 'progress',
-          name: '案件進度',
+          name: '進度追蹤',
           type: 'folder' as const,
-          path: '/案件進度',
+          path: '/進度追蹤',
           children: []
         }
       ];
@@ -494,7 +494,7 @@ export default function FolderTree({
       const folderTypeMapping: Record<string, string> = {
         '/狀紙': 'pleadings',
         '/案件資訊': 'info',
-        '/案件進度': 'progress'
+        '/進度追蹤': 'progress'
       };
 
       const folderTypeKey = Object.keys(folderTypeMapping).find(key =>
@@ -591,18 +591,27 @@ export default function FolderTree({
   };
 
   const handleFolderCreate = (parentPath: string) => {
-    // TODO: 實現自訂對話框來輸入資料夾名稱
-    console.log(`建立資料夾功能開發中: ${parentPath}`);
-    if (onFolderCreate) {
-      onFolderCreate(parentPath);
+    const folderName = prompt('請輸入資料夾名稱:');
+    if (folderName) {
+      console.log(`在 ${parentPath} 建立資料夾: ${folderName}`);
+      if (onFolderCreate) {
+        onFolderCreate(parentPath);
+      }
+      // TODO: 實現資料夾建立邏輯
     }
   };
 
   const handleDelete = (path: string, type: 'folder' | 'file') => {
-    // TODO: 實現自訂確認對話框
-    console.log(`刪除功能開發中: ${type} ${path}`);
-    if (onDelete) {
-      onDelete(path, type);
+    const confirmMessage = type === 'folder'
+      ? `確定要刪除資料夾「${path}」及其所有內容嗎？`
+      : `確定要刪除檔案「${path}」嗎？`;
+
+    if (confirm(confirmMessage)) {
+      console.log(`刪除 ${type}: ${path}`);
+      if (onDelete) {
+        onDelete(path, type);
+      }
+      // TODO: 實現後端刪除邏輯
     }
   };
 

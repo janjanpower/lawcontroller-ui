@@ -184,25 +184,25 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
             className="fixed inset-0 z-40"
             onClick={() => setIsExpanded(false)}
           />
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-64 overflow-hidden">
-            <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between">
-              <h3 className="font-semibold">📅 未來 {daysAhead} 天內到期階段</h3>
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+            <div className="p-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="font-medium text-gray-900">未來 {daysAhead} 天內到期</h3>
               <button
                 onClick={() => setIsExpanded(false)}
-                className="text-white hover:text-gray-200 transition-colors"
+                className="text-gray-400 hover:text-gray-600"
               >
                 ✕
               </button>
             </div>
 
-            <div className="max-h-48 overflow-y-auto bg-gray-50">
+            <div className="max-h-48 overflow-y-auto">
               {upcomingStages.length > 0 ? (
                 upcomingStages.map((stage, index) => (
                   <div
                     key={`${stage.case.case_id}-${stage.stage_name}`}
                     onClick={() => handleStageClick(stage)}
-                    className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-white transition-colors ${
-                      idx === currentIndex ? 'bg-blue-50 border-l-4 border-blue-500' : 'bg-white'
+                    className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
+                      index === currentIndex ? 'bg-blue-50' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -268,10 +268,7 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
                   </div>
                 ))
               ) : (
-                <div className="p-6 text-center text-gray-500 text-sm">
-                  <div className="text-2xl mb-2">📋</div>
-                  <div>暫無即將到期的階段</div>
-                </div>
+                <div className="p-4 text-center text-gray-500 text-sm">無即將到期的案件</div>
               )}
             </div>
           </div>

@@ -86,8 +86,8 @@ export default function ImportDataDialog({
       const validCases = importedCases.filter(c => c.type === '民事' || c.type === '刑事');
       
       if (validCases.length > 0) {
+        console.log('準備匯入的案件:', validCases);
         onImportComplete(validCases);
-        handleClose();
       } else {
         setError('沒有找到有效的案件資料');
       }

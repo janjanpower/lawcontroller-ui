@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, FileText, AlertCircle, Folder } from 'lucide-react';
 import { FolderManager } from '../utils/folderManager';
+import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 interface FileUploadDialogProps {
   isOpen: boolean;
@@ -68,7 +69,7 @@ export default function FileUploadDialog({
       const folderTypeMapping: Record<string, string> = {
         '狀紙': 'pleadings',
         '案件資訊': 'info',
-        '案件進度': 'progress'
+        '進度追蹤': 'progress'
       };
 
       const folderType = folderTypeMapping[selectedFolder] || 'progress';
