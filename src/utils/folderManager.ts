@@ -53,9 +53,13 @@ export class FolderManager {
 
     let finalTree: CaseFolder[] = baseNodes;
     if (existing && Array.isArray(existing)) {
-      const byPath = new Map(existing.map(f => [f.path, f]));
-      for (const n of baseNodes) if (!byPath.has(n.path)) byPath.set(n.path, n);
-      finalTree = Array.from(byPath.values());
+      // 過濾掉不在 BASE_FOLDERS 中的資料夾，避免重複或錯誤的資料夾
+      const validExisting = existing.filter(f => BASE_FOLDERS.includes(f.name as any));
+      const byName = new Map(validExisting.map(f => [f.name, f]));
+      for (const n of baseNodes) {
+        if (!byName.has(n.name)) byName.set(n.name, n);
+      }
+      finalTree = Array.from(byName.values());
     }
     localStorage.setItem(LS_KEY(caseId), JSON.stringify(finalTree));
     return finalTree;
@@ -136,7 +140,7 @@ export class FolderManager {
     const walk = (n: CaseFolder) => { res.push({ name: n.name, path: n.path }); n.children?.forEach(walk); };
     folders.forEach(walk);
 
-    // 確保四個基本資料夾都在
+    // 確保三個基本資料夾都在
     const root = this.getCaseRoot(caseId);
     for (const name of BASE_FOLDERS) {
       if (!res.some(x => x.name === name)) res.push({ name, path: `${root}/${name}/` });
