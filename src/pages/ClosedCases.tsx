@@ -99,7 +99,7 @@ export default function ClosedCases() {
   const [selectedCaseForExport, setSelectedCaseForExport] = useState(null);
 
   // 載入結案案件列表
-  const loadClosedCases = async () => {
+  const loadClosedCases = React.useCallback(async () => {
     setLoading(true);
     try {
       const response = await apiFetch('/api/cases?status=closed');
@@ -133,12 +133,12 @@ export default function ClosedCases() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // 初始載入
   useEffect(() => {
     loadClosedCases();
-  }, []);
+  }, [loadClosedCases]);
 
   // 搜尋功能
   useEffect(() => {
@@ -167,7 +167,7 @@ export default function ClosedCases() {
   }, [searchTerm, cases]);
 
   // 匯出資料功能
-  const handleExportData = (caseItem) => {
+  const handleExportData = React.useCallback((caseItem) => {
     setSelectedCaseForExport(caseItem);
     setDialogMessage(
       `確定要匯出案件「${caseItem.client} - ${caseItem.caseNumber}」的資料夾嗎？\n\n` +
@@ -178,9 +178,9 @@ export default function ClosedCases() {
       `• 所有階段相關文件`
     );
     setShowConfirmDialog(true);
-  };
+  }, []);
 
-  const confirmExport = () => {
+  const confirmExport = React.useCallback(() => {
     setShowConfirmDialog(false);
     // 模擬匯出過程
     setTimeout(() => {
@@ -192,12 +192,12 @@ export default function ClosedCases() {
       setShowSuccessDialog(true);
       setSelectedCaseForExport(null);
     }, 1000);
-  };
+  }, [selectedCaseForExport]);
 
-  const cancelExport = () => {
+  const cancelExport = React.useCallback(() => {
     setShowConfirmDialog(false);
     setSelectedCaseForExport(null);
-  };
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col">

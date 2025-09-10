@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Edit, X, Trash2 } from 'lucide-react';
+import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Edit, X, Trash2, Eye } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 export default function CustomerData() {
@@ -11,7 +11,7 @@ export default function CustomerData() {
   const [statusFilter, setStatusFilter] = useState('all');
 
   // 載入客戶資料列表
-  const loadCustomers = async () => {
+  const loadCustomers = React.useCallback(async () => {
     try {
       const response = await apiFetch('/api/clients');
       const data = await response.json();
@@ -24,12 +24,12 @@ export default function CustomerData() {
     } catch (error) {
       console.error('載入客戶資料錯誤:', error);
     }
-  };
+  }, []);
 
   // 初始載入
   useEffect(() => {
     loadCustomers();
-  }, []);
+  }, [loadCustomers]);
 
   // 搜尋和過濾功能
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function CustomerData() {
     setFilteredCustomers(filtered);
   }, [searchTerm, customers, statusFilter]);
 
-  const getStatusColor = (status) => {
+  const getStatusColor = React.useCallback((status) => {
     switch (status) {
       case 'active':
         return 'bg-green-100 text-green-800';
@@ -62,9 +62,9 @@ export default function CustomerData() {
       default:
         return 'bg-blue-100 text-blue-800';
     }
-  };
+  }, []);
 
-  const getStatusText = (status) => {
+  const getStatusText = React.useCallback((status) => {
     switch (status) {
       case 'active':
         return '活躍';
@@ -73,7 +73,7 @@ export default function CustomerData() {
       default:
         return '未知';
     }
-  };
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col">
