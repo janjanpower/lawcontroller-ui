@@ -92,6 +92,7 @@ export default function ClosedCases() {
   const [selectedCase, setSelectedCase] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [dialogMessage, setDialogMessage] = useState('');
@@ -99,17 +100,38 @@ export default function ClosedCases() {
 
   // 載入結案案件列表
   const loadClosedCases = async () => {
+    setLoading(true);
     try {
       const response = await apiFetch('/api/cases?status=closed');
       const data = await response.json();
       
       if (response.ok) {
-        setCases(data.items || []);
+        // 轉換後端資料為前端格式
+        const transformedCases = (data.items || []).map((item: any) => ({
+          id: item.id,
+          caseNumber: item.case_number || '',
+          client: item.client_name || item.client?.name || '',
+          caseType: item.case_type || '',
+          lawyer: item.lawyer_name || item.lawyer?.full_name || '',
+          legalAffairs: item.legal_affairs_name || item.legal_affairs?.full_name || '',
+          caseReason: item.case_reason || '',
+          opposingParty: item.opposing_party || '',
+          court: item.court || '',
+          division: item.division || '',
+          progress: item.progress || '',
+          progressDate: item.progress_date || '',
+          closedDate: item.closed_at || item.progress_date || new Date().toISOString().split('T')[0],
+          status: 'completed',
+          stages: [] // 可以後續從 API 載入
+        }));
+        setCases(transformedCases);
       } else {
         console.error('載入結案案件失敗:', data.detail);
       }
     } catch (error) {
       console.error('載入結案案件錯誤:', error);
+    } finally {
+      setLoading(false);
     }
   };
 

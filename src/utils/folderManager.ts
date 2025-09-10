@@ -26,7 +26,7 @@ export interface CaseExcelData {
   createdDate?: string;
 }
 
-const BASE_FOLDERS = ['案件資訊', '狀紙', '案件進度'] as const;
+const BASE_FOLDERS = ['狀紙', '案件資訊', '案件進度'] as const;
 const LS_KEY = (caseId: string) => `case_folders:${caseId}`;
 const uniqByNamePath = <T extends { name: string; path: string }>(arr: T[]) => {
   const m = new Map<string, T>();

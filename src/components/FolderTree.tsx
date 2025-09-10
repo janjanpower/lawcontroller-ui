@@ -34,7 +34,7 @@ interface FolderTreeProps {
 // 預設空的資料夾結構
 const defaultFolderStructure: FolderNode = {
   id: 'root',
-  name: '案件資料夾',
+  name: {clientName} '案件',
   type: 'folder',
   path: '/',
   children: []
@@ -207,7 +207,7 @@ export default function FolderTree({
         // 設定預設資料夾結構
         setFolderData({
           id: 'root',
-          name: '案件資料夾',
+          name: {clientName} '案件資料夾',
           type: 'folder',
           path: '/',
           children: [
@@ -226,7 +226,7 @@ export default function FolderTree({
       console.warn('登入狀態不完整，無法載入資料夾');
       return;
     }
-
+    
     try {
       let firmCode;
       try {
@@ -235,7 +235,7 @@ export default function FolderTree({
         console.warn('找不到事務所代碼，使用預設資料夾結構');
         setFolderData({
           id: 'root',
-          name: '案件資料夾',
+          name: {clientName} '案件資料夾',
           type: 'folder',
           path: '/',
           children: [
@@ -263,7 +263,7 @@ export default function FolderTree({
           // 設定預設資料夾結構
           setFolderData({
             id: 'root',
-            name: '案件資料夾',
+            name: '{clientName} 案件',
             type: 'folder',
             path: '/',
             children: [
@@ -283,16 +283,16 @@ export default function FolderTree({
       } else {
         const errorText = await response.text();
         console.error('載入檔案列表失敗:', response.status, errorText);
-
+        
         // 如果是 401 或 403 錯誤，可能是登入狀態問題
         if (response.status === 401 || response.status === 403) {
           console.warn('可能是登入狀態過期，設定預設資料夾');
         }
-
+        
         // 設定預設資料夾結構
         setFolderData({
           id: 'root',
-          name: '案件資料夾',
+          name: '{clientName} 案件',
           type: 'folder',
           path: '/',
           children: [
@@ -304,11 +304,11 @@ export default function FolderTree({
       }
     } catch (error) {
       console.error('載入資料夾結構失敗:', error);
-
+      
       // 設定預設資料夾結構作為備援
       setFolderData({
         id: 'root',
-        name: '案件資料夾',
+        name: '{clientName} 案件',
         type: 'folder',
         path: '/',
         children: [
@@ -323,7 +323,7 @@ export default function FolderTree({
   const buildFolderTree = (filesData: any): FolderNode => {
     const rootNode: FolderNode = {
       id: 'root',
-      name: '案件資料夾',
+      name: '{clientName} 案件',
       type: 'folder',
       path: '/',
       children: []
@@ -337,14 +337,21 @@ export default function FolderTree({
       if (filesData.folders && Array.isArray(filesData.folders)) {
         console.log('找到資料夾資訊:', filesData.folders);
 
-        // 建立資料夾結構
-        rootNode.children = filesData.folders.map((folder: any) => ({
-          id: folder.id,
-          name: folder.folder_name,
-          type: 'folder' as const,
-          path: folder.folder_path,
-          children: []
-        }));
+        // 建立資料夾結構，過濾掉不需要的資料夾
+        rootNode.children = filesData.folders
+          .filter((folder: any) => {
+            const name = folder.folder_name;
+            // 移除"進度追蹤"資料夾，保留一個"狀紙"資料夾
+            if (name === '進度追蹤') return false;
+            return true;
+          })
+          .map((folder: any) => ({
+            id: folder.id,
+            name: folder.folder_name,
+            type: 'folder' as const,
+            path: folder.folder_path,
+            children: []
+          }));
       } else {
         // 如果沒有 folders 資訊，建立預設資料夾
         rootNode.children = [
@@ -361,13 +368,6 @@ export default function FolderTree({
             type: 'folder' as const,
             path: '/案件資訊',
             children: []
-          },
-          {
-            id: 'progress',
-            name: '案件進度',
-            type: 'folder' as const,
-            path: '/案件進度',
-            children: []
           }
         ];
       }
@@ -376,7 +376,7 @@ export default function FolderTree({
       const folderMapping: Record<string, string> = {
         pleadings: '狀紙',
         info: '案件資訊',
-        progress: '案件進度' // 如果後端實際叫「進度追蹤」，這裡改成 '進度追蹤'
+        progress: '案件進度'
       };
 
       // 小工具：確保資料夾存在（若不存在則建立）
@@ -426,17 +426,17 @@ export default function FolderTree({
       // 建立預設資料夾
       rootNode.children = [
         {
+          id: 'pleadings',
+          name: '狀紙',
+          type: 'folder' as const,
+          path: '/狀紙',
+          children: []
+        },
+        {
           id: 'info',
           name: '案件資訊',
           type: 'folder' as const,
           path: '/案件資訊',
-          children: []
-        },
-        {
-          id: 'progress',
-          name: '案件進度',
-          type: 'folder' as const,
-          path: '/案件進度',
           children: []
         }
       ];
@@ -463,17 +463,17 @@ export default function FolderTree({
       // 建立預設資料夾結構
       rootNode.children = [
         {
+          id: 'pleadings',
+          name: '狀紙',
+          type: 'folder' as const,
+          path: '/狀紙',
+          children: []
+        },
+        {
           id: 'info',
           name: '案件資訊',
           type: 'folder' as const,
           path: '/案件資訊',
-          children: []
-        },
-        {
-          id: 'progress',
-          name: '案件進度',
-          type: 'folder' as const,
-          path: '/案件進度',
           children: []
         }
       ];
@@ -489,7 +489,7 @@ export default function FolderTree({
     if (!hasAuthToken()) {
       throw new Error('登入狀態已過期，請重新登入');
     }
-
+    
     try {
       let firmCode;
       try {
@@ -501,7 +501,7 @@ export default function FolderTree({
       // 將資料夾路徑轉換為 folder_type
       const folderTypeMapping: Record<string, string> = {
         '案件資訊': 'info',
-        '狀紙': 'pleadings',
+        '狀紙': 'pleadings', 
         '案件進度': 'progress',
       };
 
@@ -513,7 +513,7 @@ export default function FolderTree({
       } else {
         folderName = folderPath;
       }
-
+      
       const mappedType = folderTypeMapping[folderName] || 'progress';
 
       console.log('資料夾路徑對應:', { folderPath, folderName, mappedType });
@@ -570,7 +570,7 @@ export default function FolderTree({
   // 檔案挑選器（多檔）＋逐一上傳
   const handleFileUpload = (opts: { folderId?: string; folderPath: string }) => {
    const { folderId, folderPath } = opts;
-
+    
     // 檢查登入狀態
     if (!hasAuthToken()) {
       alert('請先登入系統');
@@ -616,16 +616,101 @@ export default function FolderTree({
   };
 
   const handleDelete = (path: string, type: 'folder' | 'file') => {
-    const confirmMessage = type === 'folder'
-      ? `確定要刪除資料夾「${path}」及其所有內容嗎？`
-      : `確定要刪除檔案「${path}」嗎？`;
-
-    if (confirm(confirmMessage)) {
-      console.log(`刪除 ${type}: ${path}`);
-      if (onDelete) {
-        onDelete(path, type);
+    if (type === 'file') {
+      handleDeleteFile(path);
+    } else {
+      const confirmMessage = `確定要刪除資料夾「${path}」及其所有內容嗎？`;
+      if (confirm(confirmMessage)) {
+        console.log(`刪除資料夾: ${path}`);
+        if (onDelete) {
+          onDelete(path, type);
+        }
+        // TODO: 實現後端刪除邏輯
       }
-      // TODO: 實現後端刪除邏輯
+    }
+  };
+
+  // 刪除檔案功能
+  const handleDeleteFile = async (filePath: string) => {
+    const confirmMessage = `確定要刪除檔案「${filePath}」嗎？`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      // 檢查登入狀態
+      if (!hasAuthToken()) {
+        alert('請先登入系統');
+        clearLoginAndRedirect();
+        return;
+      }
+
+      let firmCode;
+      try {
+        firmCode = getFirmCodeOrThrow();
+      } catch (error) {
+        alert('找不到事務所代碼，請重新登入');
+        return;
+      }
+
+      // 從檔案路徑中提取檔案名稱
+      const fileName = filePath.split('/').pop() || '';
+      
+      // 在當前資料夾樹中找到對應的檔案節點
+      const findFileNode = (node: FolderNode): FolderNode | null => {
+        if (node.type === 'file' && node.path === filePath) {
+          return node;
+        }
+        if (node.children) {
+          for (const child of node.children) {
+            const found = findFileNode(child);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const fileNode = findFileNode(folderData);
+      if (!fileNode) {
+        alert('找不到要刪除的檔案');
+        return;
+      }
+
+      // 呼叫後端 API 刪除檔案
+      const response = await apiFetch(`/api/files/${fileNode.id}?firm_code=${encodeURIComponent(firmCode)}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('刪除檔案失敗:', errorText);
+        
+        let errorMessage = '刪除檔案失敗';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.detail || errorMessage;
+        } catch {
+          errorMessage = `刪除失敗: ${response.status} ${errorText.substring(0, 100)}`;
+        }
+        
+        alert(errorMessage);
+        return;
+      }
+
+      const result = await response.json();
+      console.log('檔案刪除成功:', result);
+      
+      alert(`檔案「${fileName}」已成功刪除`);
+      
+      // 重新載入資料夾結構
+      if (hasAuthToken()) {
+        await loadFolderStructure();
+      }
+      
+    } catch (error: any) {
+      console.error('刪除檔案錯誤:', error);
+      alert(`刪除檔案失敗: ${error?.message || '請稍後再試'}`);
     }
   };
 
@@ -635,7 +720,7 @@ export default function FolderTree({
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm w-full">
       <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
         <h4 className="font-medium text-gray-800 text-sm lg:text-base truncate">
-          {caseId}_{clientName} 資料夾
+          {caseNumber}_{clientName} 資料夾
         </h4>
         <button
           onClick={onToggle}

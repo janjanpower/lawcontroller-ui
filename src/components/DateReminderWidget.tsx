@@ -78,6 +78,16 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
     setCurrentIndex(0);
   }, [calculateUpcomingStages]);
 
+  // 每分鐘更新一次時間計算
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const stages = calculateUpcomingStages();
+      setUpcomingStages(stages);
+    }, 60000); // 每分鐘更新一次
+
+    return () => clearInterval(interval);
+  }, [calculateUpcomingStages]);
+
   // 自動滾動
   useEffect(() => {
     if (!isExpanded && upcomingStages.length > 1) {

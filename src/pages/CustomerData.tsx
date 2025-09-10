@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Eye, Edit, X } from 'lucide-react';
+import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Edit, X, Trash2 } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 export default function CustomerData() {

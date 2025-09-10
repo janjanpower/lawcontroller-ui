@@ -52,9 +52,8 @@ export default function FileUploadDialog({
     const path = folder.path || '';
 
     // 1) 固定對應
+    if (name === '狀紙') return { folder_type: 'pleadings' as const };
     if (name === '案件資訊') return { folder_type: 'info' as const };
-    if (name === '狀紙')     return { folder_type: 'pleadings' as const };
-    if (name === '進度追蹤') return { folder_type: 'progress' as const };
     if (name === '案件進度') return { folder_type: 'progress' as const };
 
     // 2) 案件進度/某階段
