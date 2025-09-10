@@ -9,6 +9,7 @@ const CaseOverview   = lazy(() => import('./pages/CaseOverview'));
 const ClosedCases    = lazy(() => import('./pages/ClosedCases'));
 const CustomerData   = lazy(() => import('./pages/CustomerData'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
+const WriteDocument  = lazy(() => import('./pages/WriteDocument'));
 
 // 路由守衛：需要「已登入 + 有 firm_code」才放行
 function RequireAuthFirm({ children }: PropsWithChildren) {
@@ -102,6 +103,16 @@ export default function App() {
               <RequireAuthFirm>
                 <MainLayout>
                   <UserManagement />
+                </MainLayout>
+              </RequireAuthFirm>
+            }
+          />
+          <Route
+            path="/write"
+            element={
+              <RequireAuthFirm>
+                <MainLayout>
+                  <WriteDocument />
                 </MainLayout>
               </RequireAuthFirm>
             }

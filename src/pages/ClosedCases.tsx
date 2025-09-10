@@ -336,7 +336,7 @@ export default function ClosedCases() {
                   {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
                   <button
                     onClick={() => setSelectedCase(null)}
-                    className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                     title="關閉詳情"
                   >
                     <X className="w-5 h-5" />

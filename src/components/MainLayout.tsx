@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, CheckCircle, User, Building, Menu, X, Users, LogOut } from 'lucide-react';
+import { FileText, CheckCircle, User, Building, Menu, X, Users, LogOut, PenTool } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { hasAuthToken, clearLoginAndRedirect } from '../utils/api';
 
@@ -43,6 +43,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
         return '客戶資料';
       case '/users':
         return '人員權限';
+      case '/write':
+        return '撰寫文件';
       default:
         return '案件管理系統';
     }
@@ -80,10 +82,20 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 </h1>
               </div>
             </div>
+          <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <User className="w-4 h-4" />
               <span>{localStorage.getItem('law_user_name') || '用戶'}</span>
             </div>
+            {/* 手機版登出按鈕 */}
+            <button
+              onClick={handleLogout}
+              className="lg:hidden flex items-center space-x-1 px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>登出</span>
+            </button>
+          </div>
           </div>
         </div>
       </header>
@@ -165,6 +177,20 @@ export default function MainLayout({ children }: MainLayoutProps) {
               >
                 <Users className="w-4 h-4" />
                 <span className="font-medium">人員權限</span>
+              </NavLink>
+
+              {/* 撰寫文件 */}
+              <NavLink
+                to="/write"
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm ${
+                    isActive ? 'bg-[#3498db] text-white' : 'text-white hover:bg-[#2980b9]'
+                  }`
+                }
+              >
+                <PenTool className="w-4 h-4" />
+                <span className="font-medium">撰寫文件</span>
               </NavLink>
             </div>
           

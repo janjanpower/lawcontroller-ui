@@ -53,7 +53,7 @@ export class FolderManager {
 
     let finalTree: CaseFolder[] = baseNodes;
     if (existing && Array.isArray(existing)) {
-      // 過濾掉不在 BASE_FOLDERS 中的資料夾（移除進度追蹤等舊資料夾）
+      // 過濾掉不在 BASE_FOLDERS 中的資料夾，避免重複或錯誤的資料夾
       const validExisting = existing.filter(f => BASE_FOLDERS.includes(f.name as any));
       const byName = new Map(validExisting.map(f => [f.name, f]));
       for (const n of baseNodes) {
@@ -71,11 +71,7 @@ export class FolderManager {
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as CaseFolder[];
-        if (Array.isArray(parsed)) {
-          // 過濾掉舊的無效資料夾
-          const filtered = parsed.filter(f => BASE_FOLDERS.includes(f.name as any));
-          return filtered;
-        }
+        if (Array.isArray(parsed)) return parsed;
       } catch {}
     }
     if (fallback === 'create') return this.createDefaultFolders(caseId);
@@ -83,8 +79,6 @@ export class FolderManager {
   }
 
   private static saveCaseFolders(caseId: string, folders: CaseFolder[]) {
-    // 儲存前再次過濾，確保只有有效的資料夾
-    const validFolders = folders.filter(f => BASE_FOLDERS.includes(f.name as any));
     localStorage.setItem(LS_KEY(caseId), JSON.stringify(folders));
   }
 
@@ -109,10 +103,8 @@ export class FolderManager {
           type: 'stage',
         });
         this.saveCaseFolders(caseId, folders);
-        console.log(`已建立階段資料夾: ${stageName}`);
       }
     } else {
-      // 如果沒有案件進度資料夾，先建立它
       folders.push({
         id: `${this.getCaseRoot(caseId)}/案件進度/`,
         name: '案件進度',
@@ -126,7 +118,6 @@ export class FolderManager {
         }],
       });
       this.saveCaseFolders(caseId, folders);
-      console.log(`已建立案件進度資料夾和階段資料夾: ${stageName}`);
     }
   }
 
@@ -139,7 +130,6 @@ export class FolderManager {
     if (next.length !== progress.children.length) {
       progress.children = next;
       this.saveCaseFolders(caseId, folders);
-      console.log(`已移除階段資料夾: ${stageName}`);
     }
   }
 
@@ -156,13 +146,6 @@ export class FolderManager {
       if (!res.some(x => x.name === name)) res.push({ name, path: `${root}/${name}/` });
     }
     return uniqByNamePath(res);
-  }
-
-  // 新增：刷新資料夾樹的方法
-  static refreshFolderTree(caseId: string): void {
-    // 清除快取，強制重新載入
-    localStorage.removeItem(LS_KEY(caseId));
-    console.log(`已清除案件 ${caseId} 的資料夾快取`);
   }
 
   /* ============================== 檔案 API =============================== */

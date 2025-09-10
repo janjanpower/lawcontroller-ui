@@ -136,3 +136,44 @@ code {
     min-width: 50px;
   }
 }
+
+/* React Quill 編輯器樣式優化 */
+.ql-editor {
+  font-family: 'Microsoft JhengHei', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 20px;
+}
+
+.ql-toolbar {
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+}
+
+.ql-container {
+  border: none;
+  font-family: 'Microsoft JhengHei', Arial, sans-serif;
+}
+
+.ql-snow .ql-tooltip {
+  z-index: 1000;
+}
+
+/* 手機版優化 */
+@media (max-width: 768px) {
+  .ql-toolbar {
+    padding: 8px;
+  }
+  
+  .ql-toolbar .ql-formats {
+    margin-right: 8px;
+  }
+  
+  .ql-editor {
+    padding: 15px;
+    font-size: 16px; /* 防止手機縮放 */
+  }
+}

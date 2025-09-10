@@ -302,7 +302,7 @@ export default function UserManagement() {
               className="bg-[#3498db] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-2 justify-center sm:justify-start"
             >
               <Plus className="w-4 h-4" />
-              <span>新增人員</span>
+              <span>新增用戶</span>
             </button>
           </div>
 
@@ -618,7 +618,7 @@ export default function UserManagement() {
                   {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
                   <button
                     onClick={() => setSelectedUser(null)}
-                    className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                     title="關閉詳情"
                   >
                     <X className="w-5 h-5" />
@@ -900,7 +900,7 @@ export default function UserManagement() {
                         新增中...
                       </>
                     ) : (
-                      '新增人員'
+                      '新增用戶'
                     )}
                   </button>
                 </div>
