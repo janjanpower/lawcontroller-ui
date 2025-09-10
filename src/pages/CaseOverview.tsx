@@ -3,7 +3,7 @@ import {
   Search, Filter, Plus, Upload, Download, Eye, Edit, Trash2,
   FileText, User, Building, Calendar, Clock, ChevronDown, ChevronUp,
   MoreVertical, X, CheckCircle, AlertCircle, Archive, Folder,
-  MoreHorizontal
+  MoreHorizontal, PenTool
 } from 'lucide-react';
 import CaseForm from '../components/CaseForm';
 import StageEditDialog, { type StageFormData } from '../components/StageEditDialog';
@@ -13,6 +13,7 @@ import DateReminderWidget from '../components/DateReminderWidget';
 import ClosedTransferDialog from '../components/ClosedTransferDialog';
 import UnifiedDialog from '../components/UnifiedDialog';
 import ImportDataDialog from '../components/ImportDataDialog';
+import WriteDocument from '../pages/WriteDocument';
 import { parseExcelToCases } from '../utils/importers';
 import { FolderManager } from '../utils/folderManager';
 import { hasClosedStage } from '../utils/caseStage';
@@ -43,6 +44,9 @@ export default function CaseOverview() {
   const [showClosedTransfer, setShowClosedTransfer] = useState(false);
   const [showUnifiedDialog, setShowUnifiedDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showWriteDocument, setShowWriteDocument] = useState(false);
+  const [writeDocumentCaseId, setWriteDocumentCaseId] = useState<string>('');
+  const [writeDocumentClientName, setWriteDocumentClientName] = useState<string>('');
   const [dialogConfig, setDialogConfig] = useState<DialogConfig>({
     title: '',
     message: '',
@@ -931,6 +935,23 @@ export default function CaseOverview() {
                 <Upload className="w-4 h-4" />
                 <span>上傳檔案</span>
               </button>
+              
+              <button
+                onClick={() => {
+                  if (selectedCaseIds.length === 1) {
+                    const selectedCase = filteredCases.find(c => c.id === selectedCaseIds[0]);
+                    if (selectedCase) {
+                      setWriteDocumentCaseId(selectedCase.id);
+                      setWriteDocumentClientName(selectedCase.client);
+                    }
+                  }
+                  setShowWriteDocument(true);
+                }}
+                className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors flex items-center space-x-2"
+              >
+                <PenTool className="w-4 h-4" />
+                <span>撰寫文件</span>
+              </button>
 
               <button
                 onClick={() => setShowImportDialog(true)}
@@ -1635,6 +1656,18 @@ export default function CaseOverview() {
         isOpen={showImportDialog}
         onClose={() => setShowImportDialog(false)}
         onImportComplete={handleImportComplete}
+      />
+
+      {/* 撰寫文件對話框 */}
+      <WriteDocument
+        isOpen={showWriteDocument}
+        onClose={() => {
+          setShowWriteDocument(false);
+          setWriteDocumentCaseId('');
+          setWriteDocumentClientName('');
+        }}
+        caseId={writeDocumentCaseId}
+        clientName={writeDocumentClientName}
       />
     </div>
   );

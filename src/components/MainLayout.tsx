@@ -28,9 +28,19 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <div className="text-center">
           {/* 登出按鈕 - 移動到下方 */}
           <div className="mt-auto pt-4 border-t border-[#34495e]">
+            {/* 手機版登出按鈕 */}
             <button
               onClick={handleLogout}
-              className="lg:hidden p-2 text-gray-600 hover:text-red-600 rounded-md transition-colors ml-2"
+              className="lg:hidden w-full flex items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm text-white hover:bg-[#e74c3c] hover:text-white"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="font-medium">登出</span>
+            </button>
+            
+            {/* 桌面版登出按鈕 */}
+            <button
+              onClick={handleLogout}
+              className="hidden lg:flex w-full items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm text-white hover:bg-[#e74c3c] hover:text-white"
               title="登出"
             >
               <LogOut className="w-4 h-4" />
@@ -92,13 +102,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <User className="w-4 h-4" />
               <span>{localStorage.getItem('law_user_name') || '用戶'}</span>
-              {/* 手機版登出按鈕 */}
+              {/* 手機版頂部登出按鈕 */}
               <button
                 onClick={handleLogout}
-                className="lg:hidden p-2 text-white hover:text-gray-300 rounded-md transition-colors"
+                className="lg:hidden p-2 text-gray-600 hover:text-red-600 rounded-md transition-colors"
                 title="登出"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
           </div>
