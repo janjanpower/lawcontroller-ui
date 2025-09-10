@@ -302,7 +302,7 @@ export default function UserManagement() {
               className="bg-[#3498db] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-2 justify-center sm:justify-start"
             >
               <Plus className="w-4 h-4" />
-              <span>新增用戶</span>
+              <span>新增人員</span>
             </button>
           </div>
 
@@ -900,7 +900,7 @@ export default function UserManagement() {
                         新增中...
                       </>
                     ) : (
-                      '新增用戶'
+                      '新增人員'
                     )}
                   </button>
                 </div>

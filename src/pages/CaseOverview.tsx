@@ -973,6 +973,7 @@ export default function CaseOverview() {
                     if (stage.time) acc[stage.name] = stage.time;
                     return acc;
                   }, {} as Record<string, string>),
+                caseNumber={selectedCase.caseNumber}
                   progress_notes: c.stages.reduce((acc, stage) => {
                     if (stage.note) acc[stage.name] = stage.note;
                     return acc;

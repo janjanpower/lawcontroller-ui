@@ -18,6 +18,7 @@ interface StageEditDialogProps {
   onClose: () => void;
   onSave: (data: StageFormData) => Promise<boolean> | boolean;
   caseId?: string;
+  onStageCreated?: () => void; // 新增：階段建立後的回調
 }
 
 const DEFAULT_SUGGESTIONS = ['委任','起訴','開庭','判決','上訴','執行','結案'];
@@ -30,6 +31,7 @@ export default function StageEditDialog({
   onClose,
   onSave,
   caseId,
+  onStageCreated,
 }: StageEditDialogProps) {
   const [stageName, setStageName] = useState('');
   const [date, setDate] = useState('');
@@ -85,7 +87,20 @@ export default function StageEditDialog({
       time: time.trim() || undefined,
       note: note.trim() || undefined,
     });
-    if (ok) onClose();
+    if (ok) {
+      // 如果是新增模式且有 caseId，建立階段資料夾
+      if (mode === 'add' && caseId) {
+        FolderManager.createStageFolder(caseId, stageName.trim());
+        FolderManager.refreshFolderTree(caseId);
+        console.log(`已為案件 ${caseId} 建立階段資料夾: ${stageName.trim()}`);
+        
+        // 呼叫回調通知父組件刷新資料夾樹
+        if (onStageCreated) {
+          onStageCreated();
+        }
+      }
+      onClose();
+    }
   };
 
   return (

@@ -16,6 +16,7 @@ interface FolderNode {
 
 interface FolderTreeProps {
   caseId: string;
+  caseNumber: string;
   clientName: string;
   isExpanded: boolean;
   onToggle: () => void;
@@ -186,6 +187,7 @@ const FolderTreeNode: React.FC<{
 
 export default function FolderTree({
   caseId,
+  caseNumber,
   clientName,
   isExpanded,
   onToggle,
@@ -195,6 +197,11 @@ export default function FolderTree({
   s3Config
 }: FolderTreeProps) {
   const [folderData, setFolderData] = useState<FolderNode>(defaultFolderStructure);
+
+  // 生成資料夾根名稱
+  const getRootFolderName = () => {
+    return `${caseNumber || caseId}_${clientName}`;
+  };
 
   // 從 API 載入真實的資料夾結構
   useEffect(() => {
@@ -207,13 +214,13 @@ export default function FolderTree({
         // 設定預設資料夾結構
         setFolderData({
           id: 'root',
-          name: '案件資料夾',
+          name: getRootFolderName(),
           type: 'folder',
           path: '/',
           children: [
             { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
-            { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-            { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+            { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] },
+            { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] }
           ]
         });
       }
@@ -235,13 +242,13 @@ export default function FolderTree({
         console.warn('找不到事務所代碼，使用預設資料夾結構');
         setFolderData({
           id: 'root',
-          name: '案件資料夾',
+          name: getRootFolderName(),
           type: 'folder',
           path: '/',
           children: [
             { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
-            { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-            { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+            { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] },
+            { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] }
           ]
         });
         return;
@@ -263,13 +270,13 @@ export default function FolderTree({
           // 設定預設資料夾結構
           setFolderData({
             id: 'root',
-            name: '案件資料夾',
+            name: getRootFolderName(),
             type: 'folder',
             path: '/',
             children: [
               { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
-              { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-              { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+              { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] },
+              { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] }
             ]
           });
           return;
@@ -292,13 +299,13 @@ export default function FolderTree({
         // 設定預設資料夾結構
         setFolderData({
           id: 'root',
-          name: '案件資料夾',
+          name: getRootFolderName(),
           type: 'folder',
           path: '/',
           children: [
             { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
-            { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-            { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+            { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] },
+            { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] }
           ]
         });
       }
@@ -308,13 +315,12 @@ export default function FolderTree({
       // 設定預設資料夾結構作為備援
       setFolderData({
         id: 'root',
-        name: '案件資料夾',
+        name: getRootFolderName(),
         type: 'folder',
         path: '/',
         children: [
-          { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
-          { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-          { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+          { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] },
+          { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] }
         ]
       });
     }
@@ -323,7 +329,7 @@ export default function FolderTree({
   const buildFolderTree = (filesData: any): FolderNode => {
     const rootNode: FolderNode = {
       id: 'root',
-      name: '案件資料夾',
+      name: getRootFolderName(),
       type: 'folder',
       path: '/',
       children: []
@@ -352,17 +358,10 @@ export default function FolderTree({
         // 如果沒有 folders 資訊，建立預設資料夾
         rootNode.children = [
           {
-            id: 'pleadings',
             name: '狀紙',
+            id: 'pleadings',
             type: 'folder' as const,
             path: '/狀紙',
-            children: []
-          },
-          {
-            id: 'info',
-            name: '案件資訊',
-            type: 'folder' as const,
-            path: '/案件資訊',
             children: []
           },
           {
@@ -371,6 +370,13 @@ export default function FolderTree({
             type: 'folder' as const,
             path: '/案件進度',
             children: []
+          },
+          {
+            id: 'info',
+            name: '案件資訊',
+            type: 'folder' as const,
+            path: '/案件資訊',
+            children: []
           }
         ];
       }
@@ -378,8 +384,8 @@ export default function FolderTree({
       // 處理檔案資料：{ pleadings: [...], info: [...], progress: [...] }
       const folderMapping: Record<string, string> = {
         pleadings: '狀紙',
-        info: '案件資訊',
-        progress: '案件進度'
+        progress: '案件進度',
+        info: '案件資訊'
       };
 
       // 小工具：確保資料夾存在（若不存在則建立）
@@ -429,10 +435,10 @@ export default function FolderTree({
       // 建立預設資料夾
       rootNode.children = [
         {
-          id: 'info',
-          name: '案件資訊',
+          id: 'pleadings',
+          name: '狀紙',
           type: 'folder' as const,
-          path: '/案件資訊',
+          path: '/狀紙',
           children: []
         },
         {
@@ -440,6 +446,13 @@ export default function FolderTree({
           name: '案件進度',
           type: 'folder' as const,
           path: '/案件進度',
+          children: []
+        },
+        {
+          id: 'info',
+          name: '案件資訊',
+          type: 'folder' as const,
+          path: '/案件資訊',
           children: []
         }
       ];
@@ -466,10 +479,10 @@ export default function FolderTree({
       // 建立預設資料夾結構
       rootNode.children = [
         {
-          id: 'info',
-          name: '案件資訊',
+          id: 'pleadings',
+          name: '狀紙',
           type: 'folder' as const,
-          path: '/案件資訊',
+          path: '/狀紙',
           children: []
         },
         {
@@ -477,6 +490,13 @@ export default function FolderTree({
           name: '案件進度',
           type: 'folder' as const,
           path: '/案件進度',
+          children: []
+        },
+        {
+          id: 'info',
+          name: '案件資訊',
+          type: 'folder' as const,
+          path: '/案件資訊',
           children: []
         }
       ];
@@ -640,6 +660,8 @@ export default function FolderTree({
   // 刪除檔案的實現
   const deleteFile = async (filePath: string) => {
     try {
+      console.log('開始刪除檔案:', filePath);
+      
       // 從路徑中提取檔案名稱，找到對應的檔案 ID
       const fileName = filePath.split('/').pop();
       if (!fileName) {
@@ -649,6 +671,8 @@ export default function FolderTree({
 
       // 從當前的資料夾結構中找到檔案 ID
       const fileId = await findFileIdByPath(filePath);
+      console.log('找到檔案 ID:', fileId);
+      
       if (!fileId) {
         alert('找不到檔案 ID，無法刪除');
         return;
@@ -658,11 +682,14 @@ export default function FolderTree({
       const response = await apiFetch(`/api/files/${fileId}?firm_code=${encodeURIComponent(firmCode)}`, {
         method: 'DELETE'
       });
+      
+      console.log('刪除 API 回應:', response.status, response.statusText);
 
       if (response.ok) {
-        alert('檔案刪除成功');
+        console.log('檔案刪除成功');
         // 重新載入資料夾結構
         await loadFolderStructure();
+        alert('檔案刪除成功');
       } else {
         const errorText = await response.text();
         console.error('刪除檔案失敗:', errorText);
@@ -677,12 +704,17 @@ export default function FolderTree({
   // 根據檔案路徑找到檔案 ID
   const findFileIdByPath = async (filePath: string): Promise<string | null> => {
     try {
+      console.log('查找檔案 ID，路徑:', filePath);
+      
       const firmCode = getFirmCodeOrThrow();
       const response = await fetch(`/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`);
+      
+      console.log('檔案列表 API 回應:', response.status);
       
       if (!response.ok) return null;
       
       const filesData = await response.json();
+      console.log('檔案列表資料:', filesData);
       
       // 在所有資料夾中搜尋檔案
       const allFiles: any[] = [];
@@ -690,8 +722,13 @@ export default function FolderTree({
       if (filesData.info) allFiles.push(...filesData.info);
       if (filesData.progress) allFiles.push(...filesData.progress);
       
+      console.log('所有檔案:', allFiles);
+      
       const fileName = filePath.split('/').pop();
+      console.log('要查找的檔案名:', fileName);
+      
       const file = allFiles.find(f => f.name === fileName);
+      console.log('找到的檔案:', file);
       
       return file ? file.id : null;
     } catch (error) {
@@ -705,7 +742,7 @@ export default function FolderTree({
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm w-full">
       <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
-        <h4 className="font-medium text-gray-800 text-sm lg:text-base truncate">案件資料夾</h4>
+        <h4 className="font-medium text-gray-800 text-sm lg:text-base truncate">{getRootFolderName()}</h4>
         <button
           onClick={onToggle}
           className="text-gray-500 hover:text-gray-700 p-1 lg:p-0"
