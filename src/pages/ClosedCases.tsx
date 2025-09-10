@@ -282,18 +282,18 @@ export default function ClosedCases() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                        <div><span className="text-gray-500">結案日期：</span>{row.closedDate}</div>
-                      </div>
-                    </div>
-
-                    <div>
+                        {row.caseType}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {row.lawyer}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {row.closedDate}
                     </td>
                     <td
                       className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
-                          className="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 rounded"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex items-center space-x-2">
                         <button
@@ -306,12 +306,12 @@ export default function ClosedCases() {
                         <button
                           onClick={() => handleExportData(row)}
                           className="text-gray-400 hover:text-green-600 transition-colors"
-                          className="text-green-600 hover:text-green-800 text-xs px-2 py-1 rounded"
+                          title="匯出資料"
                         >
                           <Download className="w-4 h-4" />
                         </button>
                       </div>
-                    </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
