@@ -131,8 +131,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           fixed lg:relative h-full lg:h-auto
           flex flex-col
+          flex flex-col
         `}>
-          <div className="p-4 flex-1 overflow-y-auto flex flex-col">
+          <div className="p-4 flex-1 flex flex-col">
             <div className="space-y-2">
               <div className="text-xs text-gray-300 uppercase tracking-wider mb-3">
                 主選單
@@ -193,6 +194,28 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 <Users className="w-4 h-4" />
                 <span className="font-medium">人員權限</span>
               </NavLink>
+            </div>
+
+            {/* 登出按鈕 - 移動到下方 */}
+            <div className="mt-auto pt-4 border-t border-[#34495e]">
+              {/* 手機版登出按鈕 */}
+              <button
+                onClick={handleLogout}
+                className="lg:hidden w-full flex items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm text-white hover:bg-[#e74c3c] hover:text-white"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="font-medium">登出</span>
+              </button>
+              
+              {/* 桌面版登出按鈕 */}
+              <button
+                onClick={handleLogout}
+                className="hidden lg:flex w-full items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm text-white hover:bg-[#e74c3c] hover:text-white"
+                title="登出"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="font-medium">登出</span>
+              </button>
             </div>
           
             {/* 登出按鈕 - 放在導覽頁最下面 */}
