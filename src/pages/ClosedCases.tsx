@@ -104,7 +104,7 @@ export default function ClosedCases() {
     try {
       const response = await apiFetch('/api/cases?status=closed');
       const data = await response.json();
-      
+
       if (response.ok) {
         // 轉換後端資料為前端格式
         const transformedCases = (data.items || []).map((item: any) => ({

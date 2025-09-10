@@ -935,27 +935,10 @@ export default function CaseOverview() {
                 <Upload className="w-4 h-4" />
                 <span>上傳檔案</span>
               </button>
-              
-              <button
-                onClick={() => {
-                  if (selectedCaseIds.length === 1) {
-                    const selectedCase = filteredCases.find(c => c.id === selectedCaseIds[0]);
-                    if (selectedCase) {
-                      setWriteDocumentCaseId(selectedCase.id);
-                      setWriteDocumentClientName(selectedCase.client);
-                    }
-                  }
-                  setShowWriteDocument(true);
-                }}
-                className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors flex items-center space-x-2"
-              >
-                <PenTool className="w-4 h-4" />
-                <span>撰寫文件</span>
-              </button>
 
               <button
                 onClick={() => setShowImportDialog(true)}
-                className="bg-green-600 text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-green-700 transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
+                className="bg-[#ff7525] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-green-700 transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <Download className="w-4 h-4" />
                 <span>匯入資料</span>
@@ -968,6 +951,24 @@ export default function CaseOverview() {
                 <CheckCircle className="w-4 h-4" />
                 <span>轉移結案</span>
               </button>
+
+               <button
+                onClick={() => {
+                  if (selectedCaseIds.length === 1) {
+                    const selectedCase = filteredCases.find(c => c.id === selectedCaseIds[0]);
+                    if (selectedCase) {
+                      setWriteDocumentCaseId(selectedCase.id);
+                      setWriteDocumentClientName(selectedCase.client);
+                    }
+                  }
+                  setShowWriteDocument(true);
+                }}
+                className="bg-[#7d37b6] text-white px-3 py-2 rounded-md hover:bg-purple-700 transition-colors flex items-center space-x-2"
+              >
+                <PenTool className="w-4 h-4" />
+                <span>撰寫文件</span>
+              </button>
+
 
               <button
                 onClick={() => setShowFilters(!showFilters)}

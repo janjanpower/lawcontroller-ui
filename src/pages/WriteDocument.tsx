@@ -61,9 +61,9 @@ export default function WriteDocument({ isOpen, onClose, caseId, clientName }: W
   // 載入案件列表
   const loadCases = async () => {
     try {
-      const response = await apiFetch('/api/cases');
+      const response = await apiFetch('/api/cases?status=open');
       const data = await response.json();
-      
+
       if (response.ok) {
         const transformedCases = (data.items || []).map((item: any) => ({
           id: item.id,
@@ -81,14 +81,14 @@ export default function WriteDocument({ isOpen, onClose, caseId, clientName }: W
   // 載入資料夾列表
   const loadFolders = async (caseId: string) => {
     if (!caseId) return;
-    
+
     try {
       const response = await apiFetch(`/api/cases/${caseId}/files`);
       const data = await response.json();
-      
+
       if (response.ok) {
         const folderList: FolderOption[] = [];
-        
+
         // 從 API 回應中提取資料夾
         if (data.folders && Array.isArray(data.folders)) {
           data.folders.forEach((folder: any) => {
@@ -99,7 +99,7 @@ export default function WriteDocument({ isOpen, onClose, caseId, clientName }: W
             });
           });
         }
-        
+
         // 確保基本資料夾存在
         const defaultFolders = ['狀紙', '案件資訊', '案件進度'];
         defaultFolders.forEach(folderName => {
@@ -111,7 +111,7 @@ export default function WriteDocument({ isOpen, onClose, caseId, clientName }: W
             });
           }
         });
-        
+
         setFolders(folderList);
       }
     } catch (error) {
@@ -133,7 +133,7 @@ export default function WriteDocument({ isOpen, onClose, caseId, clientName }: W
         setSelectedCase(caseId);
         loadFolders(caseId);
       }
-      
+
       // 載入草稿
       const savedTitle = localStorage.getItem('write_document_title');
       const savedContent = localStorage.getItem('write_document_content');
@@ -163,7 +163,7 @@ export default function WriteDocument({ isOpen, onClose, caseId, clientName }: W
         localStorage.setItem('write_document_content', content);
         setLastSaved(new Date());
       }, 2000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [title, content]);
@@ -215,17 +215,17 @@ export default function WriteDocument({ isOpen, onClose, caseId, clientName }: W
       // 上傳到選定的案件資料夾
       const formData = new FormData();
       formData.append('file', file);
-      
+
       // 根據資料夾名稱決定 folder_type
       const folderTypeMapping: Record<string, string> = {
         '狀紙': 'pleadings',
         '案件資訊': 'info',
         '案件進度': 'progress'
       };
-      
+
       const selectedFolderObj = folders.find(f => f.path === selectedFolder);
       const folderType = selectedFolderObj ? folderTypeMapping[selectedFolderObj.name] || 'progress' : 'progress';
-      
+
       formData.append('folder_type', folderType);
 
       const firmCode = getFirmCodeOrThrow();
@@ -337,7 +337,7 @@ export default function WriteDocument({ isOpen, onClose, caseId, clientName }: W
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
                 />
               </div>
-              
+
               {/* 案件選擇 */}
               <div className="flex-1">
                 <select
@@ -392,7 +392,7 @@ export default function WriteDocument({ isOpen, onClose, caseId, clientName }: W
                   </>
                 )}
               </button>
-              
+
               <button
                 onClick={handleExportWord}
                 disabled={!title.trim()}
@@ -418,7 +418,7 @@ export default function WriteDocument({ isOpen, onClose, caseId, clientName }: W
                 </div>
               )}
             </div>
-            
+
             {lastSaved && (
               <div className="flex items-center space-x-1 text-green-600">
                 <Clock className="w-4 h-4" />
