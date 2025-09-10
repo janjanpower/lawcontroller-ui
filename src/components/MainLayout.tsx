@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, CheckCircle, User, Building, Menu, X, Users, LogOut, PenTool } from 'lucide-react';
+import { FileText, CheckCircle, User, Building, Menu, X, Users, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { hasAuthToken, clearLoginAndRedirect } from '../utils/api';
 
@@ -24,9 +24,25 @@ export default function MainLayout({ children }: MainLayoutProps) {
   // 如果沒有登入 token，不渲染內容
   if (!hasAuthToken()) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#334d6d] mx-auto mb-4"></div>
+            {/* 手機版登出按鈕 */}
+            <button
+              onClick={handleLogout}
+              className="lg:hidden p-2 text-gray-600 hover:text-red-600 rounded-md transition-colors ml-2"
+              title="登出"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+            {/* 手機版登出按鈕 */}
+            <button
+              onClick={handleLogout}
+              className="lg:hidden p-2 text-gray-600 hover:text-red-600 rounded-md transition-colors ml-2"
+              title="登出"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           <p className="text-gray-600">正在跳轉到登入頁面...</p>
         </div>
       </div>
@@ -43,8 +59,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
         return '客戶資料';
       case '/users':
         return '人員權限';
-      case '/write':
-        return '撰寫文件';
       default:
         return '案件管理系統';
     }
@@ -82,20 +96,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 </h1>
               </div>
             </div>
-          <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <User className="w-4 h-4" />
               <span>{localStorage.getItem('law_user_name') || '用戶'}</span>
             </div>
-            {/* 手機版登出按鈕 */}
-            <button
-              onClick={handleLogout}
-              className="lg:hidden flex items-center space-x-1 px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>登出</span>
-            </button>
-          </div>
           </div>
         </div>
       </header>
@@ -177,20 +181,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
               >
                 <Users className="w-4 h-4" />
                 <span className="font-medium">人員權限</span>
-              </NavLink>
-
-              {/* 撰寫文件 */}
-              <NavLink
-                to="/write"
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center space-x-3 px-4 py-3 rounded-md transition-colors text-sm ${
-                    isActive ? 'bg-[#3498db] text-white' : 'text-white hover:bg-[#2980b9]'
-                  }`
-                }
-              >
-                <PenTool className="w-4 h-4" />
-                <span className="font-medium">撰寫文件</span>
               </NavLink>
             </div>
           

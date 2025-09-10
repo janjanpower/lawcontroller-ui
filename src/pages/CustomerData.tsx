@@ -233,10 +233,9 @@ export default function CustomerData() {
                     <Edit className="w-4 h-4" />
                     <span>編輯</span>
                   </button>
-                  {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
                   <button
                     onClick={() => setSelectedCustomer(null)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                     title="關閉詳情"
                   >
                     <X className="w-5 h-5" />
