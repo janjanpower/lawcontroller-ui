@@ -615,6 +615,7 @@ export default function UserManagement() {
                       <span>編輯</span>
                     </>
                   </button>
+                  {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
                   <button
                     onClick={() => setSelectedUser(null)}
                     className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"

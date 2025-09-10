@@ -1,50 +1,62 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, Filter, Eye, Edit, Trash2, Upload, Download, X, Calendar, Clock, User, FileText, Building, Phone, Mail, ChevronDown, ChevronUp, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import {
+  Search, Filter, Plus, Upload, Download, Eye, Edit, Trash2,
+  FileText, User, Building, Calendar, Clock, ChevronDown, ChevronUp,
+  MoreVertical, X, CheckCircle, AlertCircle, Archive, Folder,
+  MoreHorizontal
+} from 'lucide-react';
 import CaseForm from '../components/CaseForm';
 import StageEditDialog, { type StageFormData } from '../components/StageEditDialog';
 import FileUploadDialog from '../components/FileUploadDialog';
 import FolderTree from '../components/FolderTree';
-import ImportDataDialog from '../components/ImportDataDialog';
-import ClosedTransferDialog from '../components/ClosedTransferDialog';
 import DateReminderWidget from '../components/DateReminderWidget';
-import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
+import ClosedTransferDialog from '../components/ClosedTransferDialog';
+import UnifiedDialog from '../components/UnifiedDialog';
+import ImportDataDialog from '../components/ImportDataDialog';
+import { parseExcelToCases } from '../utils/importers';
 import { FolderManager } from '../utils/folderManager';
 import { hasClosedStage } from '../utils/caseStage';
-import type { TableCase, Stage, CaseStatus, VisibleColumns } from '../types';
-
-interface CaseData {
-  case_id?: string;
-  case_type: string;
-  client: string;
-  lawyer?: string;
-  legal_affairs?: string;
-  case_reason?: string;
-  case_number?: string;
-  opposing_party?: string;
-  court?: string;
-  division?: string;
-  progress?: string;
-  progress_date?: string;
-  created_date?: string;
-}
+import { apiFetch, getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
+import type { TableCase, Stage, CaseStatus, VisibleColumns, DialogConfig } from '../types';
 
 export default function CaseOverview() {
+  // 基本狀態
   const [cases, setCases] = useState<TableCase[]>([]);
   const [filteredCases, setFilteredCases] = useState<TableCase[]>([]);
   const [selectedCase, setSelectedCase] = useState<TableCase | null>(null);
   const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
+  const allSelected =
+  selectedCaseIds.length > 0 &&
+  selectedCaseIds.length === filteredCases.length &&
+  filteredCases.length > 0;
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'pending' | 'completed' | 'urgent'>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // 對話框狀態
+
   const [showCaseForm, setShowCaseForm] = useState(false);
   const [showStageDialog, setShowStageDialog] = useState(false);
   const [showFileUpload, setShowFileUpload] = useState(false);
-  const [showImportDialog, setShowImportDialog] = useState(false);
   const [showClosedTransfer, setShowClosedTransfer] = useState(false);
-  const [editingCase, setEditingCase] = useState<CaseData | null>(null);
-  const [editingStageIndex, setEditingStageIndex] = useState<number>(-1);
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
-  const [loading, setLoading] = useState(false);
+  const [showUnifiedDialog, setShowUnifiedDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [dialogConfig, setDialogConfig] = useState<DialogConfig>({
+    title: '',
+    message: '',
+    type: 'info'
+  });
 
+  // 表單狀態
+  const [caseFormMode, setCaseFormMode] = useState<'add' | 'edit'>('add');
+  const [editingCase, setEditingCase] = useState<TableCase | null>(null);
+  const [stageDialogMode, setStageDialogMode] = useState<'add' | 'edit'>('add');
+  const [editingStage, setEditingStage] = useState<{ index: number; stage: Stage } | null>(null);
+
+  // 顯示控制
+  const [expandedCaseId, setExpandedCaseId] = useState<string | null>(null);
   const [visibleColumns, setVisibleColumns] = useState<VisibleColumns>({
     caseNumber: true,
     client: true,
@@ -54,142 +66,301 @@ export default function CaseOverview() {
     progress: true,
     progressDate: true,
     court: false,
-    division: false,
+    division: false
   });
+
+  // 檢查登入狀態
+  useEffect(() => {
+    if (!hasAuthToken()) {
+      console.warn('沒有登入 token，重新導向到登入頁面');
+      clearLoginAndRedirect();
+      return;
+    }
+    loadCases();
+  }, []);
 
   // 載入案件列表
   const loadCases = useCallback(async () => {
+    if (!hasAuthToken()) {
+      console.warn('登入狀態不完整，無法載入案件');
+      return;
+    }
+
     setLoading(true);
+    setError('');
+
     try {
-      const response = await apiFetch('/api/cases?status=open');
-      const data = await response.json();
-      
-      if (response.ok) {
-        const transformedCases = (data.items || []).map((item: any) => ({
-          id: item.id,
-          caseNumber: item.case_number || '',
-          client: item.client_name || item.client?.name || '',
-          caseType: item.case_type || '',
-          lawyer: item.lawyer_name || item.lawyer?.full_name || '',
-          legalAffairs: item.legal_affairs_name || item.legal_affairs?.full_name || '',
-          caseReason: item.case_reason || '',
-          opposingParty: item.opposing_party || '',
-          court: item.court || '',
-          division: item.division || '',
-          progress: item.progress || '',
-          progressDate: item.progress_date || '',
-          status: 'active' as CaseStatus,
-          stages: []
-        }));
-        setCases(transformedCases);
-      } else {
-        console.error('載入案件失敗:', data.detail);
+      const firmCode = getFirmCodeOrThrow();
+      const response = await apiFetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}&status=open`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('載入案件失敗:', errorText);
+        throw new Error(`載入案件失敗: ${response.status} ${response.statusText}`);
       }
+
+      const data = await response.json();
+      console.log('載入的案件資料:', data);
+
+      // 轉換後端資料為前端格式
+      const transformedCases: TableCase[] = await Promise.all((data.items || []).map(async (apiCase: any) => {
+        // 載入案件的階段資料
+        let stages: Stage[] = [];
+        try {
+          const stagesResponse = await apiFetch(`/api/cases/${apiCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`);
+          if (stagesResponse.ok) {
+            const stagesData = await stagesResponse.json();
+            stages = (stagesData || []).map((stage: any) => ({
+              name: stage.stage_name,
+              date: stage.stage_date || '',
+              completed: stage.is_completed || false,
+              note: stage.note || '',
+              time: stage.stage_time || ''
+            }));
+          }
+        } catch (error) {
+          console.error(`載入案件 ${apiCase.id} 的階段失敗:`, error);
+        }
+
+        return {
+        id: apiCase.id,
+        caseNumber: apiCase.case_number || '未設定',
+        client: apiCase.client_name || apiCase.client?.name || '未知客戶',
+        caseType: apiCase.case_type || '未分類',
+        lawyer: apiCase.lawyer_name || apiCase.lawyer?.full_name || '',
+        legalAffairs: apiCase.legal_affairs_name || apiCase.legal_affairs?.full_name || '',
+        caseReason: apiCase.case_reason || '',
+        opposingParty: apiCase.opposing_party || '',
+        court: apiCase.court || '',
+        division: apiCase.division || '',
+        progress: apiCase.progress || '委任',
+        progressDate: apiCase.progress_date || new Date().toISOString().split('T')[0],
+        status: 'active' as CaseStatus,
+        stages: stages
+        };
+      }));
+
+      setCases(transformedCases);
+      console.log('轉換後的案件資料:', transformedCases);
+
     } catch (error) {
-      console.error('載入案件錯誤:', error);
+      console.error('載入案件失敗:', error);
+      setError(error.message || '載入案件失敗');
+
+      // 如果是認證錯誤，清除登入狀態
+      if (error.message?.includes('登入狀態已過期')) {
+        clearLoginAndRedirect();
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // 初始載入
+  // 搜尋和過濾
   useEffect(() => {
-    loadCases();
-  }, [loadCases]);
+    let filtered = cases;
 
-  // 搜尋功能
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredCases(cases);
-      return;
+    // 狀態過濾
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(c => c.status === statusFilter);
     }
-    const term = searchTerm.toLowerCase();
-    const filtered = cases.filter((c) =>
-      [
-        c.id,
-        c.caseNumber,
-        c.client,
-        c.caseType,
-        c.lawyer,
-        c.legalAffairs,
-        c.caseReason,
-        c.opposingParty,
-        c.court,
-        c.division,
-      ]
-        .map((v) => String(v).toLowerCase())
-        .some((v) => v.includes(term))
-    );
-    setFilteredCases(filtered);
-  }, [searchTerm, cases]);
 
-  // 案件操作
-  const handleCaseSave = async (caseData: CaseData): Promise<boolean> => {
+    // 搜尋過濾
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((c) =>
+        [
+          c.caseNumber,
+          c.client,
+          c.caseType,
+          c.lawyer,
+          c.legalAffairs,
+          c.caseReason,
+          c.opposingParty,
+          c.court,
+          c.division,
+          c.progress
+        ]
+          .map((v) => String(v).toLowerCase())
+          .some((v) => v.includes(term))
+      );
+    }
+
+    setFilteredCases(filtered);
+  }, [searchTerm, cases, statusFilter]);
+
+  // 新增案件
+  const handleAddCase = async (caseData: any): Promise<boolean> => {
     try {
-      if (editingCase) {
-        // 編輯模式
-        const updatedCases = cases.map(c => 
-          c.id === caseData.case_id ? {
-            ...c,
-            caseType: caseData.case_type,
-            client: caseData.client,
-            lawyer: caseData.lawyer || '',
-            legalAffairs: caseData.legal_affairs || '',
-            caseReason: caseData.case_reason || '',
-            caseNumber: caseData.case_number || '',
-            opposingParty: caseData.opposing_party || '',
-            court: caseData.court || '',
-            division: caseData.division || '',
-            progress: caseData.progress || '',
-            progressDate: caseData.progress_date || '',
-          } : c
-        );
-        setCases(updatedCases);
-        setEditingCase(null);
-      } else {
-        // 新增模式
-        const newCase: TableCase = {
-          id: caseData.case_id || `case_${Date.now()}`,
-          caseNumber: caseData.case_number || '',
-          client: caseData.client,
-          caseType: caseData.case_type,
-          lawyer: caseData.lawyer || '',
-          legalAffairs: caseData.legal_affairs || '',
-          caseReason: caseData.case_reason || '',
-          opposingParty: caseData.opposing_party || '',
-          court: caseData.court || '',
-          division: caseData.division || '',
-          progress: caseData.progress || '',
-          progressDate: caseData.progress_date || '',
-          status: 'active',
-          stages: []
-        };
-        setCases(prev => [newCase, ...prev]);
-      }
+      console.log('DEBUG: handleAddCase 收到資料:', caseData);
+
+      // 轉換為 TableCase 格式
+      const newCase: TableCase = {
+        id: caseData.case_id,
+        caseNumber: caseData.case_number || '未設定',
+        client: caseData.client || '未知客戶',
+        caseType: caseData.case_type || '未分類',
+        lawyer: caseData.lawyer || '',
+        legalAffairs: caseData.legal_affairs || '',
+        caseReason: caseData.case_reason || '',
+        opposingParty: caseData.opposing_party || '',
+        court: caseData.court || '',
+        division: caseData.division || '',
+        progress: caseData.progress || '委任',
+        progressDate: caseData.progress_date || new Date().toISOString().split('T')[0],
+        status: 'active' as CaseStatus,
+        stages: []
+      };
+
+      console.log('DEBUG: 轉換後的案件資料:', newCase);
+
+      // 更新本地狀態
+      setCases(prev => [newCase, ...prev]);
+
+      // 建立預設資料夾和 Excel 檔案
+      FolderManager.createDefaultFolders(newCase.id);
+      FolderManager.createCaseInfoExcel(newCase.id, {
+        caseNumber: newCase.caseNumber,
+        client: newCase.client,
+        caseType: newCase.caseType,
+        lawyer: newCase.lawyer,
+        legalAffairs: newCase.legalAffairs,
+        caseReason: newCase.caseReason,
+        opposingParty: newCase.opposingParty,
+        court: newCase.court,
+        division: newCase.division,
+        progress: newCase.progress,
+        progressDate: newCase.progressDate,
+        createdDate: new Date().toISOString().split('T')[0]
+      });
+
+      console.log('DEBUG: 案件新增成功');
       return true;
     } catch (error) {
-      console.error('儲存案件失敗:', error);
+      console.error('新增案件到本地狀態失敗:', error);
       return false;
     }
   };
 
-  // 階段操作
-  const handleStageAdd = (caseItem: TableCase) => {
-    setSelectedCase(caseItem);
-    setEditingStageIndex(-1);
-    setShowStageDialog(true);
+  // 編輯案件
+  const handleEditCase = async (caseData: any): Promise<boolean> => {
+    if (!caseData.case_id) {
+      console.error('編輯案件失敗: 缺少 case_id');
+      setDialogConfig({
+        title: '編輯失敗',
+        message: '案件 ID 不存在，無法編輯',
+        type: 'error'
+      });
+      setShowUnifiedDialog(true);
+      return false;
+    }
+
+    try {
+      console.log('DEBUG: handleEditCase 收到資料:', caseData);
+
+      // 更新本地狀態
+      setCases(prev => prev.map(c =>
+        c.id === caseData.case_id ? {
+          ...c,
+          caseNumber: caseData.case_number || c.caseNumber,
+          client: caseData.client || c.client,
+          caseType: caseData.case_type || c.caseType,
+          lawyer: caseData.lawyer || c.lawyer,
+          legalAffairs: caseData.legal_affairs || c.legalAffairs,
+          caseReason: caseData.case_reason || c.caseReason,
+          opposingParty: caseData.opposing_party || c.opposingParty,
+          court: caseData.court || c.court,
+          division: caseData.division || c.division,
+          progress: caseData.progress || c.progress,
+          progressDate: caseData.progress_date || c.progressDate
+        } : c
+      ));
+
+      // 更新 Excel 檔案
+      FolderManager.updateCaseInfoExcel(caseData.case_id, {
+        caseNumber: caseData.case_number,
+        client: caseData.client,
+        caseType: caseData.case_type,
+        lawyer: caseData.lawyer,
+        legalAffairs: caseData.legal_affairs,
+        caseReason: caseData.case_reason,
+        opposingParty: caseData.opposing_party,
+        court: caseData.court,
+        division: caseData.division,
+        progress: caseData.progress,
+        progressDate: caseData.progress_date
+      });
+
+      console.log('DEBUG: 案件編輯成功');
+      return true;
+    } catch (error) {
+      console.error('編輯案件失敗:', error);
+      return false;
+    }
   };
 
-  const handleStageEdit = (caseItem: TableCase, stageIndex: number) => {
-    setSelectedCase(caseItem);
-    setEditingStageIndex(stageIndex);
-    setShowStageDialog(true);
+  // 刪除案件
+  const handleDeleteCase = async (caseId: string) => {
+    if (!hasAuthToken()) {
+      clearLoginAndRedirect();
+      return;
+    }
+
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const response = await apiFetch(`/api/cases/${caseId}?firm_code=${encodeURIComponent(firmCode)}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setCases(prev => prev.filter(c => c.id !== caseId));
+        setSelectedCase(null);
+        setDialogConfig({
+          title: '刪除成功',
+          message: '案件已成功刪除',
+          type: 'success'
+        });
+        setShowUnifiedDialog(true);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || '刪除案件失敗');
+      }
+    } catch (error) {
+      console.error('刪除案件失敗:', error);
+      setDialogConfig({
+        title: '刪除失敗',
+        message: error.message || '刪除案件失敗',
+        type: 'error'
+      });
+      setShowUnifiedDialog(true);
+    }
   };
 
-  const handleStageSave = async (stageData: StageFormData): Promise<boolean> => {
+  // 新增階段
+  const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
     if (!selectedCase) return false;
 
     try {
+      const firmCode = getFirmCodeOrThrow();
+
+      // 呼叫後端 API 新增階段
+      const response = await apiFetch(`/api/cases/${selectedCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          stage_name: stageData.stageName,
+          stage_date: stageData.date,
+          stage_time: stageData.time,
+          note: stageData.note,
+          is_completed: false,
+          sort_order: selectedCase.stages.length
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || '新增階段失敗');
+      }
+
       const newStage: Stage = {
         name: stageData.stageName,
         date: stageData.date,
@@ -198,233 +369,627 @@ export default function CaseOverview() {
         time: stageData.time
       };
 
-      const updatedCases = cases.map(c => {
-        if (c.id === selectedCase.id) {
-          const newStages = [...c.stages];
-          if (editingStageIndex >= 0) {
-            newStages[editingStageIndex] = newStage;
-          } else {
-            newStages.push(newStage);
-            FolderManager.createStageFolder(c.id, stageData.stageName);
-          }
-          return { ...c, stages: newStages };
-        }
-        return c;
-      });
+      // 更新本地狀態
+      setCases(prev => prev.map(c =>
+        c.id === selectedCase.id ? { ...c, stages: [...c.stages, newStage] } : c
+      ));
+      // ✅ 同步右側詳情
+      setSelectedCase(prev =>
+        prev && prev.id === selectedCase.id ? { ...prev, stages: [...prev.stages, newStage] } : prev
+      );
 
-      setCases(updatedCases);
+      // 建立階段資料夾
+      FolderManager.createStageFolder(selectedCase.id, stageData.stageName);
+
+      console.log('階段新增成功:', newStage);
       return true;
     } catch (error) {
-      console.error('儲存階段失敗:', error);
+      console.error('新增階段失敗:', error);
+      setDialogConfig({
+        title: '新增階段失敗',
+        message: error.message || '新增階段失敗',
+        type: 'error'
+      });
+      setShowUnifiedDialog(true);
       return false;
     }
   };
 
-  const handleStageDelete = async (caseItem: TableCase, stageIndex: number) => {
-    if (!confirm('確定要刪除此階段嗎？')) return;
-
-    const stage = caseItem.stages[stageIndex];
-    if (!stage) return;
+  // 編輯階段
+  const handleEditStage = async (stageData: StageFormData): Promise<boolean> => {
+    if (!selectedCase || !editingStage) return false;
 
     try {
-      const hasFiles = await FolderManager.hasFilesInStageFolder(caseItem.id, stage.name);
-      if (hasFiles) {
-        const confirmDelete = confirm(
-          `階段「${stage.name}」包含檔案，刪除階段將同時刪除所有相關檔案。確定要繼續嗎？`
-        );
-        if (!confirmDelete) return;
-        await FolderManager.deleteStageFolder(caseItem.id, stage.name);
-      }
+      const firmCode = getFirmCodeOrThrow();
 
-      FolderManager.removeStageFolderNode(caseItem.id, stage.name);
-
-      const updatedCases = cases.map(c => {
-        if (c.id === caseItem.id) {
-          const newStages = c.stages.filter((_, idx) => idx !== stageIndex);
-          return { ...c, stages: newStages };
-        }
-        return c;
+      // 呼叫後端 API 更新階段
+      const response = await apiFetch(`/api/cases/${selectedCase.id}/stages/${editingStage.index}?firm_code=${encodeURIComponent(firmCode)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          stage_name: stageData.stageName,
+          stage_date: stageData.date,
+          stage_time: stageData.time,
+          note: stageData.note
+        })
       });
 
-      setCases(updatedCases);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || '更新階段失敗');
+      }
+
+      const updatedStage: Stage = {
+        name: stageData.stageName,
+        date: stageData.date,
+        completed: editingStage.stage.completed,
+        note: stageData.note,
+        time: stageData.time
+      };
+
+      // 更新本地狀態
+      setCases(prev => prev.map(c =>
+        c.id === selectedCase.id
+          ? { ...c, stages: c.stages.map((s, i) => i === editingStage.index ? updatedStage : s) }
+          : c
+      ));
+      // ✅ 同步右側詳情
+      setSelectedCase(prev =>
+        prev && prev.id === selectedCase.id
+          ? { ...prev, stages: prev.stages.map((s, i) => i === editingStage.index ? updatedStage : s) }
+          : prev
+      );
+
+
+      console.log('階段編輯成功:', updatedStage);
+      return true;
     } catch (error) {
-      console.error('刪除階段失敗:', error);
-      alert('刪除階段失敗，請稍後再試');
+      console.error('編輯階段失敗:', error);
+      setDialogConfig({
+        title: '編輯階段失敗',
+        message: error.message || '編輯階段失敗',
+        type: 'error'
+      });
+      setShowUnifiedDialog(true);
+      return false;
     }
   };
 
-  // 檔案操作
-  const handleFileUploadComplete = () => {
-    console.log('檔案上傳完成');
+  const handleDeleteStage = async (stageName: string, stageIndex: number) => {
+    if (!selectedCase) return;
+
+    const folderPath = FolderManager.getStageFolder(selectedCase.id, stageName);
+
+    let hasFiles = false;
+    try {
+      hasFiles = await FolderManager.hasFilesInFolder(folderPath);
+    } catch {
+      // 取不到清單時保守視為有檔案，避免誤刪
+      hasFiles = true;
+    }
+
+    if (hasFiles) {
+      setDialogConfig({
+        title: '資料夾內仍有檔案',
+        message: `階段「${stageName}」的資料夾仍有檔案，確定要一併刪除嗎？此操作無法復原。`,
+        type: 'warning',
+        onConfirm: async () => {
+          await actuallyDeleteStage(stageName, stageIndex);
+        },
+      });
+      setShowUnifiedDialog(true);
+      return;
+    }
+
+    await actuallyDeleteStage(stageName, stageIndex);
   };
 
-  // 匯入功能
+  const actuallyDeleteStage = async (stageName: string, stageIndex: number) => {
+    if (!selectedCase) return;
+
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      // 先刪後端的階段
+      const resp = await apiFetch(
+        `/api/cases/${selectedCase.id}/stages/${stageIndex}?firm_code=${encodeURIComponent(firmCode)}`,
+        { method: 'DELETE' }
+      );
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(text || '刪除階段失敗');
+      }
+
+      // 再刪對應階段資料夾（有無檔案都清乾淨）
+      const folderPath = FolderManager.getStageFolder(selectedCase.id, stageName);
+      try {
+        await FolderManager.deleteFolderRecursive(folderPath);
+      } catch (e) {
+        console.warn('刪除階段資料夾失敗（略過，不阻斷流程）', e);
+      }
+
+      // 更新前端列表
+      setCases(prev => prev.map(c =>
+        c.id === selectedCase.id ? { ...c, stages: c.stages.filter((_, i) => i !== stageIndex) } : c
+      ));
+      // ✅ 同步右側詳情
+      setSelectedCase(prev =>
+        prev && prev.id === selectedCase.id
+          ? { ...prev, stages: prev.stages.filter((_, i) => i !== stageIndex) }
+          : prev
+      );
+
+      setDialogConfig({
+        title: '刪除成功',
+        message: `已刪除階段「${stageName}」。`,
+        type: 'success',
+      });
+      setShowUnifiedDialog(true);
+    } catch (err: any) {
+      setDialogConfig({
+        title: '刪除失敗',
+        message: err?.message || '刪除階段時發生錯誤',
+        type: 'error',
+      });
+      setShowUnifiedDialog(true);
+    }
+  };
+
+  // 切換階段完成狀態（含樂觀更新與回滾，同步列表與右側詳情）
+  const toggleStageCompletion = (stageIndex: number) => {
+    if (!selectedCase) return;
+
+    const stage = selectedCase.stages[stageIndex];
+    if (!stage) return;
+
+    const newCompleted = !stage.completed; // 用固定值避免多次取反不一致
+
+    // 呼叫後端 API 更新階段完成狀態
+    const updateStageStatus = async () => {
+      try {
+        const firmCode = getFirmCodeOrThrow();
+        const response = await apiFetch(
+          `/api/cases/${selectedCase.id}/stages/${stageIndex}?firm_code=${encodeURIComponent(firmCode)}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ is_completed: newCompleted }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || '更新階段狀態失敗');
+        }
+      } catch (error) {
+        console.error('更新階段狀態失敗:', error);
+
+        // 🔁 回滾：列表
+        setCases(prev => prev.map(c =>
+          c.id === selectedCase.id
+            ? {
+                ...c,
+                stages: c.stages.map((s, i) =>
+                  i === stageIndex ? { ...s, completed: stage.completed } : s
+                ),
+              }
+            : c
+        ));
+
+        // 🔁 回滾：右側詳情
+        setSelectedCase(prev =>
+          prev && prev.id === selectedCase.id
+            ? {
+                ...prev,
+                stages: prev.stages.map((s, i) =>
+                  i === stageIndex ? { ...s, completed: stage.completed } : s
+                ),
+              }
+            : prev
+        );
+      }
+    };
+
+    // ✅ 樂觀更新：列表
+    setCases(prev => prev.map(c =>
+      c.id === selectedCase.id
+        ? {
+            ...c,
+            stages: c.stages.map((s, i) =>
+              i === stageIndex ? { ...s, completed: newCompleted } : s
+            ),
+          }
+        : c
+    ));
+
+    // ✅ 樂觀更新：右側詳情
+    setSelectedCase(prev =>
+      prev && prev.id === selectedCase.id
+        ? {
+            ...prev,
+            stages: prev.stages.map((s, i) =>
+              i === stageIndex ? { ...s, completed: newCompleted } : s
+            ),
+          }
+        : prev
+    );
+
+    // ▶ 實際送後端
+    updateStageStatus();
+  };
+
+
+
+  // 工具：轉字串、裁長度、去空白
+  const S = (v: any) => (v == null ? '' : String(v).trim());
+  const cut = (s: string, max: number) => (s.length > max ? s.slice(0, max) : s);
+
+  // 必填欄位（依後端慣例）
+  const REQUIRED = { client_name: true, case_type: true };
+  // 欄位長度上限（避免 DB 長度爆掉）
+  const LIMITS: Record<string, number> = {
+    client_name: 100,
+    case_type: 50,
+    case_reason: 200,
+    case_number: 100,
+    court: 100,
+    division: 100,
+    lawyer_name: 100,
+    legal_affairs_name: 100,
+  };
+
+  const sanitize = (x: any) => {
+    // 對齊 CaseForm 新增的命名與預設
+    let obj: any = {
+      case_type: S(x.case_type) || '未分類',
+      client_name: S(x.client),               // client → client_name
+      case_reason: S(x.case_reason) || '',
+      case_number: S(x.case_number) || '',
+      court: S(x.court) || '',
+      division: S(x.division) || '',
+      lawyer_name: S(x.lawyer) || '',
+      legal_affairs_name: S(x.legal_affairs) || '',
+    };
+    // 長度裁切
+    for (const k of Object.keys(obj)) {
+      const lim = LIMITS[k];
+      if (lim && typeof obj[k] === 'string') obj[k] = cut(obj[k], lim);
+    }
+    // 空字串→null（但必填欄位除外）
+    for (const k of Object.keys(obj)) {
+      if (!obj[k] && !REQUIRED[k as keyof typeof REQUIRED]) obj[k] = null;
+    }
+    return obj;
+  };
+
+  const isValid = (payload: any) => !!payload.client_name && !!payload.case_type;
+
   const handleImportComplete = async (importedCases: any[]) => {
     try {
-      const firmCode = getFirmCodeOrThrow();
-      let successCount = 0;
-      let errorCount = 0;
+      setLoading(true);
 
-      for (const importCase of importedCases) {
+      if (!Array.isArray(importedCases) || !importedCases.length) {
+        setDialogConfig({
+          title: '沒有可匯入的資料',
+          message: '解析結果為空，請確認 Excel 欄位標題與內容。',
+          type: 'warning'
+        });
+        setShowUnifiedDialog(true);
+        return;
+      }
+
+      const firmCode = getFirmCodeOrThrow();
+
+      // 清理＋驗證
+      const prepared = importedCases.map(sanitize);
+      const valid = prepared.filter(isValid);
+      const skipped = prepared.length - valid.length; // 因缺必填而略過的數量
+
+      let ok = 0, fail = 0;
+      const errs: string[] = [];
+
+      for (const item of valid) {
+        // ⚠️ 完全比照 CaseForm：URL 帶 firm_code，body 也帶 firm_code
+        const payload = { firm_code: firmCode, ...item };
         try {
-          const response = await fetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`, {
+          const res = await fetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              case_type: importCase.case_type || '未分類',
-              client_name: importCase.client || importCase.client_name,
-              case_reason: importCase.case_reason,
-              case_number: importCase.case_number,
-              court: importCase.court,
-              division: importCase.division,
-              lawyer_name: importCase.lawyer,
-              legal_affairs_name: importCase.legal_affairs,
-              progress: importCase.progress || '委任'
-            }),
+            body: JSON.stringify(payload)
           });
-
-          if (response.ok) {
-            successCount++;
+          if (!res.ok) {
+            const text = await res.text();
+            console.error('Create case failed:', res.status, text, 'payload=', payload);
+            fail++; errs.push(`${res.status}: ${text}`.slice(0, 600));
           } else {
-            errorCount++;
-            console.error('匯入案件失敗:', await response.text());
+            ok++;
           }
-        } catch (error) {
-          errorCount++;
-          console.error('匯入案件錯誤:', error);
+        } catch (e: any) {
+          console.error('Network error while creating case:', e, 'payload=', payload);
+          fail++; errs.push(e?.message || '網路錯誤');
         }
       }
 
-      alert(`匯入完成！成功: ${successCount} 筆，失敗: ${errorCount} 筆`);
-      if (successCount > 0) {
-        await loadCases();
-      }
-    } catch (error) {
-      console.error('批量匯入失敗:', error);
-      alert('匯入過程發生錯誤，請稍後再試');
+      await loadCases();
+
+      setDialogConfig({
+        title: '匯入完成',
+        message:
+          `成功新增 ${ok} 筆案件` +
+          (skipped ? `（略過 ${skipped} 筆：缺少必填欄位）` : '') +
+          (fail ? `，失敗 ${fail} 筆\n\n錯誤（前 5 筆）：\n- ${errs.slice(0, 5).join('\n- ')}${errs.length > 5 ? '\n(其餘略)' : ''}` : ''),
+        type: fail ? 'warning' : 'success'
+      });
+      setShowUnifiedDialog(true);
+    } catch (e: any) {
+      setDialogConfig({ title: '匯入失敗', message: e?.message || '發生未知錯誤', type: 'error' });
+      setShowUnifiedDialog(true);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 轉移到結案
-  const handleClosedTransfer = async (payload?: { targetPath?: string }) => {
+
+
+  // 轉移到結案案件
+  const handleTransferToClosed = async (payload?: { targetPath?: string }) => {
+    if (selectedCaseIds.length === 0) return;
+
     try {
+      setLoading(true);
       const firmCode = getFirmCodeOrThrow();
-      let successCount = 0;
+
+      // 批量更新案件狀態為已結案
+      for (const caseId of selectedCaseIds) {
+        const response = await apiFetch(`/api/cases/${caseId}?firm_code=${encodeURIComponent(firmCode)}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            is_closed: true,
+            closed_at: new Date().toISOString().split('T')[0]
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || `轉移案件 ${caseId} 失敗`);
+        }
+      }
+
+      // 從當前列表移除已轉移的案件
+      setCases(prev => prev.filter(c => !selectedCaseIds.includes(c.id)));
+      setSelectedCaseIds([]);
+      setSelectedCase(null);
+
+      setDialogConfig({
+        title: '轉移成功',
+        message: `成功轉移 ${selectedCaseIds.length} 筆案件到結案案件`,
+        type: 'success'
+      });
+      setShowUnifiedDialog(true);
+
+    } catch (error) {
+      console.error('轉移案件失敗:', error);
+      setDialogConfig({
+        title: '轉移失敗',
+        message: error.message || '轉移案件失敗',
+        type: 'error'
+      });
+      setShowUnifiedDialog(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 批量刪除
+  const handleBatchDelete = async () => {
+    if (selectedCaseIds.length === 0) return;
+
+    const confirmMessage = `確定要刪除選中的 ${selectedCaseIds.length} 筆案件嗎？此操作無法復原。`;
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      setLoading(true);
+      const firmCode = getFirmCodeOrThrow();
 
       for (const caseId of selectedCaseIds) {
-        try {
-          const response = await fetch(`/api/cases/${caseId}?firm_code=${encodeURIComponent(firmCode)}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              is_closed: true,
-              closed_at: new Date().toISOString().split('T')[0]
-            }),
-          });
+        const response = await apiFetch(`/api/cases/${caseId}?firm_code=${encodeURIComponent(firmCode)}`, {
+          method: 'DELETE'
+        });
 
-          if (response.ok) {
-            successCount++;
-          }
-        } catch (error) {
-          console.error('轉移案件失敗:', error);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || `刪除案件 ${caseId} 失敗`);
         }
       }
 
-      if (successCount > 0) {
-        setCases(prev => prev.filter(c => !selectedCaseIds.includes(c.id)));
-        setSelectedCaseIds([]);
-        alert(`成功轉移 ${successCount} 個案件到結案案件`);
-      }
+      setCases(prev => prev.filter(c => !selectedCaseIds.includes(c.id)));
+      setSelectedCaseIds([]);
+      setSelectedCase(null);
+
+      setDialogConfig({
+        title: '刪除成功',
+        message: `成功刪除 ${selectedCaseIds.length} 筆案件`,
+        type: 'success'
+      });
+      setShowUnifiedDialog(true);
+
     } catch (error) {
-      console.error('批量轉移失敗:', error);
-      alert('轉移過程發生錯誤');
+      console.error('批量刪除失敗:', error);
+      setDialogConfig({
+        title: '刪除失敗',
+        message: error.message || '批量刪除失敗',
+        type: 'error'
+      });
+      setShowUnifiedDialog(true);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStageStatusIcon = (stage: Stage) => {
-    if (stage.completed) {
-      return <CheckCircle className="w-4 h-4 text-green-600" />;
+  // 勾選案件
+  const handleCaseSelect = (caseId: string, checked: boolean) => {
+    setSelectedCaseIds(prev =>
+      checked
+        ? [...prev, caseId]
+        : prev.filter(id => id !== caseId)
+    );
+  };
+
+  // 全選/取消全選
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedCaseIds(checked ? filteredCases.map(c => c.id) : []);
+  };
+
+  // 資料夾樹管理
+  const handleFolderToggle = (caseId: string) => {
+    if (expandedCaseId === caseId) {
+      setExpandedCaseId(null); // 收合當前展開的
+    } else {
+      setExpandedCaseId(caseId); // 展開新的，自動收合舊的
     }
-    
-    if (stage.date) {
-      const stageDate = new Date(stage.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      stageDate.setHours(0, 0, 0, 0);
-      
-      if (stageDate < today) {
-        return <XCircle className="w-4 h-4 text-red-600" />;
-      } else if (stageDate.getTime() === today.getTime()) {
-        return <AlertCircle className="w-4 h-4 text-orange-600" />;
-      }
+  };
+
+  // 取得狀態顏色
+  const getStatusColor = (status: CaseStatus) => {
+    switch (status) {
+      case 'active':
+        return 'bg-blue-100 text-blue-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'urgent':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
-    
-    return <Clock className="w-4 h-4 text-blue-600" />;
+  };
+
+  const getStatusText = (status: CaseStatus) => {
+    switch (status) {
+      case 'active':
+        return '進行中';
+      case 'pending':
+        return '待處理';
+      case 'completed':
+        return '已完成';
+      case 'urgent':
+        return '緊急';
+      default:
+        return '未知';
+    }
+  };
+
+  // Helper functions for stage status
+  const getStageStatus = (stage: Stage) => {
+    if (stage.completed) return 'completed';
+    if (!stage.date) return 'no-date';
+
+    const stageDate = new Date(stage.date);
+    const today = new Date();
+    const diffDays = Math.ceil((stageDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+
+    if (diffDays < 0) return 'overdue';
+    if (diffDays <= 3) return 'urgent';
+    return 'normal';
   };
 
   const getStageStatusText = (stage: Stage) => {
     if (stage.completed) return '已完成';
-    
-    if (stage.date) {
-      const stageDate = new Date(stage.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      stageDate.setHours(0, 0, 0, 0);
-      
-      if (stageDate < today) return '逾期';
-      if (stageDate.getTime() === today.getTime()) return '今日';
-      
-      const diffTime = stageDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return `${diffDays}天後`;
-    }
-    
-    return '待處理';
+    if (!stage.date) return '未設定日期';
+
+    const stageDate = new Date(stage.date);
+    const today = new Date();
+    const diffDays = Math.ceil((stageDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+
+    if (diffDays < 0) return '已逾期';
+    if (diffDays === 0) return '今日到期';
+    if (diffDays <= 3) return `${diffDays}天後到期`;
+    return '正常';
   };
 
   return (
     <div className="flex-1 flex flex-col">
       {/* 頂部工具列 */}
       <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <h2 className="text-xl font-semibold text-[#334d6d]">案件總覽</h2>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => setShowCaseForm(true)}
-                className="bg-[#3498db] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-2"
+                onClick={() => {
+                  setCaseFormMode('add');
+                  setEditingCase(null);
+                  setShowCaseForm(true);
+                }}
+                className="bg-[#3498db] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <Plus className="w-4 h-4" />
                 <span>新增案件</span>
               </button>
+
               <button
                 onClick={() => setShowFileUpload(true)}
-                className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors flex items-center space-x-2"
+                className="bg-[#27ae60] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#229954] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <Upload className="w-4 h-4" />
                 <span>上傳檔案</span>
               </button>
+
               <button
                 onClick={() => setShowImportDialog(true)}
-                className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 transition-colors flex items-center space-x-2"
+                className="bg-green-600 text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-green-700 transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
               >
                 <Download className="w-4 h-4" />
-                <span>匯入Excel</span>
+                <span>匯入資料</span>
               </button>
-              {selectedCaseIds.length > 0 && (
-                <button
-                  onClick={() => setShowClosedTransfer(true)}
-                  className="bg-[#f39c12] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#d68910] transition-colors flex items-center space-x-2"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>轉移結案 ({selectedCaseIds.length})</span>
-                </button>
-              )}
+
+              <button
+                onClick={handleTransferToClosed}
+                className="bg-[#f39c12] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#d68910] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span>轉移結案</span>
+              </button>
+
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <Filter className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-4">
+            {/* 跑馬燈：日期提醒 */}
+            <div className="w-full sm:w-64 order-2 sm:order-1">
+              <DateReminderWidget
+                caseData={cases.map(c => ({
+                  case_id: c.id,
+                  client: c.client,
+                  case_type: c.caseType,
+                  progress_stages: c.stages.reduce((acc, stage) => {
+                    acc[stage.name] = stage.date;
+                    return acc;
+                  }, {} as Record<string, string>),
+                  progress_times: c.stages.reduce((acc, stage) => {
+                    if (stage.time) acc[stage.name] = stage.time;
+                    return acc;
+                  }, {} as Record<string, string>),
+                  progress_notes: c.stages.reduce((acc, stage) => {
+                    if (stage.note) acc[stage.name] = stage.note;
+                    return acc;
+                  }, {} as Record<string, string>)
+                }))}
+                onCaseSelect={(caseData) => {
+                  const foundCase = cases.find(c => c.id === caseData.case_id);
+                  if (foundCase) {
+                    setSelectedCase(foundCase);
+                    setExpandedCaseId(foundCase.id);
+                  }
+                }}
+              />
+            </div>
+
+            {/* 搜尋 */}
+            <div className="relative flex-1 sm:flex-none order-1 sm:order-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
@@ -434,15 +999,52 @@ export default function CaseOverview() {
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-sm w-full sm:w-64"
               />
             </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors self-center sm:self-auto"
-            >
-              <Filter className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
+        {/* 批量操作工具列 */}
+        {selectedCaseIds.length > 0 && (
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 animate-slide-up">
+            <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-xl px-6 py-4 flex items-center space-x-6">
+              <span className="text-sm text-gray-700 font-medium">
+                已選擇 {selectedCaseIds.length} 筆案件
+              </span>
+
+              <div className="flex items-center space-x-3">
+                {/* 新增：全選按鈕（針對當前 filteredCases） */}
+                <button
+                  onClick={() => handleSelectAll(true)}
+                  disabled={allSelected}
+                  className={`text-gray-700 hover:text-gray-900 text-sm underline transition-colors ${allSelected ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title="全選目前清單"
+                >
+                  {allSelected ? '已全選' : '全選'}
+                </button>
+
+                <div className="w-px h-5 bg-gray-300"></div>
+
+                <button
+                  onClick={() => handleSelectAll(false)}
+                  className="text-gray-500 hover:text-gray-700 text-sm underline transition-colors"
+                >
+                  取消選擇
+                </button>
+
+                <div className="w-px h-5 bg-gray-300"></div>
+
+                <button
+                  onClick={handleBatchDelete}
+                  className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-600 flex items-center space-x-2 transition-all hover:shadow-md"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>刪除</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 搜尋結果統計 */}
         {searchTerm && (
           <div className="mt-2 text-sm text-green-600">
             找到 {filteredCases.length}/{cases.length} 個案件
@@ -450,65 +1052,88 @@ export default function CaseOverview() {
         )}
       </div>
 
-      {/* 日期提醒小工具 */}
-      <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3">
-        <DateReminderWidget 
-          caseData={cases.map(c => ({
-            case_id: c.id,
-            client: c.client,
-            case_type: c.caseType,
-            progress_stages: c.stages.reduce((acc, stage, idx) => {
-              acc[stage.name] = stage.date;
-              return acc;
-            }, {} as Record<string, string>),
-            progress_times: c.stages.reduce((acc, stage, idx) => {
-              if (stage.time) acc[stage.name] = stage.time;
-              return acc;
-            }, {} as Record<string, string>),
-            progress_notes: c.stages.reduce((acc, stage, idx) => {
-              if (stage.note) acc[stage.name] = stage.note;
-              return acc;
-            }, {} as Record<string, string>)
-          }))}
-          onCaseSelect={(caseData) => {
-            const foundCase = cases.find(c => c.id === caseData.case_id);
-            if (foundCase) setSelectedCase(foundCase);
-          }}
-        />
-      </div>
+      {/* 欄位控制區域 */}
+      {showFilters && (
+        <div className="bg-gray-50 border-b border-gray-200 px-4 lg:px-6 py-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            <span className="text-sm font-medium text-gray-700">顯示欄位：</span>
+            {Object.entries(visibleColumns).map(([key, visible]) => (
+              <label key={key} className="flex items-center space-x-1 text-xs sm:text-sm whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={visible}
+                  onChange={(e) =>
+                    setVisibleColumns((prev) => ({
+                      ...prev,
+                      [key]: e.target.checked,
+                    }))
+                  }
+                  className="rounded border-gray-300 text-[#334d6d] focus:ring-[#334d6d]"
+                />
+                <span className="text-gray-600 text-xs sm:text-sm">
+                  {key === 'caseNumber'
+                    ? '案號'
+                    : key === 'client'
+                    ? '當事人'
+                    : key === 'caseType'
+                    ? '案件類型'
+                    : key === 'lawyer'
+                    ? '律師'
+                    : key === 'legalAffairs'
+                    ? '法務'
+                    : key === 'progress'
+                    ? '進度'
+                    : key === 'progressDate'
+                    ? '進度日期'
+                    : key === 'court'
+                    ? '法院'
+                    : key === 'division'
+                    ? '股別'
+                    : key}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 案件列表 + 右側詳情 */}
       <div className="flex-1 flex flex-col lg:flex-row">
         {/* 列表 */}
         <div className={`flex-1 overflow-hidden ${selectedCase ? 'hidden lg:block' : ''}`}>
-          <div className="h-full overflow-auto">
-            {/* 桌面版表格 */}
-            <div className="hidden lg:block">
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#334d6d]"></div>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                <p className="text-red-600">{error}</p>
+                <button
+                  onClick={loadCases}
+                  className="mt-2 bg-[#334d6d] text-white px-4 py-2 rounded-md hover:bg-[#3f5a7d]"
+                >
+                  重新載入
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="h-full overflow-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
-                      <input
-                        type="checkbox"
-                        checked={selectedCaseIds.length === filteredCases.length && filteredCases.length > 0}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedCaseIds(filteredCases.map(c => c.id));
-                          } else {
-                            setSelectedCaseIds([]);
-                          }
-                        }}
-                        className="rounded border-gray-300 text-[#334d6d] focus:ring-[#334d6d]"
-                      />
+                      選擇
                     </th>
-                    {visibleColumns.caseNumber && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        案號
-                      </th>
-                    )}
                     {visibleColumns.client && (
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         當事人
+                      </th>
+                    )}
+                    {visibleColumns.caseNumber && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        案號
                       </th>
                     )}
                     {visibleColumns.caseType && (
@@ -536,259 +1161,197 @@ export default function CaseOverview() {
                         進度日期
                       </th>
                     )}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    {visibleColumns.court && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        法院
+                      </th>
+                    )}
+                    {visibleColumns.division && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        股別
+                      </th>
+                    )}
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                       操作
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredCases.map((row, index) => (
-                    <tr
-                      key={row.id}
-                      className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                        selectedCase?.id === row.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''
-                      } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-                      onClick={() => setSelectedCase(row)}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={selectedCaseIds.includes(row.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedCaseIds(prev => [...prev, row.id]);
-                            } else {
-                              setSelectedCaseIds(prev => prev.filter(id => id !== row.id));
-                            }
-                          }}
-                          className="rounded border-gray-300 text-[#334d6d] focus:ring-[#334d6d]"
-                        />
-                      </td>
-                      {visibleColumns.caseNumber && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.caseNumber}
-                        </td>
-                      )}
-                      {visibleColumns.client && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.client}
-                        </td>
-                      )}
-                      {visibleColumns.caseType && (
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                            {row.caseType}
-                          </span>
-                        </td>
-                      )}
-                      {visibleColumns.lawyer && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.lawyer}
-                        </td>
-                      )}
-                      {visibleColumns.legalAffairs && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.legalAffairs}
-                        </td>
-                      )}
-                      {visibleColumns.progress && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.progress}
-                        </td>
-                      )}
-                      {visibleColumns.progressDate && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {row.progressDate}
-                        </td>
-                      )}
-                      <td
-                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
-                        onClick={(e) => e.stopPropagation()}
+                    <>
+                      <tr
+                        key={row.id}
+                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                          selectedCase?.id === row.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''
+                        } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                        onClick={() => setSelectedCase(row)}
                       >
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => setSelectedCase(row)}
-                            className="text-gray-400 hover:text-[#334d6d] transition-colors"
-                            title="檢視"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingCase({
-                                case_id: row.id,
-                                case_type: row.caseType,
-                                client: row.client,
-                                lawyer: row.lawyer,
-                                legal_affairs: row.legalAffairs,
-                                case_reason: row.caseReason,
-                                case_number: row.caseNumber,
-                                opposing_party: row.opposingParty,
-                                court: row.court,
-                                division: row.division,
-                                progress: row.progress,
-                                progress_date: row.progressDate
-                              });
-                              setShowCaseForm(true);
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-[#334d6d] focus:ring-[#334d6d]"
+                            checked={selectedCaseIds.includes(row.id)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleCaseSelect(row.id, e.target.checked);
                             }}
-                            className="text-gray-400 hover:text-blue-600 transition-colors"
-                            title="編輯"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={async () => {
-                              if (confirm('確定要刪除此案件嗎？此操作無法復原。')) {
-                                try {
-                                  const firmCode = getFirmCodeOrThrow();
-                                  const response = await fetch(`/api/cases/${row.id}?firm_code=${encodeURIComponent(firmCode)}`, {
-                                    method: 'DELETE'
-                                  });
-                                  if (response.ok) {
-                                    setCases(prev => prev.filter(c => c.id !== row.id));
-                                    if (selectedCase?.id === row.id) {
-                                      setSelectedCase(null);
-                                    }
-                                  }
-                                } catch (error) {
-                                  console.error('刪除案件失敗:', error);
+                          />
+                        </td>
+
+                        {visibleColumns.client && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {row.client}
+                          </td>
+                        )}
+                        {visibleColumns.caseNumber && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {row.caseNumber}
+                          </td>
+                        )}
+                        {visibleColumns.caseType && (
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                                row.status
+                              )}`}
+                            >
+                              {row.caseType}
+                            </span>
+                          </td>
+                        )}
+                        {visibleColumns.lawyer && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <div className="flex items-center space-x-2">
+                              {row.lawyer}
+                            </div>
+                          </td>
+                        )}
+                        {visibleColumns.legalAffairs && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {row.legalAffairs}
+                          </td>
+                        )}
+                        {visibleColumns.progress && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {row.progress}
+                          </td>
+                        )}
+                        {visibleColumns.progressDate && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {row.progressDate}
+                          </td>
+                        )}
+                        {visibleColumns.court && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {row.court}
+                          </td>
+                        )}
+                        {visibleColumns.division && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {row.division}
+                          </td>
+                        )}
+                        <td
+                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!row.id) {
+                                  alert('案件 ID 不存在，無法編輯');
+                                  return;
                                 }
-                              }
-                            }}
-                            className="text-gray-400 hover:text-red-600 transition-colors"
-                            title="刪除"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+
+                                // 正規化：將 null/undefined -> ''；日期裁切成 YYYY-MM-DD
+                                const toStr = (v: any) => (v === null || v === undefined ? '' : String(v));
+                                const normalizeDate = (v: any) =>
+                                  typeof v === 'string' ? v.slice(0, 10) : (v instanceof Date ? v.toISOString().slice(0,10) : '');
+
+                                // 將 TableCase(row) 轉為 CaseForm 需要的 snake_case
+                                const formData = {
+                                  case_id: row.id,
+                                  case_number: toStr(row.caseNumber),
+                                  client: toStr(row.client),
+                                  case_type: toStr(row.caseType),
+                                  lawyer: toStr(row.lawyer),
+                                  legal_affairs: toStr(row.legalAffairs),
+                                  case_reason: toStr(row.caseReason),
+                                  opposing_party: toStr(row.opposingParty),
+                                  court: toStr(row.court),
+                                  division: toStr(row.division),
+                                  progress: toStr(row.progress),
+                                  progress_date: normalizeDate(row.progressDate),
+                                  // 若 CaseForm 需要其他欄位，再補上
+                                };
+
+                                setCaseFormMode('edit');
+                                setEditingCase(formData);
+                                setShowCaseForm(true);
+                              }}
+                              className="text-gray-400 hover:text-[#334d6d] transition-colors"
+                              title="編輯"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFolderToggle(row.id);
+                              }}
+                              className={`transition-colors ${
+                                expandedCaseId === row.id
+                                  ? 'text-blue-600 hover:text-blue-700'
+                                  : 'text-gray-400 hover:text-blue-600'
+                              }`}
+                              title="展開/收合資料夾"
+                            >
+                              <Folder className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCase(row.id);
+                              }}
+                              className="text-gray-400 hover:text-red-600 transition-colors"
+                              title="刪除"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* 資料夾樹展開區域 - 緊接在對應案件下方 */}
+                      {expandedCaseId === row.id && (
+                        <tr key={`folder-${row.id}`} className="bg-gray-50">
+                          <td colSpan={10} className="px-0 py-0">
+                            <div className="px-6 py-4">
+                              <FolderTree
+                                caseId={row.id}
+                                clientName={row.client}
+                                isExpanded={true}
+                                onToggle={() => {}} // 空函數，因為已經在這裡展開了
+                                s3Config={{
+                                  endpoint: process.env.VITE_SPACES_ENDPOINT || 'https://sgp1.digitaloceanspaces.com',
+                                  accessKey: process.env.VITE_SPACES_ACCESS_KEY || '',
+                                  secretKey: process.env.VITE_SPACES_SECRET_KEY || '',
+                                  bucket: process.env.VITE_SPACES_BUCKET || '',
+                                  region: process.env.VITE_SPACES_REGION || 'sgp1'
+                                }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>
             </div>
-
-            {/* 手機版卡片列表 - 優化排版 */}
-            <div className="lg:hidden p-4 space-y-4">
-              {filteredCases.map((caseItem) => (
-                <div
-                  key={caseItem.id}
-                  className={`bg-white rounded-lg border shadow-sm transition-all duration-200 ${
-                    selectedCase?.id === caseItem.id ? 'border-[#334d6d] bg-blue-50 shadow-md' : 'border-gray-200 hover:shadow-md'
-                  }`}
-                >
-                  {/* 卡片頭部 - 重要資訊 */}
-                  <div 
-                    className="p-4 cursor-pointer"
-                    onClick={() => setSelectedCase(caseItem)}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 text-base mb-1">{caseItem.client}</h3>
-                        <div className="flex items-center space-x-2">
-                          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                            {caseItem.caseType}
-                          </span>
-                          {caseItem.caseNumber && (
-                            <span className="text-xs text-gray-500">#{caseItem.caseNumber}</span>
-                          )}
-                        </div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={selectedCaseIds.includes(caseItem.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          if (e.target.checked) {
-                            setSelectedCaseIds(prev => [...prev, caseItem.id]);
-                          } else {
-                            setSelectedCaseIds(prev => prev.filter(id => id !== caseItem.id));
-                          }
-                        }}
-                        className="rounded border-gray-300 text-[#334d6d] focus:ring-[#334d6d]"
-                      />
-                    </div>
-
-                    {/* 案件詳情 */}
-                    <div className="space-y-2 text-sm">
-                      {caseItem.caseReason && (
-                        <div className="flex items-start">
-                          <span className="text-gray-500 w-16 flex-shrink-0">案由：</span>
-                          <span className="text-gray-900">{caseItem.caseReason}</span>
-                        </div>
-                      )}
-                      
-                      <div className="grid grid-cols-2 gap-2">
-                        {caseItem.lawyer && (
-                          <div className="flex items-center">
-                            <User className="w-3 h-3 text-gray-400 mr-1" />
-                            <span className="text-gray-600 text-xs">{caseItem.lawyer}</span>
-                          </div>
-                        )}
-                        {caseItem.court && (
-                          <div className="flex items-center">
-                            <Building className="w-3 h-3 text-gray-400 mr-1" />
-                            <span className="text-gray-600 text-xs">{caseItem.court}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 進度資訊 */}
-                      {caseItem.progress && (
-                        <div className="bg-gray-50 rounded-md p-2 mt-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500">目前進度</span>
-                            {caseItem.progressDate && (
-                              <span className="text-xs text-gray-400">{caseItem.progressDate}</span>
-                            )}
-                          </div>
-                          <div className="text-sm font-medium text-gray-900 mt-1">{caseItem.progress}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 卡片底部 - 操作按鈕 */}
-                  <div className="border-t border-gray-100 px-4 py-3">
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingCase({
-                            case_id: caseItem.id,
-                            case_type: caseItem.caseType,
-                            client: caseItem.client,
-                            lawyer: caseItem.lawyer,
-                            legal_affairs: caseItem.legalAffairs,
-                            case_reason: caseItem.caseReason,
-                            case_number: caseItem.caseNumber,
-                            opposing_party: caseItem.opposingParty,
-                            court: caseItem.court,
-                            division: caseItem.division,
-                            progress: caseItem.progress,
-                            progress_date: caseItem.progressDate
-                          });
-                          setShowCaseForm(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        編輯
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedCase(caseItem);
-                        }}
-                        className="text-[#334d6d] hover:text-[#3f5a7d] text-sm font-medium"
-                      >
-                        檢視詳情
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* 右側詳情 */}
@@ -799,16 +1362,59 @@ export default function CaseOverview() {
                 <h3 className="text-lg font-semibold text-gray-900">案件詳情</h3>
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => handleStageAdd(selectedCase)}
-                    className="bg-[#27ae60] text-white px-3 py-1.5 rounded-md hover:bg-[#229954] transition-colors flex items-center space-x-1 text-sm"
+                    onClick={() => {
+                      if (!selectedCase?.id) {
+                        alert('案件 ID 不存在，無法編輯');
+                        return;
+                      }
+
+                      // 正規化工具
+                      const toStr = (v: any) => (v === null || v === undefined ? '' : String(v));
+                      const normalizeDate = (v: any) =>
+                        typeof v === 'string'
+                          ? v.slice(0, 10)
+                          : v instanceof Date
+                          ? v.toISOString().slice(0, 10)
+                          : '';
+
+                      // 將 TableCase（camelCase）→ CaseForm 需要的 snake_case
+                      const formData = {
+                        case_id: selectedCase.id,
+                        case_number: toStr(selectedCase.caseNumber),
+                        client: toStr(selectedCase.client),
+                        case_type: toStr(selectedCase.caseType),
+                        lawyer: toStr(selectedCase.lawyer),
+                        legal_affairs: toStr(selectedCase.legalAffairs),
+                        case_reason: toStr(selectedCase.caseReason),
+                        opposing_party: toStr(selectedCase.opposingParty),
+                        court: toStr(selectedCase.court),
+                        division: toStr(selectedCase.division),
+                        progress: toStr(selectedCase.progress),
+                        progress_date: normalizeDate(selectedCase.progressDate),
+                        // 若表單還有其他欄位，這裡一併補上
+                      };
+
+                      setCaseFormMode('edit');
+                      setEditingCase(formData);
+                      setShowCaseForm(true);
+                    }}
+                    className="bg-[#334d6d] text-white px-3 py-1.5 rounded-md hover:bg-[#3f5a7d] transition-colors flex items-center space-x-1 text-sm"
                   >
-                    <Plus className="w-3 h-3" />
-                    <span>新增階段</span>
+                    <Edit className="w-3 h-3" />
+                    <span>編輯</span>
                   </button>
-                  {/* 只保留一個關閉按鈕 */}
+
+                  {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
                   <button
                     onClick={() => setSelectedCase(null)}
                     className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    title="關閉詳情"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setSelectedCase(null)}
+                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md p-2 transition-colors"
                     title="關閉詳情"
                   >
                     <X className="w-5 h-5" />
@@ -819,210 +1425,181 @@ export default function CaseOverview() {
               {/* 基本資訊 */}
               <div className="space-y-4 mb-6">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">當事人</label>
-                  <p className="text-sm text-gray-900 mt-1">{selectedCase.client}</p>
+                  <label className="text-sm font-medium text-gray-500">案號</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedCase.caseNumber}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-500">案件類型</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedCase.caseType}</p>
+                    <label className="text-sm font-medium text-gray-500">案由</label>
+                    <p className="text-sm text-gray-900 mt-1">{selectedCase.caseReason || '未設定'}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">案號</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedCase.caseNumber}</p>
+                    <label className="text-sm font-medium text-gray-500">對造</label>
+                    <p className="text-sm text-gray-900 mt-1">{selectedCase.opposingParty || '未設定'}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-500">律師</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedCase.lawyer}</p>
+                    <label className="text-sm font-medium text-gray-500">負責法院</label>
+                    <p className="text-sm text-gray-900 mt-1">{selectedCase.court || '未設定'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">負責股別</label>
+                    <p className="text-sm text-gray-900 mt-1">{selectedCase.division || '未設定'}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">委任律師</label>
+                    <p className="text-sm text-gray-900 mt-1">{selectedCase.lawyer || '未指派'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">法務</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedCase.legalAffairs}</p>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">案由</label>
-                  <p className="text-sm text-gray-900 mt-1">{selectedCase.caseReason}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">法院</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedCase.court}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">股別</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedCase.division}</p>
+                    <p className="text-sm text-gray-900 mt-1">{selectedCase.legalAffairs || '未指派'}</p>
                   </div>
                 </div>
               </div>
 
               <hr className="my-6" />
 
-              {/* 案件進度 - 優化排版 */}
+              {/* 進度階段 */}
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="text-sm font-semibold text-gray-900">案件進度</h4>
                   <button
-                    onClick={() => handleStageAdd(selectedCase)}
-                    className="text-[#27ae60] hover:text-[#229954] text-xs flex items-center space-x-1"
+                    onClick={() => {
+                      setStageDialogMode('add');
+                      setEditingStage(null);
+                      setShowStageDialog(true);
+                    }}
+                    className="bg-[#27ae60] text-white px-3 py-1.5 rounded-md transition-colors flex items-center space-x-1"
                   >
                     <Plus className="w-3 h-3" />
-                    <span>新增</span>
+                    <span>新增階段</span>
                   </button>
                 </div>
-                
+
                 <div className="space-y-3">
-                  {selectedCase.stages.map((stage, idx) => (
-                    <div key={idx} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                      {/* 階段標題行 */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          {getStageStatusIcon(stage)}
-                          <span className="font-medium text-gray-900 text-sm">{stage.name}</span>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            stage.completed 
-                              ? 'bg-green-100 text-green-700' 
-                              : getStageStatusText(stage) === '逾期'
-                              ? 'bg-red-100 text-red-700'
-                              : getStageStatusText(stage) === '今日'
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }`}>
-                            {getStageStatusText(stage)}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => handleStageEdit(selectedCase, idx)}
-                            className="text-gray-400 hover:text-blue-600 transition-colors p-1"
-                            title="編輯階段"
-                          >
-                            <Edit className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => handleStageDelete(selectedCase, idx)}
-                            className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                            title="刪除階段"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {/* 日期時間資訊 */}
-                      {(stage.date || stage.time) && (
-                        <div className="flex items-center space-x-4 text-xs text-gray-600 mb-2">
-                          {stage.date && (
-                            <div className="flex items-center space-x-1">
-                              <Calendar className="w-3 h-3" />
-                              <span>{stage.date}</span>
-                            </div>
-                          )}
-                          {stage.time && (
-                            <div className="flex items-center space-x-1">
-                              <Clock className="w-3 h-3" />
-                              <span>{stage.time}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* 備註 */}
-                      {stage.note && (
-                        <div className="bg-white rounded-md p-2 border border-gray-100">
-                          <p className="text-xs text-gray-700">{stage.note}</p>
-                        </div>
-                      )}
+                  {selectedCase.stages.length === 0 ? (
+                    <div className="text-sm text-gray-500 text-center py-4">
+                      尚未新增任何階段
                     </div>
-                  ))}
-                  
-                  {selectedCase.stages.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      <FileText className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                      <p className="text-sm">尚無進度記錄</p>
-                      <button
-                        onClick={() => handleStageAdd(selectedCase)}
-                        className="text-[#27ae60] hover:text-[#229954] text-sm mt-2"
-                      >
-                        新增第一個階段
-                      </button>
-                    </div>
+                  ) : (
+                    selectedCase.stages.map((stage, stageIndex) => {
+                      const isCurrent = stage.name === selectedCase.progress;
+                      const getStageColor = (stage: Stage, isCurrent: boolean): string => {
+                        if (!stage.date) return 'bg-gray-200 text-gray-600';
+                        const stageDate = new Date(stage.date);
+                        const today = new Date();
+                        const diffDays = Math.ceil((stageDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        if (stage.completed) return 'bg-green-500 text-white';
+                        if (diffDays < 0) return 'bg-red-500 text-white';
+                        if (diffDays <= 3) return 'bg-yellow-400 text-black';
+                        return isCurrent ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white';
+                      };
+
+                      return (
+                        <div
+                          key={`${stage.name}-${stageIndex}`}
+                          className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 group border border-gray-100 mb-2"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div
+                                  className={`inline-block px-3 py-1.5 rounded-full text-sm font-medium cursor-pointer transition-colors ${getStageColor(stage, isCurrent)}`}
+                                  onClick={() => {
+                                    setStageDialogMode('edit');
+                                    setEditingStage({ index: stageIndex, stage });
+                                    setShowStageDialog(true);
+                                  }}
+                                  title="點擊編輯此進度"
+                                >
+                                  {stage.name}
+                                </div>
+                                {stage.note && (
+                                  <p className="text-xs text-gray-500 mt-2 ml-1">{stage.note}</p>
+                                )}
+                              </div>
+
+                              <div className="flex flex-col items-end space-y-1">
+                                <div className="bg-white px-2 py-1 rounded-md shadow-sm border border-gray-200">
+                                  <span className="text-xs font-medium text-gray-700">
+                                    {stage.date}
+                                    {stage.time ? ` ${stage.time}` : ''}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center space-x-1">
+                                  <button
+                                    onClick={() => {
+                                      const folderPath = FolderManager.getStageFolder(selectedCase.id, stage.name);
+                                      console.log(`開啟階段資料夾: ${folderPath}`);
+                                      alert(`開啟階段資料夾：${stage.name}\n路徑：${folderPath}`);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-all p-1 rounded"
+                                    title="開啟階段資料夾"
+                                  >
+                                    <Folder className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteStage(stage.name, stageIndex)}
+                                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all p-1 rounded"
+                                    title="刪除階段"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
-              </div>
-
-              <hr className="my-6" />
-
-              {/* 資料夾樹 */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-semibold text-gray-900">案件資料夾</h4>
-                  <button
-                    onClick={() => setExpandedFolders(prev => ({
-                      ...prev,
-                      [selectedCase.id]: !prev[selectedCase.id]
-                    }))}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {expandedFolders[selectedCase.id] ? (
-                      <ChevronUp className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-                
-                <FolderTree
-                  caseId={selectedCase.id}
-                  clientName={selectedCase.client}
-                  isExpanded={expandedFolders[selectedCase.id] || false}
-                  onToggle={() => setExpandedFolders(prev => ({
-                    ...prev,
-                    [selectedCase.id]: !prev[selectedCase.id]
-                  }))}
-                  onFileUpload={() => setShowFileUpload(true)}
-                />
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* 對話框 */}
+      {/* 對話框們 */}
       <CaseForm
         isOpen={showCaseForm}
         onClose={() => {
           setShowCaseForm(false);
           setEditingCase(null);
         }}
-        onSave={handleCaseSave}
+        onSave={caseFormMode === 'add' ? handleAddCase : handleEditCase}
         caseData={editingCase}
-        mode={editingCase ? 'edit' : 'add'}
+        mode={caseFormMode}
       />
 
       <StageEditDialog
         isOpen={showStageDialog}
-        mode={editingStageIndex >= 0 ? 'edit' : 'add'}
-        initial={editingStageIndex >= 0 && selectedCase ? {
-          stageName: selectedCase.stages[editingStageIndex]?.name || '',
-          date: selectedCase.stages[editingStageIndex]?.date || '',
-          time: selectedCase.stages[editingStageIndex]?.time || '',
-          note: selectedCase.stages[editingStageIndex]?.note || ''
+        mode={stageDialogMode}
+        initial={editingStage ? {
+          stageName: editingStage.stage.name,
+          date: editingStage.stage.date,
+          time: editingStage.stage.time,
+          note: editingStage.stage.note
         } : undefined}
         onClose={() => {
           setShowStageDialog(false);
-          setEditingStageIndex(-1);
+          setEditingStage(null);
         }}
-        onSave={handleStageSave}
+        onSave={stageDialogMode === 'add' ? handleAddStage : handleEditStage}
         caseId={selectedCase?.id}
       />
 
       <FileUploadDialog
         isOpen={showFileUpload}
         onClose={() => setShowFileUpload(false)}
-        onUploadComplete={handleFileUploadComplete}
+        onUploadComplete={() => {
+          setShowFileUpload(false);
+          // 重新載入案件資料或檔案列表
+        }}
         selectedCaseIds={selectedCaseIds}
         cases={cases.map(c => ({
           id: c.id,
@@ -1031,20 +1608,33 @@ export default function CaseOverview() {
         }))}
       />
 
+      <ClosedTransferDialog
+        isOpen={showClosedTransfer}
+        cases={selectedCaseIds.map(id => {
+          const caseItem = cases.find(c => c.id === id);
+          return {
+            id,
+            caseNo: caseItem?.caseNumber,
+            title: caseItem?.client
+          };
+        })}
+        onClose={() => setShowClosedTransfer(false)}
+        onConfirm={handleTransferToClosed}
+      />
+
+      <UnifiedDialog
+        isOpen={showUnifiedDialog}
+        onClose={() => setShowUnifiedDialog(false)}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        type={dialogConfig.type}
+        onConfirm={dialogConfig.onConfirm}
+      />
+
       <ImportDataDialog
         isOpen={showImportDialog}
         onClose={() => setShowImportDialog(false)}
         onImportComplete={handleImportComplete}
-      />
-
-      <ClosedTransferDialog
-        isOpen={showClosedTransfer}
-        cases={selectedCaseIds.map(id => {
-          const c = cases.find(x => x.id === id);
-          return { id, caseNo: c?.caseNumber, title: c?.client };
-        })}
-        onClose={() => setShowClosedTransfer(false)}
-        onConfirm={handleClosedTransfer}
       />
     </div>
   );

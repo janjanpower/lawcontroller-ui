@@ -24,10 +24,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
   // 如果沒有登入 token，不渲染內容
   if (!hasAuthToken()) {
     return (
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
+      <div className="flex items-center space-x-2 text-sm text-gray-600">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#334d6d] mx-auto mb-4"></div>
-            {/* 手機版登出按鈕 */}
+          {/* 登出按鈕 - 移動到下方 */}
+          <div className="mt-auto pt-4 border-t border-[#34495e]">
             <button
               onClick={handleLogout}
               className="lg:hidden p-2 text-gray-600 hover:text-red-600 rounded-md transition-colors ml-2"
@@ -35,14 +35,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             >
               <LogOut className="w-4 h-4" />
             </button>
-            {/* 手機版登出按鈕 */}
-            <button
-              onClick={handleLogout}
-              className="lg:hidden p-2 text-gray-600 hover:text-red-600 rounded-md transition-colors ml-2"
-              title="登出"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+          </div>
           <p className="text-gray-600">正在跳轉到登入頁面...</p>
         </div>
       </div>
@@ -99,6 +92,14 @@ export default function MainLayout({ children }: MainLayoutProps) {
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <User className="w-4 h-4" />
               <span>{localStorage.getItem('law_user_name') || '用戶'}</span>
+              {/* 手機版登出按鈕 */}
+              <button
+                onClick={handleLogout}
+                className="lg:hidden p-2 text-white hover:text-gray-300 rounded-md transition-colors"
+                title="登出"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
