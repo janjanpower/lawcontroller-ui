@@ -104,7 +104,7 @@ export default function ClosedCases() {
     try {
       const response = await apiFetch('/api/cases?status=closed');
       const data = await response.json();
-      
+
       if (response.ok) {
         // 轉換後端資料為前端格式
         const transformedCases = (data.items || []).map((item: any) => ({
@@ -282,19 +282,18 @@ export default function ClosedCases() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-            <div className="lg:hidden p-3 space-y-3">
-                      </span>
+                        <div><span className="text-gray-500">結案日期：</span>{row.closedDate}</div>
+                      </div>
+                    </div>
+
+                    <div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  className={`bg-white rounded-xl border shadow-sm p-4 transition-all duration-200 space-y-3 ${
-                    selectedCase?.id === row.id ? 'border-[#334d6d] bg-blue-50 shadow-md' : 'border-gray-200 hover:shadow-md'
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {row.closedDate}
-                  {/* 頂部：當事人和案件類型 */}
-                  <div className="flex items-center justify-between">
+                    </td>
                     <td
-                      className="flex-1 cursor-pointer"
-                      onClick={(e) => e.stopPropagation()}
+                      className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                          className="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 rounded"
                     >
                       <div className="flex items-center space-x-2">
                         <button
@@ -307,12 +306,12 @@ export default function ClosedCases() {
                         <button
                           onClick={() => handleExportData(row)}
                           className="text-gray-400 hover:text-green-600 transition-colors"
-                          title="匯出資料"
+                          className="text-green-600 hover:text-green-800 text-xs px-2 py-1 rounded"
                         >
                           <Download className="w-4 h-4" />
                         </button>
                       </div>
-                    </td>
+                    </div>
                   </tr>
                 ))}
               </tbody>
@@ -343,52 +342,37 @@ export default function ClosedCases() {
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                  {/* 中間：案件詳情 */}
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-gray-500 block">案號</span>
-                        <span className="text-gray-900 font-medium">{row.caseNumber || '未設定'}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 block">結案日期</span>
-                        <span className="text-gray-900 font-medium">{row.closedDate}</span>
-                      </div>
-                  </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-gray-500 block">律師</span>
-                        <span className="text-gray-900">{row.lawyer || '未指派'}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 block">法務</span>
-                        <span className="text-gray-900">{row.legalAffairs || '未指派'}</span>
-                      </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">結案日期</label>
-                    <p className="text-sm text-gray-900 mt-1">{selectedCase.closedDate}</p>
-                  {/* 底部：操作按鈕 */}
-                  <div className="flex justify-end space-x-2 pt-2 border-t border-gray-100">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedCase(row);
-                      }}
-                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium hover:bg-blue-200 transition-colors"
-                    >
-                      檢視
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleExportData(row);
-                      }}
-                      className="px-3 py-1 bg-green-100 text-green-700 rounded-md text-xs font-medium hover:bg-green-200 transition-colors"
-                    >
-                      匯出
-                    </button>
-                  ))}
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">案號</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedCase.caseNumber}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">當事人</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedCase.client}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">案件類型</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedCase.caseType}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">律師</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedCase.lawyer}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">法務</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedCase.legalAffairs}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">結案日期</label>
+                  <p className="text-sm text-gray-900 mt-1">{selectedCase.closedDate}</p>
                 </div>
               </div>
             </div>
