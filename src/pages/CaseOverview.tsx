@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Plus, Search, Filter, Upload, Download, FileText, User, Building, 
+import {
+  Plus, Search, Filter, Upload, Download, FileText, User, Building,
   Eye, Edit, Trash2, X, Calendar, Clock, AlertTriangle, CheckCircle2,
   MoreVertical, Folder, Settings
 } from 'lucide-react';
@@ -82,7 +82,7 @@ export default function CaseOverview() {
     try {
       const response = await apiFetch('/api/cases?status=open');
       const data = await response.json();
-      
+
       if (response.ok) {
         const transformedCases = (data.items || []).map((item: any) => ({
           id: item.id,
@@ -179,7 +179,7 @@ export default function CaseOverview() {
           <span className="text-gray-500 w-12 flex-shrink-0">律師</span>
           <span className="text-gray-900 font-medium">{caseItem.lawyer || '未指派'}</span>
         </div>
-        
+
         <div className="flex items-center text-sm">
           <Building className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
           <span className="text-gray-500 w-12 flex-shrink-0">法務</span>
@@ -208,7 +208,7 @@ export default function CaseOverview() {
             <Edit className="w-4 h-4" />
             <span>編輯</span>
           </button>
-          
+
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -218,9 +218,9 @@ export default function CaseOverview() {
           >
             <Plus className="w-4 h-4" />
             <span>階段</span>
-          </button>
+            const c = cases.find(caseItem => caseItem.id === id);
         </div>
-        
+
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -314,7 +314,7 @@ export default function CaseOverview() {
           progressDate: newCase.progressDate
         });
       } else {
-        setCases(prev => prev.map(c => 
+        setCases(prev => prev.map(c =>
           c.id === caseData.case_id ? {
             ...c,
             caseType: caseData.case_type,
@@ -422,7 +422,7 @@ export default function CaseOverview() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <h2 className="text-xl font-semibold text-[#334d6d]">案件總覽</h2>
-            
+
             {/* 手機版操作按鈕 */}
             <div className="flex items-center space-x-2 sm:hidden">
               <button
@@ -753,7 +753,7 @@ export default function CaseOverview() {
                     <Edit className="w-5 h-5" />
                     <span>編輯案件</span>
                   </button>
-                  
+
                   <button
                     onClick={() => handleAddStage(selectedCase)}
                     className="w-full bg-green-600 text-white py-3 px-4 rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 font-medium"
