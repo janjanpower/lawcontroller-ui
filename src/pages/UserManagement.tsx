@@ -572,7 +572,6 @@ export default function UserManagement() {
             </div>
           </div>
         </div>
-        </div>
 
         {/* 右側詳情 */}
         {selectedUser && (
@@ -811,13 +810,147 @@ export default function UserManagement() {
         )}
       </div>
 
-        {/* 新增用戶對話框 */}
-        {showCreateUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-              <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
-                <h2 className="text-lg font-semibold">新增用戶</h2>
+      {/* 新增用戶對話框 */}
+      {showCreateUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+              <h2 className="text-lg font-semibold">新增用戶</h2>
+              <button
+                onClick={() => {
+                  setShowCreateUser(false);
+                  setError('');
+                  setCreateUserData({
+                    username: '',
+                    fullName: '',
+                    email: '',
+                    phone: '',
+                    role: 'lawyer',
+                    personalPassword: '',
+                    confirmPersonalPassword: ''
+                  });
+                }}
+                className="text-white hover:text-gray-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    用戶名 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={createUserData.username}
+                    onChange={(e) => setCreateUserData(prev => ({ ...prev, username: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    placeholder="請輸入用戶名"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    姓名 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={createUserData.fullName}
+                    onChange={(e) => setCreateUserData(prev => ({ ...prev, fullName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    placeholder="請輸入真實姓名"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email <span className="text-gray-400 text-xs">（選填）</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={createUserData.email}
+                    onChange={(e) => setCreateUserData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    placeholder="請輸入Email"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    電話
+                  </label>
+                  <input
+                    type="tel"
+                    value={createUserData.phone}
+                    onChange={(e) => setCreateUserData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    placeholder="請輸入電話號碼"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    角色 <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={createUserData.role}
+                    onChange={(e) => setCreateUserData(prev => ({ ...prev, role: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                  >
+                    <option value="lawyer">律師</option>
+                    <option value="legal_affairs">法務</option>
+                    <option value="assistant">助理</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    個人密碼 (6位數字) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={createUserData.personalPassword}
+                    onChange={(e) => setCreateUserData(prev => ({ ...prev, personalPassword: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
+                    placeholder="請輸入6位數字密碼"
+                    pattern="\d{6}"
+                    maxLength={6}
+                    minLength={6}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    確認個人密碼 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={createUserData.confirmPersonalPassword}
+                    onChange={(e) => setCreateUserData(prev => ({ ...prev, confirmPersonalPassword: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
+                    placeholder="請再次輸入密碼"
+                    pattern="\d{6}"
+                    maxLength={6}
+                    minLength={6}
+                    required
+                  />
+                </div>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <p className="text-red-700 text-sm">{error}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
                 <button
+                  type="button"
                   onClick={() => {
                     setShowCreateUser(false);
                     setError('');
@@ -831,315 +964,180 @@ export default function UserManagement() {
                       confirmPersonalPassword: ''
                     });
                   }}
-                  className="text-white hover:text-gray-300 transition-colors"
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                  disabled={loading}
                 >
-                  <X className="w-5 h-5" />
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-6 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      新增中...
+                    </>
+                  ) : (
+                    '新增用戶'
+                  )}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-              <form onSubmit={handleCreateUser} className="p-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      用戶名 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={createUserData.username}
-                      onChange={(e) => setCreateUserData(prev => ({ ...prev, username: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                      placeholder="請輸入用戶名"
-                      required
-                    />
-                  </div>
+      {/* 編輯用戶對話框 */}
+      {showEditUser && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+              <h2 className="text-lg font-semibold">編輯用戶</h2>
+              <button
+                onClick={() => {
+                  setShowEditUser(false);
+                  setError('');
+                }}
+                className="text-white hover:text-gray-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      姓名 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={createUserData.fullName}
-                      onChange={(e) => setCreateUserData(prev => ({ ...prev, fullName: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                      placeholder="請輸入真實姓名"
-                      required
-                    />
-                  </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setError('');
+              setLoading(true);
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email <span className="text-gray-400 text-xs">（選填）</span>
-                    </label>
-                    <input
-                      type="email"
-                      value={createUserData.email}
-                      onChange={(e) => setCreateUserData(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                      placeholder="請輸入Email"
-                    />
-                  </div>
+              try {
+                const response = await fetch(`/api/users/${selectedUser.id}`, {
+                  method: 'PATCH',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    full_name: editUserData.fullName,
+                    email: editUserData.email,
+                    phone: editUserData.phone,
+                    role: editUserData.role
+                  }),
+                });
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      電話
-                    </label>
-                    <input
-                      type="tel"
-                      value={createUserData.phone}
-                      onChange={(e) => setCreateUserData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                      placeholder="請輸入電話號碼"
-                    />
-                  </div>
+                const data = await response.json();
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      角色 <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={createUserData.role}
-                      onChange={(e) => setCreateUserData(prev => ({ ...prev, role: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                    >
-                      <option value="lawyer">律師</option>
-                      <option value="legal_affairs">法務</option>
-                      <option value="assistant">助理</option>
-                    </select>
-                  </div>
+                if (response.ok) {
+                  await loadUsers();
+                  setShowEditUser(false);
+                  setError('');
+                  alert('用戶資料更新成功！');
+                } else {
+                  setError(data.detail || data.message || '更新用戶失敗');
+                }
+              } catch (error) {
+                console.error('更新用戶錯誤:', error);
+                setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
+              } finally {
+                setLoading(false);
+              }
+            }} className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    姓名 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editUserData.fullName}
+                    onChange={(e) => setEditUserData(prev => ({ ...prev, fullName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    required
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      個人密碼 (6位數字) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={createUserData.personalPassword}
-                      onChange={(e) => setCreateUserData(prev => ({ ...prev, personalPassword: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
-                      placeholder="請輸入6位數字密碼"
-                      pattern="\d{6}"
-                      maxLength={6}
-                      minLength={6}
-                      required
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email <span className="text-gray-400 text-xs">（選填）</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={editUserData.email}
+                    onChange={(e) => setEditUserData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      確認個人密碼 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={createUserData.confirmPersonalPassword}
-                      onChange={(e) => setCreateUserData(prev => ({ ...prev, confirmPersonalPassword: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
-                      placeholder="請再次輸入密碼"
-                      pattern="\d{6}"
-                      maxLength={6}
-                      minLength={6}
-                      required
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    電話
+                  </label>
+                  <input
+                    type="tel"
+                    value={editUserData.phone}
+                    onChange={(e) => setEditUserData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                  />
+                </div>
 
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                      <p className="text-red-700 text-sm">{error}</p>
-                    </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    角色 <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={editUserData.role}
+                    onChange={(e) => setEditUserData(prev => ({ ...prev, role: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    disabled={selectedUser.role === 'admin'} // 管理員角色不能更改
+                  >
+                    <option value="admin">管理員</option>
+                    <option value="lawyer">律師</option>
+                    <option value="legal_affairs">法務</option>
+                    <option value="assistant">助理</option>
+                  </select>
+                  {selectedUser.role === 'admin' && (
+                    <p className="text-xs text-gray-500 mt-1">管理員角色無法更改</p>
                   )}
                 </div>
 
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreateUser(false);
-                      setError('');
-                      setCreateUserData({
-                        username: '',
-                        fullName: '',
-                        email: '',
-                        phone: '',
-                        role: 'lawyer',
-                        personalPassword: '',
-                        confirmPersonalPassword: ''
-                      });
-                    }}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                    disabled={loading}
-                  >
-                    取消
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="px-6 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        新增中...
-                      </>
-                    ) : (
-                      '新增用戶'
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <p className="text-red-700 text-sm">{error}</p>
+                  </div>
+                )}
+              </div>
 
-        {/* 編輯用戶對話框 */}
-        {showEditUser && selectedUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-              <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
-                <h2 className="text-lg font-semibold">編輯用戶</h2>
+              <div className="flex justify-end space-x-3 mt-6">
                 <button
+                  type="button"
                   onClick={() => {
                     setShowEditUser(false);
                     setError('');
                   }}
-                  className="text-white hover:text-gray-300 transition-colors"
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                  disabled={loading}
                 >
-                  <X className="w-5 h-5" />
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-6 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      更新中...
+                    </>
+                  ) : (
+                    '更新用戶'
+                  )}
                 </button>
               </div>
-
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                setError('');
-                setLoading(true);
-
-                try {
-                  const response = await fetch(`/api/users/${selectedUser.id}`, {
-                    method: 'PATCH',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      full_name: editUserData.fullName,
-                      email: editUserData.email,
-                      phone: editUserData.phone,
-                      role: editUserData.role
-                    }),
-                  });
-
-                  const data = await response.json();
-
-                  if (response.ok) {
-                    await loadUsers();
-                    setShowEditUser(false);
-                    setError('');
-                    alert('用戶資料更新成功！');
-                  } else {
-                    setError(data.detail || data.message || '更新用戶失敗');
-                  }
-                } catch (error) {
-                  console.error('更新用戶錯誤:', error);
-                  setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
-                } finally {
-                  setLoading(false);
-                }
-              }} className="p-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      姓名 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={editUserData.fullName}
-                      onChange={(e) => setEditUserData(prev => ({ ...prev, fullName: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email <span className="text-gray-400 text-xs">（選填）</span>
-                    </label>
-                    <input
-                      type="email"
-                      value={editUserData.email}
-                      onChange={(e) => setEditUserData(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      電話
-                    </label>
-                    <input
-                      type="tel"
-                      value={editUserData.phone}
-                      onChange={(e) => setEditUserData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      角色 <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={editUserData.role}
-                      onChange={(e) => setEditUserData(prev => ({ ...prev, role: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                      disabled={selectedUser.role === 'admin'} // 管理員角色不能更改
-                    >
-                      <option value="admin">管理員</option>
-                      <option value="lawyer">律師</option>
-                      <option value="legal_affairs">法務</option>
-                      <option value="assistant">助理</option>
-                    </select>
-                    {selectedUser.role === 'admin' && (
-                      <p className="text-xs text-gray-500 mt-1">管理員角色無法更改</p>
-                    )}
-                  </div>
-
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                      <p className="text-red-700 text-sm">{error}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowEditUser(false);
-                      setError('');
-                    }}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                    disabled={loading}
-                  >
-                    取消
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="px-6 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        更新中...
-                      </>
-                    ) : (
-                      '更新用戶'
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
+            </form>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
