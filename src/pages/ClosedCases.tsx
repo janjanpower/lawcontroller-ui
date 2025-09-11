@@ -104,7 +104,7 @@ export default function ClosedCases() {
     try {
       const response = await apiFetch('/api/cases?status=closed');
       const data = await response.json();
-
+      
       if (response.ok) {
         // 轉換後端資料為前端格式
         const transformedCases = (data.items || []).map((item: any) => ({
@@ -366,14 +366,18 @@ export default function ClosedCases() {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-500">法務</label>
-                  <p className="text-sm text-gray-900 mt-1">{selectedCase.legalAffairs}</p>
-                </div>
-
-                <div>
                   <label className="text-sm font-medium text-gray-500">結案日期</label>
                   <p className="text-sm text-gray-900 mt-1">{selectedCase.closedDate}</p>
                 </div>
+
+                {/* 關閉按鈕 */}
+                <button
+                  onClick={() => setSelectedCase(null)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                  title="關閉詳情"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </div>

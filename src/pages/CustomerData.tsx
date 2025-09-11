@@ -298,14 +298,14 @@ export default function CustomerData() {
                 </div>
               </div>
 
-              <hr className="my-6" />
-
-              {/* 備註 */}
-              <div>
-                <label className="text-sm font-medium text-gray-500">備註</label>
-                <p className="text-sm text-gray-900 mt-1 p-3 bg-gray-50 rounded-md">
-                  {selectedCustomer.notes}
-                </p>
+                {/* 關閉按鈕 */}
+                <button
+                  onClick={() => setSelectedCustomer(null)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                  title="關閉詳情"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>

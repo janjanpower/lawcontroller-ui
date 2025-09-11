@@ -718,13 +718,25 @@ export default function UserManagement() {
                           // TODO: 實現轉讓管理員功能
                           alert('轉讓管理員功能開發中');
                         }}
-                        className="bg-orange-600 text-white px-3 py-1 rounded text-xs hover:bg-orange-700"
+                        className="text-xs text-blue-600 hover:text-blue-800 underline"
                       >
-                        轉讓管理員
+                        轉讓管理員權限
                       </button>
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* 桌面版關閉按鈕 */}
+              <div className="hidden lg:flex justify-end mt-6">
+                {/* 關閉按鈕 */}
+                <button
+                  onClick={() => setSelectedUser(null)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                  title="關閉詳情"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>
