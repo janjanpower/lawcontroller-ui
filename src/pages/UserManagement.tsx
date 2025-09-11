@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Eye, Edit, Trash2, Shield, UserCheck, UserX, X, Plus, Building } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
+import MobileCardList from '../components/MobileCardList';
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -145,6 +146,76 @@ export default function UserManagement() {
     return isActive ? '啟用' : '停用';
   };
 
+  // 渲染用戶卡片內容
+  const renderUserCard = (user, index) => (
+    <>
+      {/* 頂部：用戶基本資訊 */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center flex-1">
+          <div className="w-12 h-12 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-lg font-bold mr-3 flex-shrink-0">
+            {user.fullName.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 text-lg leading-tight truncate">
+              {user.fullName}
+            </h3>
+            <p className="text-sm text-gray-600 mt-1 truncate">
+              @{user.username}
+            </p>
+          </div>
+        </div>
+        <div className="ml-3 flex flex-col items-end space-y-1">
+          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
+            {getRoleText(user.role)}
+          </span>
+          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.isActive)}`}>
+            {getStatusText(user.isActive)}
+          </span>
+        </div>
+      </div>
+
+      {/* 中間：詳細資訊 */}
+      <div className="space-y-2 mb-4">
+        <div className="flex items-center text-sm">
+          <Mail className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
+          <span className="text-gray-900 truncate">{user.email}</span>
+        </div>
+        
+        {user.phone && (
+          <div className="flex items-center text-sm">
+            <Phone className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
+            <span className="text-gray-900">{user.phone}</span>
+          </div>
+        )}
+        
+        <div className="flex items-center text-sm">
+          <Building className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
+          <span className="text-gray-900">{user.department} - {user.position}</span>
+        </div>
+      </div>
+
+      {/* 底部：時間資訊和操作 */}
+      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+        <div className="text-xs text-gray-500">
+          <div className="flex items-center">
+            <Calendar className="w-3 h-3 mr-1" />
+            {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('zh-TW') : '從未登入'}
+          </div>
+        </div>
+        
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedUser(user);
+          }}
+          className="flex items-center space-x-1 px-3 py-2 bg-[#334d6d] text-white rounded-lg hover:bg-[#3f5a7d] transition-colors text-sm font-medium"
+        >
+          <Eye className="w-4 h-4" />
+          <span>詳情</span>
+        </button>
+      </div>
+    </>
+  );
   const handleToggleStatus = async (userId) => {
     try {
       const response = await fetch(`/api/users/${userId}/toggle-status`, {
@@ -485,91 +556,18 @@ export default function UserManagement() {
               </table>
             </div>
 
-            {/* 手機版卡片列表 */}
-            <div className="lg:hidden p-4 space-y-4">
-              {filteredUsers.map((user) => (
-                <div
-                  key={user.id}
-                  className={`bg-white rounded-xl border-2 p-4 transition-all duration-200 ${
-                    selectedUser?.id === user.id
-                      ? 'border-[#334d6d] bg-blue-50 shadow-lg'
-                      : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                  }`}
-                >
-                  {/* 頂部：用戶基本資訊 */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center flex-1">
-                      <div className="w-12 h-12 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-lg font-bold mr-3 flex-shrink-0">
-                        {user.fullName.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 text-lg leading-tight truncate">
-                          {user.fullName}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1 truncate">
-                          @{user.username}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="ml-3 flex flex-col items-end space-y-1">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
-                        {getRoleText(user.role)}
-                      </span>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.isActive)}`}>
-                        {getStatusText(user.isActive)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 中間：詳細資訊 */}
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center text-sm">
-                      <Mail className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                      <span className="text-gray-900 truncate">{user.email}</span>
-                    </div>
-
-                    {user.phone && (
-                      <div className="flex items-center text-sm">
-                        <Phone className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-gray-900">{user.phone}</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center text-sm">
-                      <Building className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                      <span className="text-gray-900">{user.department} - {user.position}</span>
-                    </div>
-                  </div>
-
-                  {/* 底部：時間資訊和操作 */}
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <div className="text-xs text-gray-500">
-                      <div className="flex items-center">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('zh-TW') : '從未登入'}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => setSelectedUser(user)}
-                      className="flex items-center space-x-1 px-3 py-2 bg-[#334d6d] text-white rounded-lg hover:bg-[#3f5a7d] transition-colors text-sm font-medium"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span>詳情</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {filteredUsers.length === 0 && (
-                <div className="text-center py-12">
-                  <User className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">
-                    {searchTerm ? '找不到符合條件的用戶' : '尚無用戶資料'}
-                  </p>
-                </div>
-              )}
-            </div>
+            {/* 手機版卡片列表 - 使用模組化組件 */}
+            <MobileCardList
+              items={filteredUsers}
+              renderCard={renderUserCard}
+              keyExtractor={(user) => user.id}
+              emptyMessage="用戶"
+              emptyIcon={<User className="w-12 h-12" />}
+              onItemClick={setSelectedUser}
+              selectedItemId={selectedUser?.id}
+              searchTerm={searchTerm}
+              totalCount={users.length}
+            />
           </div>
         </div>
 

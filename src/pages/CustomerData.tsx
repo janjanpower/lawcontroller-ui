@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Edit, X, Trash2, Eye, Clock } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
+import MobileCardList from '../components/MobileCardList';
 
 export default function CustomerData() {
   const [customers, setCustomers] = useState([]);
@@ -74,6 +75,81 @@ export default function CustomerData() {
         return '未知';
     }
   }, []);
+  // 渲染客戶卡片內容
+  const renderCustomerCard = (customer, index) => (
+    <>
+      {/* 頂部：客戶基本資訊 */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center flex-1">
+          <div className="w-12 h-12 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-lg font-bold mr-3 flex-shrink-0">
+            {customer.name.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 text-lg leading-tight truncate">
+              {customer.name}
+            </h3>
+            <div className="flex items-center mt-1">
+              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(customer.status)}`}>
+                {getStatusText(customer.status)}
+              </span>
+              <span className="ml-2 text-xs text-gray-500">
+                {customer.caseCount} 件案件
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 中間：聯絡資訊 */}
+      <div className="space-y-2 mb-4">
+        {customer.phone && (
+          <div className="flex items-center text-sm">
+            <Phone className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
+            <span className="text-gray-900">{customer.phone}</span>
+          </div>
+        )}
+        
+        {customer.email && (
+          <div className="flex items-center text-sm">
+            <Mail className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
+            <span className="text-gray-900 truncate">{customer.email}</span>
+          </div>
+        )}
+        
+        {customer.lineId && (
+          <div className="flex items-center text-sm">
+            <MessageCircle className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
+            <span className="text-gray-900">{customer.lineId}</span>
+          </div>
+        )}
+      </div>
+
+      {/* 底部：時間資訊和操作 */}
+      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+        <div className="text-xs text-gray-500">
+          <div className="flex items-center">
+            <Calendar className="w-3 h-3 mr-1" />
+            加入：{customer.joinDate}
+          </div>
+          <div className="flex items-center mt-1">
+            <Clock className="w-3 h-3 mr-1" />
+            最後聯繫：{customer.lastContact}
+          </div>
+        </div>
+        
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedCustomer(customer);
+          }}
+          className="flex items-center space-x-1 px-3 py-2 bg-[#334d6d] text-white rounded-lg hover:bg-[#3f5a7d] transition-colors text-sm font-medium"
+        >
+          <Eye className="w-4 h-4" />
+          <span>詳情</span>
+        </button>
+      </div>
+    </>
+  );
 
   return (
     <div className="flex-1 flex flex-col">
@@ -223,96 +299,20 @@ export default function CustomerData() {
               </table>
             </div>
 
-            {/* 手機版卡片列表 */}
-            <div className="lg:hidden p-4 space-y-4">
-              {filteredCustomers.map((customer) => (
-                <div
-                  key={customer.id}
-                  className={`bg-white rounded-xl border-2 p-4 transition-all duration-200 ${
-                    selectedCustomer?.id === customer.id 
-                      ? 'border-[#334d6d] bg-blue-50 shadow-lg' 
-                      : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                  }`}
-                >
-                  {/* 頂部：客戶基本資訊 */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center flex-1">
-                      <div className="w-12 h-12 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-lg font-bold mr-3 flex-shrink-0">
-                        {customer.name.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 text-lg leading-tight truncate">
-                          {customer.name}
-                        </h3>
-                        <div className="flex items-center mt-1">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(customer.status)}`}>
-                            {getStatusText(customer.status)}
-                          </span>
-                          <span className="ml-2 text-xs text-gray-500">
-                            {customer.caseCount} 件案件
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* 中間：聯絡資訊 */}
-                  <div className="space-y-2 mb-4">
-                    {customer.phone && (
-                      <div className="flex items-center text-sm">
-                        <Phone className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-gray-900">{customer.phone}</span>
-                      </div>
-                    )}
-                    
-                    {customer.email && (
-                      <div className="flex items-center text-sm">
-                        <Mail className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-gray-900 truncate">{customer.email}</span>
-                      </div>
-                    )}
-                    
-                    {customer.lineId && (
-                      <div className="flex items-center text-sm">
-                        <MessageCircle className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-gray-900">{customer.lineId}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 底部：時間資訊和操作 */}
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <div className="text-xs text-gray-500">
-                      <div className="flex items-center">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        加入：{customer.joinDate}
-                      </div>
-                      <div className="flex items-center mt-1">
-                        <Clock className="w-3 h-3 mr-1" />
-                        最後聯繫：{customer.lastContact}
-                      </div>
-                    </div>
-                    
-                    <button
-                      onClick={() => setSelectedCustomer(customer)}
-                      className="flex items-center space-x-1 px-3 py-2 bg-[#334d6d] text-white rounded-lg hover:bg-[#3f5a7d] transition-colors text-sm font-medium"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span>詳情</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {filteredCustomers.length === 0 && (
-                <div className="text-center py-12">
-                  <User className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">
-                    {searchTerm ? '找不到符合條件的客戶' : '尚無客戶資料'}
-                  </p>
-                </div>
-              )}
-            </div>
+          {/* 手機版卡片列表 - 使用模組化組件 */}
+          <MobileCardList
+            items={filteredCustomers}
+            renderCard={renderCustomerCard}
+            keyExtractor={(customer) => customer.id}
+            emptyMessage="客戶"
+            emptyIcon={<User className="w-12 h-12" />}
+            onItemClick={setSelectedCustomer}
+            selectedItemId={selectedCustomer?.id}
+            searchTerm={searchTerm}
+            totalCount={customers.length}
+          />
+        </div>
           </div>
         </div>
 
