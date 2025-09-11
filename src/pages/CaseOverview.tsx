@@ -218,10 +218,9 @@ export default function CaseOverview() {
           >
             <Plus className="w-4 h-4" />
             <span>階段</span>
-            const c = cases.find(caseItem => caseItem.id === id);
-        </div>
+          </button>
 
-        <button
+          <button
           onClick={(e) => {
             e.stopPropagation();
             setSelectedCase(caseItem);
@@ -232,6 +231,7 @@ export default function CaseOverview() {
           <span>詳情</span>
         </button>
       </div>
+        </div>
     </>
   );
 
