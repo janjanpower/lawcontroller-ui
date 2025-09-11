@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Search, Filter, FileText, User, Building, Eye, Folder, X } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
-import MobileCardList from '../components/MobileCardList';
 
 // 自訂確認對話框組件
 interface CustomConfirmDialogProps {
@@ -200,67 +199,6 @@ export default function ClosedCases() {
     setSelectedCaseForExport(null);
   }, []);
 
-  // 渲染結案案件卡片內容
-  const renderClosedCaseCard = (caseItem, index) => (
-    <>
-      {/* 頂部：當事人和案號 */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <h3 className="font-semibold text-gray-900 text-lg leading-tight">
-            {caseItem.client}
-          </h3>
-          <p className="text-sm text-gray-600 mt-1">
-            案號：{caseItem.caseNumber || '未設定'}
-          </p>
-        </div>
-        <div className="ml-3">
-          <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-            {caseItem.caseType}
-          </span>
-        </div>
-      </div>
-
-      {/* 中間：案件資訊 */}
-      <div className="space-y-2 mb-4">
-        <div className="flex items-center text-sm">
-          <User className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
-          <span className="text-gray-500 w-12 flex-shrink-0">律師</span>
-          <span className="text-gray-900 font-medium">{caseItem.lawyer || '未指派'}</span>
-        </div>
-        
-        <div className="flex items-center text-sm">
-          <FileText className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
-          <span className="text-gray-500 w-12 flex-shrink-0">結案</span>
-          <span className="text-gray-900">{caseItem.closedDate}</span>
-        </div>
-      </div>
-
-      {/* 底部：操作按鈕 */}
-      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setSelectedCase(caseItem);
-          }}
-          className="flex items-center space-x-2 px-4 py-2 bg-[#334d6d] text-white rounded-lg hover:bg-[#3f5a7d] transition-colors text-sm font-medium"
-        >
-          <Eye className="w-4 h-4" />
-          <span>檢視詳情</span>
-        </button>
-        
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleExportData(caseItem);
-          }}
-          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-        >
-          <Download className="w-4 h-4" />
-          <span>匯出</span>
-        </button>
-      </div>
-    </>
-  );
   return (
     <div className="flex-1 flex flex-col">
       {/* 頂部工具列 */}
@@ -379,19 +317,80 @@ export default function ClosedCases() {
               </tbody>
             </table>
           </div>
+        </div>
 
-          {/* 手機版卡片列表 - 使用模組化組件 */}
-          <MobileCardList
-            items={filteredCases}
-            renderCard={renderClosedCaseCard}
-            keyExtractor={(caseItem) => caseItem.id}
-            emptyMessage="結案案件"
-            emptyIcon={<FileText className="w-12 h-12" />}
-            onItemClick={setSelectedCase}
-            selectedItemId={selectedCase?.id}
-            searchTerm={searchTerm}
-            totalCount={cases.length}
-          />
+        {/* 手機版卡片列表 */}
+        <div className="lg:hidden p-4 space-y-4">
+          {filteredCases.map((caseItem) => (
+            <div
+              key={caseItem.id}
+              className={`bg-white rounded-xl border-2 p-4 transition-all duration-200 ${
+                selectedCase?.id === caseItem.id 
+                  ? 'border-[#334d6d] bg-blue-50 shadow-lg' 
+                  : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
+              }`}
+            >
+              {/* 頂部：當事人和案號 */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900 text-lg leading-tight">
+                    {caseItem.client}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    案號：{caseItem.caseNumber || '未設定'}
+                  </p>
+                </div>
+                <div className="ml-3">
+                  <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                    {caseItem.caseType}
+                  </span>
+                </div>
+              </div>
+
+              {/* 中間：案件資訊 */}
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center text-sm">
+                  <User className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+                  <span className="text-gray-500 w-12 flex-shrink-0">律師</span>
+                  <span className="text-gray-900 font-medium">{caseItem.lawyer || '未指派'}</span>
+                </div>
+                
+                <div className="flex items-center text-sm">
+                  <FileText className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+                  <span className="text-gray-500 w-12 flex-shrink-0">結案</span>
+                  <span className="text-gray-900">{caseItem.closedDate}</span>
+                </div>
+              </div>
+
+              {/* 底部：操作按鈕 */}
+              <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                <button
+                  onClick={() => setSelectedCase(caseItem)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-[#334d6d] text-white rounded-lg hover:bg-[#3f5a7d] transition-colors text-sm font-medium"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>檢視詳情</span>
+                </button>
+                
+                <button
+                  onClick={() => handleExportData(caseItem)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>匯出</span>
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {filteredCases.length === 0 && (
+            <div className="text-center py-12">
+              <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">
+                {searchTerm ? '找不到符合條件的結案案件' : '尚無結案案件'}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* 右側詳情面板 */}
