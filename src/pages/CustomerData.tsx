@@ -15,7 +15,7 @@ export default function CustomerData() {
     try {
       const response = await apiFetch('/api/clients');
       const data = await response.json();
-      
+
       if (response.ok) {
         setCustomers(data.items || []);
       } else {
@@ -137,9 +137,6 @@ export default function CustomerData() {
             <table className="w-full">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                    ID
-                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     姓名
                   </th>
@@ -172,9 +169,6 @@ export default function CustomerData() {
                     } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                     onClick={() => setSelectedCustomer(customer)}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {customer.id}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {customer.name}
                     </td>
@@ -298,14 +292,79 @@ export default function CustomerData() {
                 </div>
               </div>
 
-                {/* 關閉按鈕 */}
-                <button
-                  onClick={() => setSelectedCustomer(null)}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                  title="關閉詳情"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+              {/* 手機版卡片列表 */}
+              <div className="lg:hidden p-4 space-y-3">
+                {filteredCustomers.map((customer) => (
+                  <div
+                    key={customer.id}
+                    className={`bg-white rounded-lg border p-4 transition-all duration-200 ${
+                      selectedCustomer?.id === customer.id ? 'border-[#334d6d] bg-blue-50 shadow-md' : 'border-gray-200 hover:shadow-sm'
+                    }`}
+                  >
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => setSelectedCustomer(customer)}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-medium text-gray-900 text-base">{customer.name}</h3>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(customer.status)}`}>
+                          {getStatusText(customer.status)}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-sm text-gray-600">
+                        {customer.phone && (
+                          <div className="flex items-center">
+                            <Phone className="w-3 h-3 mr-2 text-gray-400" />
+                            <span className="font-medium">電話：</span>
+                            <span>{customer.phone}</span>
+                          </div>
+                        )}
+                        {customer.email && (
+                          <div className="flex items-center">
+                            <Mail className="w-3 h-3 mr-2 text-gray-400" />
+                            <span className="font-medium">Email：</span>
+                            <span className="truncate">{customer.email}</span>
+                          </div>
+                        )}
+                        {customer.lineId && (
+                          <div className="flex items-center">
+                            <MessageCircle className="w-3 h-3 mr-2 text-gray-400" />
+                            <span className="font-medium">LINE：</span>
+                            <span>{customer.lineId}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <div className="flex items-center">
+                            <Calendar className="w-3 h-3 mr-2 text-gray-400" />
+                            <span className="font-medium">加入：</span>
+                            <span>{customer.joinDate}</span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {customer.caseCount} 件案件
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 底部：操作按鈕 */}
+                    <div className="flex justify-end space-x-2 pt-3 border-t border-gray-100 mt-3">
+                      <button
+                        onClick={() => setSelectedCustomer(customer)}
+                        className="text-[#334d6d] hover:text-[#3f5a7d] text-sm font-medium flex items-center space-x-1"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>檢視</span>
+                      </button>
+                      <button
+                        className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center space-x-1"
+                      >
+                        <Edit className="w-4 h-4" />
+                        <span>編輯</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
