@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Eye, Edit, Trash2, Shield, UserCheck, UserX, X, Plus } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
+import MobileCardList from '../components/MobileCardList';
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -32,8 +33,6 @@ export default function UserManagement() {
 
   // 取得當前用戶角色
   const getCurrentUserRole = () => {
-    // 這裡應該從 localStorage 或其他地方取得當前用戶的角色
-    // 暫時返回 'admin'，實際應用中需要正確實現
     return localStorage.getItem('law_user_role') || 'admin';
   };
 
@@ -170,24 +169,21 @@ export default function UserManagement() {
     }
   };
 
-  const handleDeleteUser = async (userId) => {
-    const user = users.find(u => u.id === userId);
-    if (!user) return;
-
+  const handleDeleteUser = async (user) => {
     const adminPassword = prompt('請輸入管理員密碼以確認刪除：');
     if (!adminPassword) return;
 
     if (confirm(`確定要刪除用戶「${user.fullName}」嗎？此操作無法復原。`)) {
       try {
-        const response = await fetch(`/api/users/${userId}?admin_password=${encodeURIComponent(adminPassword)}`, {
+        const response = await fetch(`/api/users/${user.id}?admin_password=${encodeURIComponent(adminPassword)}`, {
           method: 'DELETE',
         });
 
         const data = await response.json();
 
         if (response.ok && data.success) {
-          setUsers(prev => prev.filter(u => u.id !== userId));
-          if (selectedUser?.id === userId) {
+          setUsers(prev => prev.filter(u => u.id !== user.id));
+          if (selectedUser?.id === user.id) {
             setSelectedUser(null);
           }
           alert('用戶已刪除');
@@ -290,13 +286,82 @@ export default function UserManagement() {
     }
   };
 
+  // 手機版卡片配置
+  const mobileCardFields = [
+    {
+      key: 'username',
+      label: '用戶名',
+      icon: User
+    },
+    {
+      key: 'email',
+      label: 'Email',
+      icon: Mail,
+      show: (item) => !!item.email
+    },
+    {
+      key: 'phone',
+      label: '電話',
+      icon: Phone,
+      show: (item) => !!item.phone
+    },
+    {
+      key: 'department',
+      label: '部門',
+      icon: Shield
+    },
+    {
+      key: 'lastLogin',
+      label: '最後登入',
+      icon: Calendar,
+      render: (value) => value ? new Date(value).toLocaleDateString('zh-TW') : '從未登入'
+    }
+  ];
+
+  const mobileCardActions = [
+    {
+      icon: Eye,
+      label: '檢視',
+      onClick: (item) => setSelectedUser(item),
+      color: 'text-[#334d6d] hover:text-[#3f5a7d]'
+    },
+    {
+      icon: Edit,
+      label: '編輯',
+      onClick: (item) => {
+        setEditUserData({
+          fullName: item.fullName,
+          email: item.email,
+          phone: item.phone || '',
+          role: item.role
+        });
+        setShowEditUser(true);
+        setSelectedUser(item);
+      },
+      color: 'text-blue-600 hover:text-blue-800'
+    },
+    {
+      icon: item => item.isActive ? UserX : UserCheck,
+      label: (item) => item.isActive ? '停用' : '啟用',
+      onClick: (item) => handleToggleStatus(item.id),
+      color: (item) => item.isActive ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800',
+      show: () => getCurrentUserRole() === 'admin'
+    },
+    {
+      icon: Trash2,
+      label: '刪除',
+      onClick: handleDeleteUser,
+      color: 'text-red-600 hover:text-red-800',
+      show: (item) => item.role !== 'admin'
+    }
+  ];
+
   return (
     <div className="flex-1 flex flex-col">
       {/* 頂部工具列 */}
       <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <h2 className="text-xl font-semibold text-[#334d6d]">人員權限</h2>
             <button
               onClick={() => setShowCreateUser(true)}
               className="bg-[#3498db] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-2 justify-center sm:justify-start"
@@ -367,6 +432,7 @@ export default function UserManagement() {
         {/* 列表 */}
         <div className={`flex-1 overflow-hidden ${selectedUser ? 'hidden lg:block' : ''}`}>
           <div className="h-full overflow-auto">
+            {/* 桌面版表格 */}
             <div className="hidden lg:block">
               <table className="w-full">
                 <thead className="bg-gray-50 sticky top-0">
@@ -470,7 +536,7 @@ export default function UserManagement() {
                           </button>
                           {user.role !== 'admin' && (
                             <button
-                              onClick={() => handleDeleteUser(user.id)}
+                              onClick={() => handleDeleteUser(user)}
                               className="text-gray-400 hover:text-red-600 transition-colors"
                               title="刪除"
                             >
@@ -485,108 +551,19 @@ export default function UserManagement() {
               </table>
             </div>
 
-            {/* 手機版卡片列表 */}
-            <div className="lg:hidden p-4 space-y-4">
-              {filteredUsers.map((user) => (
-                <div
-                  key={user.id}
-                  className={`bg-white rounded-lg border p-4 transition-colors space-y-3 ${
-                    selectedUser?.id === user.id ? 'border-[#334d6d] bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
-                  }`}
-                >
-                  <div>
-                    <div
-                      className="flex items-center cursor-pointer"
-                      onClick={() => setSelectedUser(user)}
-                    >
-                      <div className="w-8 h-8 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-sm font-medium">
-                        {user.fullName.charAt(0)}
-                      </div>
-                      <div className="ml-3">
-                        <div className="text-sm font-medium text-gray-900">{user.fullName}</div>
-                        <div className="text-xs text-gray-500">{user.username}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <div>
-                        <span className="text-gray-500">角色：</span>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
-                          {getRoleText(user.role)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">狀態：</span>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.isActive)}`}>
-                          {getStatusText(user.isActive)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 text-xs text-gray-600">
-                      <div><span className="text-gray-500">部門：</span>{user.department}</div>
-                      <div><span className="text-gray-500">職位：</span>{user.position}</div>
-                      <div><span className="text-gray-500">Email：</span>{user.email}</div>
-                      <div><span className="text-gray-500">電話：</span>{user.phone || '未設定'}</div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-gray-500 border-t pt-2">
-                      <div><span className="text-gray-500">最後登入：</span>{user.lastLogin ? new Date(user.lastLogin).toLocaleString('zh-TW') : '從未登入'}</div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-end space-x-2 border-t pt-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditUserData({
-                            fullName: user.fullName,
-                            email: user.email,
-                            phone: user.phone || '',
-                            role: user.role
-                          });
-                          setShowEditUser(true);
-                          setSelectedUser(user);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 text-xs"
-                      >
-                        編輯
-                      </button>
-                      {getCurrentUserRole() === 'admin' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleStatus(user.id);
-                          }}
-                          className={`text-xs ${
-                            user.isActive
-                              ? 'text-red-600 hover:text-red-800'
-                              : 'text-green-600 hover:text-green-800'
-                          }`}
-                        >
-                          {user.isActive ? '停用' : '啟用'}
-                        </button>
-                      )}
-                      {user.role !== 'admin' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteUser(user.id);
-                          }}
-                          className="text-red-600 hover:text-red-800 text-xs"
-                        >
-                          刪除
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+            {/* 手機版卡片列表 - 使用新的 MobileCardList 組件 */}
+            <div className="lg:hidden">
+              <MobileCardList
+                items={filteredUsers}
+                selectedItem={selectedUser}
+                onSelectItem={setSelectedUser}
+                title={(item) => item.fullName}
+                subtitle={(item) => item.username}
+                badge={(item) => ({ text: getRoleText(item.role), color: getRoleColor(item.role) })}
+                fields={mobileCardFields}
+                actions={mobileCardActions}
+                emptyMessage="暫無用戶資料"
+              />
             </div>
           </div>
         </div>
@@ -610,18 +587,15 @@ export default function UserManagement() {
                     }}
                     className="bg-[#334d6d] text-white px-3 py-1.5 rounded-md hover:bg-[#3f5a7d] transition-colors flex items-center space-x-1 text-sm"
                   >
-                    <>
-                      <Edit className="w-3 h-3" />
-                      <span>編輯</span>
-                    </>
+                    <Edit className="w-3 h-3" />
+                    <span>編輯</span>
                   </button>
-                  {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
                   <button
                     onClick={() => setSelectedUser(null)}
-                    className="lg:hidden p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                     title="關閉詳情"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -726,8 +700,6 @@ export default function UserManagement() {
                   )}
                 </div>
               </div>
-
-              {/* 桌面版關閉按鈕 */}
             </div>
           </div>
         )}

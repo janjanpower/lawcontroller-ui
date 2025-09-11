@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Search, Filter, FileText, User, Building, Eye, Folder, X, CheckSquare, Square, Archive, Trash2 } from 'lucide-react';
+import { Download, Search, Filter, FileText, User, Building, Eye, Folder, X, CheckSquare, Square, Archive, Trash2, Upload, Plus } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 import { saveAs } from 'file-saver';
+import MobileCardList from '../components/MobileCardList';
 
 // 自訂確認對話框組件
 interface CustomConfirmDialogProps {
@@ -187,55 +188,21 @@ export default function ClosedCases() {
     );
   };
 
-  // 批量匯出資料
-  const handleBatchExport = async () => {
-    if (selectedCases.length === 0) {
-      alert('請先選擇要匯出的案件');
-      return;
-    }
-
-    const selectedCaseData = cases.filter(c => selectedCases.includes(c.id));
-    setDialogMessage(
-      `確定要匯出 ${selectedCases.length} 個結案案件的完整資料嗎？\n\n` +
-      `將會匯出以下內容：\n` +
-      `• 所有案件的狀紙資料夾\n` +
-      `• 案件資訊 Excel 檔案\n` +
-      `• 進度追蹤資料夾\n` +
-      `• 所有階段相關文件\n` +
-      `• 案件摘要報告\n\n` +
-      `匯出案件：\n${selectedCaseData.map(c => `• ${c.client} - ${c.caseNumber}`).join('\n')}`
-    );
-    setShowConfirmDialog(true);
-  };
-
-  // 單一案件匯出
-  const handleExportData = React.useCallback((caseItem) => {
-    setSelectedCaseForExport(caseItem);
-    setDialogMessage(
-      `確定要匯出案件「${caseItem.client} - ${caseItem.caseNumber}」的完整資料嗎？\n\n` +
-      `將會匯出以下內容：\n` +
-      `• 狀紙資料夾及所有文件\n` +
-      `• 案件資訊 Excel 檔案\n` +
-      `• 進度追蹤資料夾及階段文件\n` +
-      `• 案件摘要報告\n` +
-      `• 所有相關附件`
-    );
-    setShowConfirmDialog(true);
-  }, []);
-
-  // 實際匯出功能
-  const performExport = async (casesToExport: any[]) => {
+  // 匯出當事人資料夾（完整資料夾結構）
+  const exportClientFolders = async (casesToExport: any[]) => {
     setIsExporting(true);
     try {
       const firmCode = getFirmCodeOrThrow();
 
       for (const caseItem of casesToExport) {
         try {
+          console.log(`開始匯出案件 ${caseItem.client} 的完整資料夾...`);
+
           // 1. 取得案件完整資料
           const caseResponse = await apiFetch(`/api/cases/${caseItem.id}?firm_code=${encodeURIComponent(firmCode)}`);
           const caseData = await caseResponse.json();
 
-          // 2. 取得案件檔案列表
+          // 2. 取得案件檔案列表（按資料夾分組）
           const filesResponse = await apiFetch(`/api/cases/${caseItem.id}/files?firm_code=${encodeURIComponent(firmCode)}`);
           const filesData = await filesResponse.json();
 
@@ -243,34 +210,32 @@ export default function ClosedCases() {
           const stagesResponse = await apiFetch(`/api/cases/${caseItem.id}/stages?firm_code=${encodeURIComponent(firmCode)}`);
           const stagesData = await stagesResponse.json();
 
-          // 4. 建立案件摘要 Excel
-          const summaryData = {
-            案號: caseData.case_number || '',
+          // 4. 建立完整的資料夾結構 Excel
+          const XLSX = await import('xlsx');
+          const wb = XLSX.utils.book_new();
+
+          // === 案件基本資訊工作表 ===
+          const basicInfo = {
+            案件編號: caseData.case_number || '',
             當事人: caseData.client_name || '',
             案件類型: caseData.case_type || '',
             案由: caseData.case_reason || '',
             對造: caseData.opposing_party || '',
             法院: caseData.court || '',
             股別: caseData.division || '',
-            律師: caseData.lawyer_name || '',
-            法務: caseData.legal_affairs_name || '',
+            委任律師: caseData.lawyer_name || '',
+            承辦法務: caseData.legal_affairs_name || '',
             結案日期: caseItem.closedDate,
             最終進度: caseData.progress || '',
-            階段數量: Array.isArray(stagesData) ? stagesData.length : 0,
-            檔案數量: (filesData.pleadings?.length || 0) + (filesData.info?.length || 0) + (filesData.progress?.length || 0)
+            建立日期: caseData.created_at ? new Date(caseData.created_at).toLocaleDateString('zh-TW') : ''
           };
+          const basicWs = XLSX.utils.json_to_sheet([basicInfo]);
+          XLSX.utils.book_append_sheet(wb, basicWs, '案件基本資訊');
 
-          // 5. 建立 Excel 內容
-          const XLSX = await import('xlsx');
-          const wb = XLSX.utils.book_new();
-
-          // 案件摘要工作表
-          const summaryWs = XLSX.utils.json_to_sheet([summaryData]);
-          XLSX.utils.book_append_sheet(wb, summaryWs, '案件摘要');
-
-          // 階段記錄工作表
+          // === 階段記錄工作表 ===
           if (Array.isArray(stagesData) && stagesData.length > 0) {
-            const stagesForExcel = stagesData.map(stage => ({
+            const stagesForExcel = stagesData.map((stage, index) => ({
+              序號: index + 1,
               階段名稱: stage.stage_name || stage.name,
               日期: stage.stage_date,
               時間: stage.stage_time || '',
@@ -282,46 +247,131 @@ export default function ClosedCases() {
             XLSX.utils.book_append_sheet(wb, stagesWs, '階段記錄');
           }
 
-          // 檔案清單工作表
+          // === 資料夾結構工作表 ===
+          const folderStructure = [];
+
+          // 狀紙資料夾
+          if (filesData.pleadings && filesData.pleadings.length > 0) {
+            folderStructure.push({
+              資料夾: '狀紙',
+              檔案數量: filesData.pleadings.length,
+              總大小: `${(filesData.pleadings.reduce((sum, f) => sum + (f.size_bytes || 0), 0) / 1024).toFixed(1)} KB`,
+              說明: '訴訟相關狀紙文件'
+            });
+
+            // 狀紙檔案清單
+            const pleadingsFiles = filesData.pleadings.map((file, index) => ({
+              序號: index + 1,
+              資料夾: '狀紙',
+              檔案名稱: file.name,
+              檔案大小: file.size_bytes ? `${(file.size_bytes / 1024).toFixed(1)} KB` : '',
+              檔案類型: file.content_type || '',
+              上傳時間: file.created_at ? new Date(file.created_at).toLocaleString('zh-TW') : '',
+              下載連結: file.storage_url || ''
+            }));
+            const pleadingsWs = XLSX.utils.json_to_sheet(pleadingsFiles);
+            XLSX.utils.book_append_sheet(wb, pleadingsWs, '狀紙檔案清單');
+          }
+
+          // 案件資訊資料夾
+          if (filesData.info && filesData.info.length > 0) {
+            folderStructure.push({
+              資料夾: '案件資訊',
+              檔案數量: filesData.info.length,
+              總大小: `${(filesData.info.reduce((sum, f) => sum + (f.size_bytes || 0), 0) / 1024).toFixed(1)} KB`,
+              說明: '案件相關資訊文件'
+            });
+
+            // 案件資訊檔案清單
+            const infoFiles = filesData.info.map((file, index) => ({
+              序號: index + 1,
+              資料夾: '案件資訊',
+              檔案名稱: file.name,
+              檔案大小: file.size_bytes ? `${(file.size_bytes / 1024).toFixed(1)} KB` : '',
+              檔案類型: file.content_type || '',
+              上傳時間: file.created_at ? new Date(file.created_at).toLocaleString('zh-TW') : '',
+              下載連結: file.storage_url || ''
+            }));
+            const infoWs = XLSX.utils.json_to_sheet(infoFiles);
+            XLSX.utils.book_append_sheet(wb, infoWs, '案件資訊檔案清單');
+          }
+
+          // 案件進度資料夾
+          if (filesData.progress && filesData.progress.length > 0) {
+            folderStructure.push({
+              資料夾: '案件進度',
+              檔案數量: filesData.progress.length,
+              總大小: `${(filesData.progress.reduce((sum, f) => sum + (f.size_bytes || 0), 0) / 1024).toFixed(1)} KB`,
+              說明: '案件進度追蹤文件'
+            });
+
+            // 案件進度檔案清單
+            const progressFiles = filesData.progress.map((file, index) => ({
+              序號: index + 1,
+              資料夾: '案件進度',
+              檔案名稱: file.name,
+              檔案大小: file.size_bytes ? `${(file.size_bytes / 1024).toFixed(1)} KB` : '',
+              檔案類型: file.content_type || '',
+              上傳時間: file.created_at ? new Date(file.created_at).toLocaleString('zh-TW') : '',
+              下載連結: file.storage_url || ''
+            }));
+            const progressWs = XLSX.utils.json_to_sheet(progressFiles);
+            XLSX.utils.book_append_sheet(wb, progressWs, '案件進度檔案清單');
+          }
+
+          // 資料夾結構總覽
+          if (folderStructure.length > 0) {
+            const folderWs = XLSX.utils.json_to_sheet(folderStructure);
+            XLSX.utils.book_append_sheet(wb, folderWs, '資料夾結構');
+          }
+
+          // === 完整檔案清單工作表 ===
           const allFiles = [
-            ...(filesData.pleadings || []).map(f => ({ ...f, 資料夾: '狀紙' })),
-            ...(filesData.info || []).map(f => ({ ...f, 資料夾: '案件資訊' })),
-            ...(filesData.progress || []).map(f => ({ ...f, 資料夾: '案件進度' }))
+            ...(filesData.pleadings || []).map(f => ({ ...f, 資料夾類型: '狀紙' })),
+            ...(filesData.info || []).map(f => ({ ...f, 資料夾類型: '案件資訊' })),
+            ...(filesData.progress || []).map(f => ({ ...f, 資料夾類型: '案件進度' }))
           ];
 
           if (allFiles.length > 0) {
-            const filesForExcel = allFiles.map(file => ({
+            const allFilesForExcel = allFiles.map((file, index) => ({
+              序號: index + 1,
               檔案名稱: file.name,
-              資料夾: file.資料夾,
+              所屬資料夾: file.資料夾類型,
               檔案大小: file.size_bytes ? `${(file.size_bytes / 1024).toFixed(1)} KB` : '',
+              檔案類型: file.content_type || '',
               上傳時間: file.created_at ? new Date(file.created_at).toLocaleString('zh-TW') : '',
-              檔案類型: file.content_type || ''
+              S3路徑: file.s3_key || '',
+              下載連結: file.storage_url || ''
             }));
-            const filesWs = XLSX.utils.json_to_sheet(filesForExcel);
-            XLSX.utils.book_append_sheet(wb, filesWs, '檔案清單');
+            const allFilesWs = XLSX.utils.json_to_sheet(allFilesForExcel);
+            XLSX.utils.book_append_sheet(wb, allFilesWs, '完整檔案清單');
           }
 
-          // 6. 匯出 Excel 檔案
+          // 5. 匯出 Excel 檔案（當事人資料夾格式）
           const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
           const excelBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
-          const fileName = `結案案件_${caseItem.client}_${caseItem.caseNumber || caseItem.id}_${new Date().toISOString().split('T')[0]}.xlsx`;
+          const fileName = `${caseItem.client}_案件資料夾_${caseItem.caseNumber || caseItem.id}_${new Date().toISOString().split('T')[0]}.xlsx`;
           saveAs(excelBlob, fileName);
 
-          console.log(`案件 ${caseItem.client} 資料匯出完成`);
+          console.log(`當事人 ${caseItem.client} 資料夾匯出完成`);
         } catch (error) {
-          console.error(`匯出案件 ${caseItem.client} 失敗:`, error);
+          console.error(`匯出當事人 ${caseItem.client} 資料夾失敗:`, error);
         }
       }
 
       // 顯示成功訊息
       const exportedCount = casesToExport.length;
       setDialogMessage(
-        `成功匯出 ${exportedCount} 個結案案件的完整資料！\n\n` +
+        `成功匯出 ${exportedCount} 個當事人的完整資料夾！\n\n` +
         `匯出內容包括：\n` +
-        `• 案件摘要 Excel 檔案\n` +
-        `• 階段記錄詳情\n` +
-        `• 檔案清單資訊\n\n` +
+        `• 案件基本資訊\n` +
+        `• 完整階段記錄\n` +
+        `• 資料夾結構總覽\n` +
+        `• 狀紙資料夾檔案清單\n` +
+        `• 案件資訊資料夾檔案清單\n` +
+        `• 案件進度資料夾檔案清單\n` +
+        `• 完整檔案清單及下載連結\n\n` +
         `檔案已下載到您的下載資料夾中。`
       );
       setShowSuccessDialog(true);
@@ -338,16 +388,56 @@ export default function ClosedCases() {
     }
   };
 
+  // 批量匯出資料
+  const handleBatchExport = async () => {
+    if (selectedCases.length === 0) {
+      alert('請先選擇要匯出的案件');
+      return;
+    }
+
+    const selectedCaseData = cases.filter(c => selectedCases.includes(c.id));
+    setDialogMessage(
+      `確定要匯出 ${selectedCases.length} 個當事人的完整資料夾嗎？\n\n` +
+      `將會匯出以下內容：\n` +
+      `• 案件基本資訊\n` +
+      `• 完整階段記錄\n` +
+      `• 狀紙資料夾及所有文件\n` +
+      `• 案件資訊資料夾及所有文件\n` +
+      `• 案件進度資料夾及所有文件\n` +
+      `• 資料夾結構總覽\n` +
+      `• 完整檔案清單及下載連結\n\n` +
+      `匯出案件：\n${selectedCaseData.map(c => `• ${c.client} - ${c.caseNumber}`).join('\n')}`
+    );
+    setShowConfirmDialog(true);
+  };
+
+  // 單一案件匯出
+  const handleExportData = React.useCallback((caseItem) => {
+    setSelectedCaseForExport(caseItem);
+    setDialogMessage(
+      `確定要匯出當事人「${caseItem.client}」的完整資料夾嗎？\n\n` +
+      `將會匯出以下內容：\n` +
+      `• 案件基本資訊\n` +
+      `• 完整階段記錄\n` +
+      `• 狀紙資料夾及所有文件\n` +
+      `• 案件資訊資料夾及所有文件\n` +
+      `• 案件進度資料夾及所有文件\n` +
+      `• 資料夾結構總覽\n` +
+      `• 完整檔案清單及下載連結`
+    );
+    setShowConfirmDialog(true);
+  }, []);
+
   const confirmExport = React.useCallback(() => {
     setShowConfirmDialog(false);
 
     if (selectedCaseForExport) {
       // 單一案件匯出
-      performExport([selectedCaseForExport]);
+      exportClientFolders([selectedCaseForExport]);
     } else if (selectedCases.length > 0) {
       // 批量匯出
       const casesToExport = cases.filter(c => selectedCases.includes(c.id));
-      performExport(casesToExport);
+      exportClientFolders(casesToExport);
     }
   }, [selectedCaseForExport, selectedCases, cases]);
 
@@ -389,6 +479,42 @@ export default function ClosedCases() {
     }
   };
 
+  // 手機版卡片配置
+  const mobileCardFields = [
+    {
+      key: 'caseNumber',
+      label: '案號',
+      icon: FileText,
+      show: (item) => !!item.caseNumber
+    },
+    {
+      key: 'lawyer',
+      label: '律師',
+      icon: User,
+      show: (item) => !!item.lawyer
+    },
+    {
+      key: 'closedDate',
+      label: '結案',
+      icon: Archive
+    }
+  ];
+
+  const mobileCardActions = [
+    {
+      icon: Eye,
+      label: '檢視',
+      onClick: (item) => setSelectedCase(item),
+      color: 'text-[#334d6d] hover:text-[#3f5a7d]'
+    },
+    {
+      icon: Download,
+      label: '匯出',
+      onClick: handleExportData,
+      color: 'text-green-600 hover:text-green-700'
+    }
+  ];
+
   return (
     <div className="flex-1 flex flex-col">
       {/* 頂部工具列 */}
@@ -396,7 +522,6 @@ export default function ClosedCases() {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center">
-              <h2 className="text-xl font-semibold text-[#334d6d]">結案案件</h2>
               <span className="ml-3 text-sm text-gray-500">({filteredCases.length} 件)</span>
             </div>
 
@@ -421,8 +546,8 @@ export default function ClosedCases() {
             </div>
           </div>
 
-          {/* 批量操作工具列 */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50 rounded-lg p-3">
+          {/* 批量操作工具列 - 與 CaseOverview 相同樣式 */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-gray-50 rounded-lg p-3">
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleSelectAll}
@@ -451,7 +576,7 @@ export default function ClosedCases() {
                 ) : (
                   <>
                     <Download className="w-3 h-3" />
-                    <span>批量匯出</span>
+                    <span>批量匯出資料夾</span>
                   </>
                 )}
               </button>
@@ -588,7 +713,7 @@ export default function ClosedCases() {
                           <button
                             onClick={() => handleExportData(row)}
                             className="text-gray-400 hover:text-green-600 transition-colors"
-                            title="匯出資料"
+                            title="匯出資料夾"
                           >
                             <Download className="w-4 h-4" />
                           </button>
@@ -600,85 +725,21 @@ export default function ClosedCases() {
               </table>
             </div>
 
-            {/* 手機版卡片列表 */}
-            <div className="lg:hidden p-4 space-y-3">
-              {filteredCases.map((caseItem) => (
-                <div
-                  key={caseItem.id}
-                  className={`bg-white rounded-lg border p-4 transition-all duration-200 ${
-                    selectedCase?.id === caseItem.id ? 'border-[#334d6d] bg-blue-50 shadow-md' : 'border-gray-200 hover:shadow-sm'
-                  } ${selectedCases.includes(caseItem.id) ? 'ring-2 ring-blue-200' : ''}`}
-                >
-                  {/* 頂部：選擇框和主要資訊 */}
-                  <div className="flex items-start space-x-3 mb-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectCase(caseItem.id);
-                      }}
-                      className="mt-1 flex-shrink-0"
-                    >
-                      {selectedCases.includes(caseItem.id) ? (
-                        <CheckSquare className="w-5 h-5 text-[#334d6d]" />
-                      ) : (
-                        <Square className="w-5 h-5 text-gray-400" />
-                      )}
-                    </button>
-
-                    <div
-                      className="flex-1 cursor-pointer"
-                      onClick={() => setSelectedCase(caseItem)}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-medium text-gray-900 text-base">{caseItem.client}</h3>
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                          {caseItem.caseType}
-                        </span>
-                      </div>
-
-                      <div className="space-y-1 text-sm text-gray-600">
-                        {caseItem.caseNumber && (
-                          <div className="flex items-center">
-                            <FileText className="w-3 h-3 mr-2 text-gray-400" />
-                            <span className="font-medium">案號：</span>
-                            <span>{caseItem.caseNumber}</span>
-                          </div>
-                        )}
-                        {caseItem.lawyer && (
-                          <div className="flex items-center">
-                            <User className="w-3 h-3 mr-2 text-gray-400" />
-                            <span className="font-medium">律師：</span>
-                            <span>{caseItem.lawyer}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center">
-                          <Archive className="w-3 h-3 mr-2 text-gray-400" />
-                          <span className="font-medium">結案：</span>
-                          <span>{caseItem.closedDate}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 底部：操作按鈕 */}
-                  <div className="flex justify-end space-x-2 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={() => setSelectedCase(caseItem)}
-                      className="text-[#334d6d] hover:text-[#3f5a7d] text-sm font-medium flex items-center space-x-1"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span>檢視</span>
-                    </button>
-                    <button
-                      onClick={() => handleExportData(caseItem)}
-                      className="text-green-600 hover:text-green-700 text-sm font-medium flex items-center space-x-1"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>匯出</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
+            {/* 手機版卡片列表 - 使用新的 MobileCardList 組件 */}
+            <div className="lg:hidden">
+              <MobileCardList
+                items={filteredCases}
+                selectedItems={selectedCases}
+                selectedItem={selectedCase}
+                onSelectItem={setSelectedCase}
+                onToggleSelect={handleSelectCase}
+                showSelection={true}
+                title={(item) => item.client}
+                badge={(item) => ({ text: item.caseType, color: 'bg-green-100 text-green-800' })}
+                fields={mobileCardFields}
+                actions={mobileCardActions}
+                emptyMessage="暫無結案案件"
+              />
             </div>
           </div>
         </div>
@@ -695,7 +756,7 @@ export default function ClosedCases() {
                     className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
                   >
                     <Download className="w-4 h-4" />
-                    <span>匯出資料</span>
+                    <span>匯出資料夾</span>
                   </button>
                   <button
                     onClick={() => setSelectedCase(null)}
@@ -771,7 +832,7 @@ export default function ClosedCases() {
       {/* 自訂確認對話框 */}
       <CustomConfirmDialog
         isOpen={showConfirmDialog}
-        title="確認匯出資料"
+        title="確認匯出當事人資料夾"
         message={dialogMessage}
         onConfirm={confirmExport}
         onCancel={cancelExport}
