@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Eye, Edit, Trash2, Shield, UserCheck, UserX, X, Plus } from 'lucide-react';
+import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Eye, Edit, Trash2, Shield, UserCheck, UserX, X, Plus, Building } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
 
 export default function UserManagement() {
@@ -491,8 +491,8 @@ export default function UserManagement() {
                 <div
                   key={user.id}
                   className={`bg-white rounded-xl border-2 p-4 transition-all duration-200 ${
-                    selectedUser?.id === user.id 
-                      ? 'border-[#334d6d] bg-blue-50 shadow-lg' 
+                    selectedUser?.id === user.id
+                      ? 'border-[#334d6d] bg-blue-50 shadow-lg'
                       : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
                   }`}
                 >
@@ -527,14 +527,14 @@ export default function UserManagement() {
                       <Mail className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
                       <span className="text-gray-900 truncate">{user.email}</span>
                     </div>
-                    
+
                     {user.phone && (
                       <div className="flex items-center text-sm">
                         <Phone className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
                         <span className="text-gray-900">{user.phone}</span>
                       </div>
                     )}
-                    
+
                     <div className="flex items-center text-sm">
                       <Building className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
                       <span className="text-gray-900">{user.department} - {user.position}</span>
@@ -549,7 +549,7 @@ export default function UserManagement() {
                         {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('zh-TW') : '從未登入'}
                       </div>
                     </div>
-                    
+
                     <button
                       onClick={() => setSelectedUser(user)}
                       className="flex items-center space-x-1 px-3 py-2 bg-[#334d6d] text-white rounded-lg hover:bg-[#3f5a7d] transition-colors text-sm font-medium"
@@ -571,6 +571,7 @@ export default function UserManagement() {
               )}
             </div>
           </div>
+        </div>
         </div>
 
         {/* 右側詳情 */}
@@ -661,180 +662,6 @@ export default function UserManagement() {
                   </button>
                 </div>
               </div>
-              ))}
-
-              {filteredUsers.length === 0 && (
-                <div className="text-center py-12">
-                  <User className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">
-                    {searchTerm ? '找不到符合條件的用戶' : '尚無用戶資料'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 右側詳情 */}
-        {selectedUser && (
-          <div className="w-full lg:w-96 bg-white border-l border-gray-200 overflow-auto">
-            {/* 手機版全屏詳情 */}
-            <div className="lg:hidden fixed inset-0 bg-white z-50 overflow-auto">
-              {/* 手機版標題列 */}
-              <div className="bg-[#334d6d] text-white px-4 py-4 flex items-center justify-between sticky top-0 z-10">
-                <h3 className="text-lg font-semibold">用戶詳情</h3>
-                <button
-                  onClick={() => setSelectedUser(null)}
-                  className="p-2 text-white hover:text-gray-300 rounded-md transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* 手機版詳情內容 */}
-              <div className="p-4">
-                {/* 用戶資訊卡片 */}
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-center">
-                  <div className="w-16 h-16 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3">
-                    {selectedUser.fullName.charAt(0)}
-                  </div>
-                  <h4 className="font-semibold text-blue-900 text-xl mb-2">{selectedUser.fullName}</h4>
-                  <p className="text-sm text-blue-700 mb-3">@{selectedUser.username}</p>
-                  <div className="flex items-center justify-center space-x-2">
-                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getRoleColor(selectedUser.role)}`}>
-                      {getRoleText(selectedUser.role)}
-                    </span>
-                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedUser.isActive)}`}>
-                      {getStatusText(selectedUser.isActive)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 聯絡資訊 */}
-                <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-                  <h5 className="font-medium text-gray-900 mb-3 flex items-center">
-                    <Mail className="w-4 h-4 mr-2" />
-                    聯絡資訊
-                  </h5>
-                  <div className="space-y-3">
-                    <div className="flex items-center">
-                      <Mail className="w-4 h-4 text-gray-400 mr-3" />
-                      <span className="text-gray-900">{selectedUser.email}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Phone className="w-4 h-4 text-gray-400 mr-3" />
-                      <span className="text-gray-900">{selectedUser.phone}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 職務資訊 */}
-                <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-                  <h5 className="font-medium text-gray-900 mb-3 flex items-center">
-                    <Building className="w-4 h-4 mr-2" />
-                    職務資訊
-                  </h5>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">部門</span>
-                      <span className="text-gray-900">{selectedUser.department}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">職位</span>
-                      <span className="text-gray-900">{selectedUser.position}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">建立日期</span>
-                      <span className="text-gray-900">{selectedUser.createdAt}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">最後登入</span>
-                      <span className="text-gray-900">
-                        {selectedUser.lastLogin ? new Date(selectedUser.lastLogin).toLocaleDateString('zh-TW') : '從未登入'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 權限資訊 */}
-                <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6">
-                  <h5 className="font-medium text-gray-900 mb-3 flex items-center">
-                    <Shield className="w-4 h-4 mr-2" />
-                    權限設定
-                  </h5>
-                  <div className="space-y-2 text-sm">
-                    {selectedUser.role === 'admin' && (
-                      <>
-                        <div className="flex items-center text-green-600">
-                          <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                          系統管理權限
-                        </div>
-                        <div className="flex items-center text-green-600">
-                          <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                          用戶管理權限
-                        </div>
-                      </>
-                    )}
-                    <div className="flex items-center text-green-600">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                      案件管理權限
-                    </div>
-                    <div className="flex items-center text-green-600">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                      客戶資料權限
-                    </div>
-                    {(selectedUser.role === 'lawyer' || selectedUser.role === 'legal_affairs') && (
-                      <div className="flex items-center text-green-600">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                        檔案管理權限
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 手機版操作按鈕 */}
-                <div className="space-y-3">
-                  <button
-                    onClick={() => {
-                      setEditUserData({
-                        fullName: selectedUser.fullName,
-                        email: selectedUser.email,
-                        phone: selectedUser.phone || '',
-                        role: selectedUser.role
-                      });
-                      setShowEditUser(true);
-                    }}
-                    className="w-full bg-[#334d6d] text-white py-3 px-4 rounded-xl hover:bg-[#3f5a7d] transition-colors flex items-center justify-center space-x-2 font-medium"
-                  >
-                    <Edit className="w-5 h-5" />
-                    <span>編輯用戶</span>
-                  </button>
-                  
-                  {getCurrentUserRole() === 'admin' && selectedUser.role !== 'admin' && (
-                    <button
-                      onClick={() => handleToggleStatus(selectedUser.id)}
-                      className={`w-full py-3 px-4 rounded-xl transition-colors flex items-center justify-center space-x-2 font-medium ${
-                        selectedUser.isActive
-                          ? 'bg-red-600 text-white hover:bg-red-700'
-                          : 'bg-green-600 text-white hover:bg-green-700'
-                      }`}
-                    >
-                      {selectedUser.isActive ? <UserX className="w-5 h-5" /> : <UserCheck className="w-5 h-5" />}
-                      <span>{selectedUser.isActive ? '停用用戶' : '啟用用戶'}</span>
-                    </button>
-                  )}
-                  
-                  {selectedUser.role !== 'admin' && (
-                    <button
-                      onClick={() => handleDeleteUser(selectedUser.id)}
-                      className="w-full bg-red-600 text-white py-3 px-4 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center space-x-2 font-medium"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                      <span>刪除用戶</span>
-                    </button>
-                  )}
-                </div>
-              </div>
             </div>
 
             {/* 桌面版詳情 */}
@@ -854,10 +681,8 @@ export default function UserManagement() {
                     }}
                     className="bg-[#334d6d] text-white px-3 py-1.5 rounded-md hover:bg-[#3f5a7d] transition-colors flex items-center space-x-1 text-sm"
                   >
-                    <>
-                      <Edit className="w-3 h-3" />
-                      <span>編輯</span>
-                    </>
+                    <Edit className="w-3 h-3" />
+                    <span>編輯</span>
                   </button>
                   <button
                     onClick={() => setSelectedUser(null)}
@@ -984,6 +809,7 @@ export default function UserManagement() {
             </div>
           </div>
         )}
+      </div>
 
         {/* 新增用戶對話框 */}
         {showCreateUser && (
@@ -1299,6 +1125,17 @@ export default function UserManagement() {
                     disabled={loading}
                     className="px-6 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                   >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        更新中...
+                      </>
+                    ) : (
+                      '更新用戶'
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
