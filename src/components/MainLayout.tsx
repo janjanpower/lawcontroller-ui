@@ -211,7 +211,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </nav>
 
         {/* 主要內容區域 - 只有這裡會切換 */}
-        <main className="flex-1 flex flex-col overflow-hidden min-w-0 lg:ml-0">
+        <main className="flex-1 flex flex-col overflow-hidden min-w-0">
           {children}
         </main>
       </div>
