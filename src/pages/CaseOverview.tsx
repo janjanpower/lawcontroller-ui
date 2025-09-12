@@ -1176,7 +1176,7 @@ export default function CaseOverview() {
               <table className="w-full border-separate border-spacing-0">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ">
                       選擇
                     </th>
                     {visibleColumns.client && (
@@ -1234,11 +1234,9 @@ export default function CaseOverview() {
                     <>
                       <tr
                         key={row.id}
-                        className={`cursor-pointer transition-colors ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                        } hover:bg-gray-50 ${
-                          selectedCase?.id === row.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''
-                        }`}
+                        className={`hover:bg-gray-50 cursor-pointer transition-colors relative ${
+                          selectedCase?.id === row.id ? 'bg-blue-50' : ''
+                        } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                         onClick={(e) => {
                           if (e.target.type === 'checkbox' || e.target.closest('input[type="checkbox"]')) {
                             return;
@@ -1246,6 +1244,11 @@ export default function CaseOverview() {
                           setSelectedCase(row);
                         }}
                       >
+                        {/* 動態左邊框 */}
+                        {selectedCase?.id === row.id && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#334d6d] z-10"></div>
+                        )}
+
                         <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="checkbox"
