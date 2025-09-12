@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Eye, Edit, Trash2, Shield, UserCheck, UserX, X, Plus, Building } from 'lucide-react';
+import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Eye, Edit, Trash2, Shield, UserCheck, UserX, X, Plus } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
 
 export default function UserManagement() {
@@ -296,13 +296,12 @@ export default function UserManagement() {
       <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <h2 className="text-xl font-semibold text-[#334d6d]">人員權限</h2>
             <button
               onClick={() => setShowCreateUser(true)}
               className="bg-[#3498db] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-2 justify-center sm:justify-start"
             >
               <Plus className="w-4 h-4" />
-              <span>新增用戶</span>
+              <span>新增人員</span>
             </button>
           </div>
 
@@ -490,85 +489,103 @@ export default function UserManagement() {
               {filteredUsers.map((user) => (
                 <div
                   key={user.id}
-                  className={`bg-white rounded-xl border-2 p-4 transition-all duration-200 ${
-                    selectedUser?.id === user.id 
-                      ? 'border-[#334d6d] bg-blue-50 shadow-lg' 
-                      : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
+                  className={`bg-white rounded-lg border p-4 transition-colors space-y-3 ${
+                    selectedUser?.id === user.id ? 'border-[#334d6d] bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
                   }`}
                 >
-                  {/* 頂部：用戶基本資訊 */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center flex-1">
-                      <div className="w-12 h-12 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-lg font-bold mr-3 flex-shrink-0">
+                  <div>
+                    <div
+                      className="flex items-center cursor-pointer"
+                      onClick={() => setSelectedUser(user)}
+                    >
+                      <div className="w-8 h-8 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-sm font-medium">
                         {user.fullName.charAt(0)}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 text-lg leading-tight truncate">
-                          {user.fullName}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1 truncate">
-                          @{user.username}
-                        </p>
+                      <div className="ml-3">
+                        <div className="text-sm font-medium text-gray-900">{user.fullName}</div>
+                        <div className="text-xs text-gray-500">{user.username}</div>
                       </div>
-                    </div>
-                    <div className="ml-3 flex flex-col items-end space-y-1">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
-                        {getRoleText(user.role)}
-                      </span>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.isActive)}`}>
-                        {getStatusText(user.isActive)}
-                      </span>
                     </div>
                   </div>
 
-                  {/* 中間：詳細資訊 */}
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center text-sm">
-                      <Mail className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                      <span className="text-gray-900 truncate">{user.email}</span>
-                    </div>
-                    
-                    {user.phone && (
-                      <div className="flex items-center text-sm">
-                        <Phone className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-gray-900">{user.phone}</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <div>
+                        <span className="text-gray-500">角色：</span>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
+                          {getRoleText(user.role)}
+                        </span>
                       </div>
-                    )}
-                    
-                    <div className="flex items-center text-sm">
-                      <Building className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                      <span className="text-gray-900">{user.department} - {user.position}</span>
+                      <div>
+                        <span className="text-gray-500">狀態：</span>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.isActive)}`}>
+                          {getStatusText(user.isActive)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 text-xs text-gray-600">
+                      <div><span className="text-gray-500">部門：</span>{user.department}</div>
+                      <div><span className="text-gray-500">職位：</span>{user.position}</div>
+                      <div><span className="text-gray-500">Email：</span>{user.email}</div>
+                      <div><span className="text-gray-500">電話：</span>{user.phone || '未設定'}</div>
                     </div>
                   </div>
 
-                  {/* 底部：時間資訊和操作 */}
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <div className="text-xs text-gray-500">
-                      <div className="flex items-center">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('zh-TW') : '從未登入'}
-                      </div>
+                  <div>
+                    <div className="text-xs text-gray-500 border-t pt-2">
+                      <div><span className="text-gray-500">最後登入：</span>{user.lastLogin ? new Date(user.lastLogin).toLocaleString('zh-TW') : '從未登入'}</div>
                     </div>
-                    
-                    <button
-                      onClick={() => setSelectedUser(user)}
-                      className="flex items-center space-x-1 px-3 py-2 bg-[#334d6d] text-white rounded-lg hover:bg-[#3f5a7d] transition-colors text-sm font-medium"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span>詳情</span>
-                    </button>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-end space-x-2 border-t pt-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditUserData({
+                            fullName: user.fullName,
+                            email: user.email,
+                            phone: user.phone || '',
+                            role: user.role
+                          });
+                          setShowEditUser(true);
+                          setSelectedUser(user);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 text-xs"
+                      >
+                        編輯
+                      </button>
+                      {getCurrentUserRole() === 'admin' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleStatus(user.id);
+                          }}
+                          className={`text-xs ${
+                            user.isActive
+                              ? 'text-red-600 hover:text-red-800'
+                              : 'text-green-600 hover:text-green-800'
+                          }`}
+                        >
+                          {user.isActive ? '停用' : '啟用'}
+                        </button>
+                      )}
+                      {user.role !== 'admin' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteUser(user.id);
+                          }}
+                          className="text-red-600 hover:text-red-800 text-xs"
+                        >
+                          刪除
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
-
-              {filteredUsers.length === 0 && (
-                <div className="text-center py-12">
-                  <User className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">
-                    {searchTerm ? '找不到符合條件的用戶' : '尚無用戶資料'}
-                  </p>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -576,95 +593,7 @@ export default function UserManagement() {
         {/* 右側詳情 */}
         {selectedUser && (
           <div className="w-full lg:w-96 bg-white border-l border-gray-200 overflow-auto">
-            {/* 手機版全屏詳情 */}
-            <div className="lg:hidden fixed inset-0 bg-white z-50 overflow-auto">
-              {/* 手機版標題列 */}
-              <div className="bg-[#334d6d] text-white px-4 py-4 flex items-center justify-between sticky top-0 z-10">
-                <h3 className="text-lg font-semibold">用戶詳情</h3>
-                <button
-                  onClick={() => setSelectedUser(null)}
-                  className="p-2 text-white hover:text-gray-300 rounded-md transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* 手機版詳情內容 */}
-              <div className="p-4">
-                {/* 用戶資訊卡片 */}
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-center">
-                  <div className="w-16 h-16 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3">
-                    {selectedUser.fullName.charAt(0)}
-                  </div>
-                  <h4 className="font-semibold text-blue-900 text-xl mb-2">{selectedUser.fullName}</h4>
-                  <p className="text-sm text-blue-700 mb-3">@{selectedUser.username}</p>
-                  <div className="flex items-center justify-center space-x-2">
-                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getRoleColor(selectedUser.role)}`}>
-                      {getRoleText(selectedUser.role)}
-                    </span>
-                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedUser.isActive)}`}>
-                      {getStatusText(selectedUser.isActive)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 聯絡資訊 */}
-                <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-                  <h5 className="font-medium text-gray-900 mb-3 flex items-center">
-                    <Mail className="w-4 h-4 mr-2" />
-                    聯絡資訊
-                  </h5>
-                  <div className="space-y-3">
-                    <div className="flex items-center">
-                      <Mail className="w-4 h-4 text-gray-400 mr-3" />
-                      <span className="text-gray-900">{selectedUser.email}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Phone className="w-4 h-4 text-gray-400 mr-3" />
-                      <span className="text-gray-900">{selectedUser.phone}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 職務資訊 */}
-                <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-                  <h5 className="font-medium text-gray-900 mb-3 flex items-center">
-                    <Building className="w-4 h-4 mr-2" />
-                    職務資訊
-                  </h5>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">部門</span>
-                      <span className="text-gray-900">{selectedUser.department}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">職位</span>
-                      <span className="text-gray-900">{selectedUser.position}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">最後登入</span>
-                      <span className="text-gray-900">
-                        {selectedUser.lastLogin ? new Date(selectedUser.lastLogin).toLocaleDateString('zh-TW') : '從未登入'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 手機版操作按鈕 */}
-                <div className="space-y-3">
-                  <button
-                    onClick={() => setSelectedUser(user)}
-                    className="w-full bg-[#334d6d] text-white py-3 px-4 rounded-xl hover:bg-[#3f5a7d] transition-colors flex items-center justify-center space-x-2 font-medium"
-                  >
-                    <Eye className="w-5 h-5" />
-                    <span>檢視詳情</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 桌面版詳情 */}
-            <div className="hidden lg:block p-6">
+            <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">用戶詳情</h3>
                 <div className="flex items-center space-x-2">
@@ -680,12 +609,15 @@ export default function UserManagement() {
                     }}
                     className="bg-[#334d6d] text-white px-3 py-1.5 rounded-md hover:bg-[#3f5a7d] transition-colors flex items-center space-x-1 text-sm"
                   >
-                    <Edit className="w-3 h-3" />
-                    <span>編輯</span>
+                    <>
+                      <Edit className="w-3 h-3" />
+                      <span>編輯</span>
+                    </>
                   </button>
+                  {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
                   <button
                     onClick={() => setSelectedUser(null)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    className="lg:hidden p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                     title="關閉詳情"
                   >
                     <X className="w-4 h-4" />
@@ -808,149 +740,14 @@ export default function UserManagement() {
             </div>
           </div>
         )}
-      </div>
 
-      {/* 新增用戶對話框 */}
-      {showCreateUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
-              <h2 className="text-lg font-semibold">新增用戶</h2>
-              <button
-                onClick={() => {
-                  setShowCreateUser(false);
-                  setError('');
-                  setCreateUserData({
-                    username: '',
-                    fullName: '',
-                    email: '',
-                    phone: '',
-                    role: 'lawyer',
-                    personalPassword: '',
-                    confirmPersonalPassword: ''
-                  });
-                }}
-                className="text-white hover:text-gray-300 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateUser} className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    用戶名 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={createUserData.username}
-                    onChange={(e) => setCreateUserData(prev => ({ ...prev, username: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                    placeholder="請輸入用戶名"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    姓名 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={createUserData.fullName}
-                    onChange={(e) => setCreateUserData(prev => ({ ...prev, fullName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                    placeholder="請輸入真實姓名"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email <span className="text-gray-400 text-xs">（選填）</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={createUserData.email}
-                    onChange={(e) => setCreateUserData(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                    placeholder="請輸入Email"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    電話
-                  </label>
-                  <input
-                    type="tel"
-                    value={createUserData.phone}
-                    onChange={(e) => setCreateUserData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                    placeholder="請輸入電話號碼"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    角色 <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={createUserData.role}
-                    onChange={(e) => setCreateUserData(prev => ({ ...prev, role: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                  >
-                    <option value="lawyer">律師</option>
-                    <option value="legal_affairs">法務</option>
-                    <option value="assistant">助理</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    個人密碼 (6位數字) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={createUserData.personalPassword}
-                    onChange={(e) => setCreateUserData(prev => ({ ...prev, personalPassword: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
-                    placeholder="請輸入6位數字密碼"
-                    pattern="\d{6}"
-                    maxLength={6}
-                    minLength={6}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    確認個人密碼 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={createUserData.confirmPersonalPassword}
-                    onChange={(e) => setCreateUserData(prev => ({ ...prev, confirmPersonalPassword: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
-                    placeholder="請再次輸入密碼"
-                    pattern="\d{6}"
-                    maxLength={6}
-                    minLength={6}
-                    required
-                  />
-                </div>
-
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                    <p className="text-red-700 text-sm">{error}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-end space-x-3 mt-6">
+        {/* 新增用戶對話框 */}
+        {showCreateUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+              <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+                <h2 className="text-lg font-semibold">新增人員</h2>
                 <button
-                  type="button"
                   onClick={() => {
                     setShowCreateUser(false);
                     setError('');
@@ -964,180 +761,315 @@ export default function UserManagement() {
                       confirmPersonalPassword: ''
                     });
                   }}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                  disabled={loading}
+                  className="text-white hover:text-gray-300 transition-colors"
                 >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      新增中...
-                    </>
-                  ) : (
-                    '新增用戶'
-                  )}
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {/* 編輯用戶對話框 */}
-      {showEditUser && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
-              <h2 className="text-lg font-semibold">編輯用戶</h2>
-              <button
-                onClick={() => {
-                  setShowEditUser(false);
-                  setError('');
-                }}
-                className="text-white hover:text-gray-300 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              setError('');
-              setLoading(true);
-
-              try {
-                const response = await fetch(`/api/users/${selectedUser.id}`, {
-                  method: 'PATCH',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    full_name: editUserData.fullName,
-                    email: editUserData.email,
-                    phone: editUserData.phone,
-                    role: editUserData.role
-                  }),
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                  await loadUsers();
-                  setShowEditUser(false);
-                  setError('');
-                  alert('用戶資料更新成功！');
-                } else {
-                  setError(data.detail || data.message || '更新用戶失敗');
-                }
-              } catch (error) {
-                console.error('更新用戶錯誤:', error);
-                setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
-              } finally {
-                setLoading(false);
-              }
-            }} className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    姓名 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editUserData.fullName}
-                    onChange={(e) => setEditUserData(prev => ({ ...prev, fullName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email <span className="text-gray-400 text-xs">（選填）</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={editUserData.email}
-                    onChange={(e) => setEditUserData(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    電話
-                  </label>
-                  <input
-                    type="tel"
-                    value={editUserData.phone}
-                    onChange={(e) => setEditUserData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    角色 <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={editUserData.role}
-                    onChange={(e) => setEditUserData(prev => ({ ...prev, role: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                    disabled={selectedUser.role === 'admin'} // 管理員角色不能更改
-                  >
-                    <option value="admin">管理員</option>
-                    <option value="lawyer">律師</option>
-                    <option value="legal_affairs">法務</option>
-                    <option value="assistant">助理</option>
-                  </select>
-                  {selectedUser.role === 'admin' && (
-                    <p className="text-xs text-gray-500 mt-1">管理員角色無法更改</p>
-                  )}
-                </div>
-
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                    <p className="text-red-700 text-sm">{error}</p>
+              <form onSubmit={handleCreateUser} className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      用戶名 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={createUserData.username}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, username: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      placeholder="請輸入用戶名"
+                      required
+                    />
                   </div>
-                )}
-              </div>
 
-              <div className="flex justify-end space-x-3 mt-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      姓名 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={createUserData.fullName}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, fullName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      placeholder="請輸入真實姓名"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email <span className="text-gray-400 text-xs">（選填）</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={createUserData.email}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      placeholder="請輸入Email"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      電話
+                    </label>
+                    <input
+                      type="tel"
+                      value={createUserData.phone}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      placeholder="請輸入電話號碼"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      角色 <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={createUserData.role}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, role: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    >
+                      <option value="lawyer">律師</option>
+                      <option value="legal_affairs">法務</option>
+                      <option value="assistant">助理</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      個人密碼 (6位數字) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={createUserData.personalPassword}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, personalPassword: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
+                      placeholder="請輸入6位數字密碼"
+                      pattern="\d{6}"
+                      maxLength={6}
+                      minLength={6}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      確認個人密碼 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={createUserData.confirmPersonalPassword}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, confirmPersonalPassword: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-center tracking-widest"
+                      placeholder="請再次輸入密碼"
+                      pattern="\d{6}"
+                      maxLength={6}
+                      minLength={6}
+                      required
+                    />
+                  </div>
+
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                      <p className="text-red-700 text-sm">{error}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateUser(false);
+                      setError('');
+                      setCreateUserData({
+                        username: '',
+                        fullName: '',
+                        email: '',
+                        phone: '',
+                        role: 'lawyer',
+                        personalPassword: '',
+                        confirmPersonalPassword: ''
+                      });
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                    disabled={loading}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        新增中...
+                      </>
+                    ) : (
+                      '新增人員'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* 編輯用戶對話框 */}
+        {showEditUser && selectedUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+              <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+                <h2 className="text-lg font-semibold">編輯用戶</h2>
                 <button
-                  type="button"
                   onClick={() => {
                     setShowEditUser(false);
                     setError('');
                   }}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                  disabled={loading}
+                  className="text-white hover:text-gray-300 transition-colors"
                 >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      更新中...
-                    </>
-                  ) : (
-                    '更新用戶'
-                  )}
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setError('');
+                setLoading(true);
+
+                try {
+                  const response = await fetch(`/api/users/${selectedUser.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      full_name: editUserData.fullName,
+                      email: editUserData.email,
+                      phone: editUserData.phone,
+                      role: editUserData.role
+                    }),
+                  });
+
+                  const data = await response.json();
+
+                  if (response.ok) {
+                    await loadUsers();
+                    setShowEditUser(false);
+                    setError('');
+                    alert('用戶資料更新成功！');
+                  } else {
+                    setError(data.detail || data.message || '更新用戶失敗');
+                  }
+                } catch (error) {
+                  console.error('更新用戶錯誤:', error);
+                  setError(`網路錯誤: ${error.message || '無法連接到伺服器'}`);
+                } finally {
+                  setLoading(false);
+                }
+              }} className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      姓名 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editUserData.fullName}
+                      onChange={(e) => setEditUserData(prev => ({ ...prev, fullName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email <span className="text-gray-400 text-xs">（選填）</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={editUserData.email}
+                      onChange={(e) => setEditUserData(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      電話
+                    </label>
+                    <input
+                      type="tel"
+                      value={editUserData.phone}
+                      onChange={(e) => setEditUserData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      角色 <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={editUserData.role}
+                      onChange={(e) => setEditUserData(prev => ({ ...prev, role: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                      disabled={selectedUser.role === 'admin'} // 管理員角色不能更改
+                    >
+                      <option value="admin">管理員</option>
+                      <option value="lawyer">律師</option>
+                      <option value="legal_affairs">法務</option>
+                      <option value="assistant">助理</option>
+                    </select>
+                    {selectedUser.role === 'admin' && (
+                      <p className="text-xs text-gray-500 mt-1">管理員角色無法更改</p>
+                    )}
+                  </div>
+
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                      <p className="text-red-700 text-sm">{error}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditUser(false);
+                      setError('');
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                    disabled={loading}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        更新中...
+                      </>
+                    ) : (
+                      '更新'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

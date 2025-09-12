@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Edit, X, Trash2, Eye, Clock } from 'lucide-react';
+import { Search, Filter, User, Phone, Mail, MessageCircle, Calendar, Edit, X, Trash2, Eye } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 export default function CustomerData() {
@@ -15,7 +15,7 @@ export default function CustomerData() {
     try {
       const response = await apiFetch('/api/clients');
       const data = await response.json();
-      
+
       if (response.ok) {
         setCustomers(data.items || []);
       } else {
@@ -80,10 +80,7 @@ export default function CustomerData() {
       {/* 頂部工具列 */}
       <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center">
-            <h2 className="text-xl font-semibold text-[#334d6d]">客戶資料</h2>
-          </div>
-
+          <h2 className="text-xl font-semibold text-[#334d6d]">客戶資料</h2>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             {/* 搜尋 */}
             <div className="relative">
@@ -134,272 +131,98 @@ export default function CustomerData() {
         {/* 列表 */}
         <div className={`flex-1 overflow-hidden ${selectedCustomer ? 'hidden lg:block' : ''}`}>
           <div className="h-full overflow-auto">
-            {/* 桌面版表格 */}
-            <div className="hidden lg:block">
-              <table className="w-full">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                      ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      姓名
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      電話
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      LINE ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      案件數量
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      狀態
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      加入日期
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                      操作
-                    </th>
+            <table className="w-full">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                    ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    姓名
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    電話
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    LINE ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    案件數量
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    狀態
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    加入日期
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredCustomers.map((customer, index) => (
+                  <tr
+                    key={customer.id}
+                    className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                      selectedCustomer?.id === customer.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''
+                    } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                    onClick={() => setSelectedCustomer(customer)}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {customer.id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {customer.name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {customer.phone}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {customer.lineId}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {customer.caseCount}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(customer.status)}`}>
+                        {getStatusText(customer.status)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {customer.joinDate}
+                    </td>
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setSelectedCustomer(customer)}
+                          className="text-gray-400 hover:text-[#334d6d] transition-colors"
+                          title="檢視"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          className="text-gray-400 hover:text-blue-600 transition-colors"
+                          title="編輯"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredCustomers.map((customer, index) => (
-                    <tr
-                      key={customer.id}
-                      className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                        selectedCustomer?.id === customer.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''
-                      } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-                      onClick={() => setSelectedCustomer(customer)}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {customer.id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {customer.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {customer.phone}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {customer.lineId}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {customer.caseCount}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(customer.status)}`}>
-                          {getStatusText(customer.status)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {customer.joinDate}
-                      </td>
-                      <td
-                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => setSelectedCustomer(customer)}
-                            className="text-gray-400 hover:text-[#334d6d] transition-colors"
-                            title="檢視"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            className="text-gray-400 hover:text-blue-600 transition-colors"
-                            title="編輯"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* 手機版卡片列表 */}
-            <div className="lg:hidden p-4 space-y-4">
-              {filteredCustomers.map((customer) => (
-                <div
-                  key={customer.id}
-                  className={`bg-white rounded-xl border-2 p-4 transition-all duration-200 ${
-                    selectedCustomer?.id === customer.id 
-                      ? 'border-[#334d6d] bg-blue-50 shadow-lg' 
-                      : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                  }`}
-                >
-                  {/* 頂部：客戶基本資訊 */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center flex-1">
-                      <div className="w-12 h-12 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-lg font-bold mr-3 flex-shrink-0">
-                        {customer.name.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 text-lg leading-tight truncate">
-                          {customer.name}
-                        </h3>
-                        <div className="flex items-center mt-1">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(customer.status)}`}>
-                            {getStatusText(customer.status)}
-                          </span>
-                          <span className="ml-2 text-xs text-gray-500">
-                            {customer.caseCount} 件案件
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 中間：聯絡資訊 */}
-                  <div className="space-y-2 mb-4">
-                    {customer.phone && (
-                      <div className="flex items-center text-sm">
-                        <Phone className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-gray-900">{customer.phone}</span>
-                      </div>
-                    )}
-                    
-                    {customer.email && (
-                      <div className="flex items-center text-sm">
-                        <Mail className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-gray-900 truncate">{customer.email}</span>
-                      </div>
-                    )}
-                    
-                    {customer.lineId && (
-                      <div className="flex items-center text-sm">
-                        <MessageCircle className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-gray-900">{customer.lineId}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 底部：時間資訊和操作 */}
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <div className="text-xs text-gray-500">
-                      <div className="flex items-center">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        加入：{customer.joinDate}
-                      </div>
-                      <div className="flex items-center mt-1">
-                        <Clock className="w-3 h-3 mr-1" />
-                        最後聯繫：{customer.lastContact}
-                      </div>
-                    </div>
-                    
-                    <button
-                      onClick={() => setSelectedCustomer(customer)}
-                      className="flex items-center space-x-1 px-3 py-2 bg-[#334d6d] text-white rounded-lg hover:bg-[#3f5a7d] transition-colors text-sm font-medium"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span>詳情</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {filteredCustomers.length === 0 && (
-                <div className="text-center py-12">
-                  <User className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">
-                    {searchTerm ? '找不到符合條件的客戶' : '尚無客戶資料'}
-                  </p>
-                </div>
-              )}
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* 右側詳情面板 */}
+        {/* 右側詳情 */}
         {selectedCustomer && (
           <div className="w-full lg:w-96 bg-white border-l border-gray-200 overflow-auto">
-            {/* 手機版全屏詳情 */}
-            <div className="lg:hidden fixed inset-0 bg-white z-50 overflow-auto">
-              {/* 手機版標題列 */}
-              <div className="bg-[#334d6d] text-white px-4 py-4 flex items-center justify-between sticky top-0 z-10">
-                <h3 className="text-lg font-semibold">客戶詳情</h3>
-                <button
-                  onClick={() => setSelectedCustomer(null)}
-                  className="p-2 text-white hover:text-gray-300 rounded-md transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* 手機版詳情內容 */}
-              <div className="p-4">
-                {/* 客戶資訊卡片 */}
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-center">
-                  <div className="w-16 h-16 bg-[#334d6d] rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3">
-                    {selectedCustomer.name.charAt(0)}
-                  </div>
-                  <h4 className="font-semibold text-blue-900 text-xl mb-2">{selectedCustomer.name}</h4>
-                  <div className="flex items-center justify-center space-x-2">
-                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedCustomer.status)}`}>
-                      {getStatusText(selectedCustomer.status)}
-                    </span>
-                    <span className="text-sm text-blue-700">{selectedCustomer.caseCount} 件案件</span>
-                  </div>
-                </div>
-
-                {/* 聯絡資訊 */}
-                <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-                  <h5 className="font-medium text-gray-900 mb-3 flex items-center">
-                    <Phone className="w-4 h-4 mr-2" />
-                    聯絡資訊
-                  </h5>
-                  <div className="space-y-3">
-                    <div className="flex items-center">
-                      <Phone className="w-4 h-4 text-gray-400 mr-3" />
-                      <span className="text-gray-900">{selectedCustomer.phone}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Mail className="w-4 h-4 text-gray-400 mr-3" />
-                      <span className="text-gray-900">{selectedCustomer.email}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <MessageCircle className="w-4 h-4 text-gray-400 mr-3" />
-                      <span className="text-gray-900">{selectedCustomer.lineId}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 其他資訊 */}
-                <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6">
-                  <h5 className="font-medium text-gray-900 mb-3 flex items-center">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    其他資訊
-                  </h5>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">加入日期</span>
-                      <span className="text-gray-900">{selectedCustomer.joinDate}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">最後聯繫</span>
-                      <span className="text-gray-900">{selectedCustomer.lastContact}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 手機版操作按鈕 */}
-                <div className="space-y-3">
-                  <button className="w-full bg-[#334d6d] text-white py-3 px-4 rounded-xl hover:bg-[#3f5a7d] transition-colors flex items-center justify-center space-x-2 font-medium">
-                    <Edit className="w-5 h-5" />
-                    <span>編輯客戶資料</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 桌面版詳情 */}
-            <div className="hidden lg:block p-6">
+            <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">客戶詳情</h3>
                 <div className="flex items-center space-x-2">
@@ -409,7 +232,7 @@ export default function CustomerData() {
                   </button>
                   <button
                     onClick={() => setSelectedCustomer(null)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                     title="關閉詳情"
                   >
                     <X className="w-4 h-4" />
