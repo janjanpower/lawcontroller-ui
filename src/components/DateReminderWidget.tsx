@@ -168,14 +168,14 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
                 <ChevronRight className="w-3 h-3" />
 
               </button>
-              <span className="text-sm text-gray-600 px-1">內案件</span>
+              <span className="text-sm text-gray-600 px-1">天內的案件</span>
             </div>
 
             {/* 右側：案件內容 */}
             <div className="flex-1 min-w-0">
               {upcomingStages.length > 0 ? (
                 <div
-                  className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                  className={`inline-block px-2 py-1 rounded-md text-xs font-medium ${
                     getStageColor(upcomingStages[currentIndex]).bg
                   } ${getStageColor(upcomingStages[currentIndex]).text}`}
                 >

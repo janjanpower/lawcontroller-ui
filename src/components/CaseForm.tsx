@@ -5,7 +5,9 @@ import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 interface CaseData {
   case_id?: string;
   case_type: string;
-  client?: string;  // 改為可選，因為可能沒有客戶
+  client: string;
+  client_id_number?: string;
+  client_phone?: string;
   lawyer?: string;
   legal_affairs?: string;
   case_reason?: string;
@@ -31,7 +33,7 @@ const CASE_TYPES = ['民事', '刑事'];
 export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: CaseFormProps) {
   const [formData, setFormData] = useState<CaseData>({
     case_type: '',
-    client: '',  // 保留但不是必填
+    client: '',
     lawyer: '',
     legal_affairs: '',
     case_reason: '',
@@ -53,7 +55,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         setFormData({
           case_id: caseData.case_id,
           case_type: caseData.case_type || '',
-          client: caseData.client || '',  // 可能為空
+          client: caseData.client || '',
           lawyer: caseData.lawyer || '',
           legal_affairs: caseData.legal_affairs || '',
           case_reason: caseData.case_reason || '',
@@ -61,7 +63,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           opposing_party: caseData.opposing_party || '',
           court: caseData.court || '',
           division: caseData.division || '',
-          progress: caseData.progress || '委任',
+          progress: caseData.progress || '',
           progress_date: caseData.progress_date || new Date().toISOString().split('T')[0]
         });
         console.log('設定表單資料完成');
@@ -69,7 +71,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         console.log('新增模式 - 使用預設資料');
         setFormData({
           case_type: '',
-          client: '',  // 可能為空
+          client: '',
           lawyer: '',
           legal_affairs: '',
           case_reason: '',
@@ -126,8 +128,9 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
 
         // 新增案件 - 使用新的 API 格式
         const caseDataForAPI = {
+          firm_code: firmCode,
           case_type: formData.case_type,
-          client_name: formData.client,  // 傳送當事人姓名到後端暫存
+          client_name: formData.client,
           case_reason: formData.case_reason || null,
           case_number: formData.case_number || null,
           court: formData.court || null,
@@ -199,7 +202,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
         const savedCaseData: CaseData = {
           case_id: responseData.id,
           case_type: responseData.case_type || formData.case_type,
-          client: responseData.client?.name || responseData.client_name || '待指派客戶',
+          client: responseData.client?.name || responseData.client_name || formData.client,
           lawyer: responseData.lawyer?.full_name || responseData.lawyer_name || formData.lawyer,
           legal_affairs: responseData.legal_affairs?.full_name || responseData.legal_affairs_name || formData.legal_affairs,
           case_reason: responseData.case_reason || formData.case_reason,
@@ -220,7 +223,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
           // 清空表單
           setFormData({
             case_type: '',
-            client: '',  // 保持空值
+            client: '',
             lawyer: '',
             legal_affairs: '',
             case_reason: '',
@@ -297,7 +300,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
             : formData.progress_date,
 
           // 讓列表立即顯示正確名稱
-          client: responseData.client_name ?? '待指派客戶',
+          client: responseData.client_name ?? formData.client,
           lawyer: responseData.lawyer_name ?? formData.lawyer,
           legal_affairs: responseData.legal_affairs_name ?? formData.legal_affairs,
         };
@@ -401,14 +404,10 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
                       errors.client ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="請輸入當事人姓名"
-                    required
                   />
                   {errors.client && (
                     <p className="text-red-500 text-xs mt-1">{errors.client}</p>
                   )}
-                  <p className="text-gray-500 text-xs mt-1">
-                    姓名會暫存在案件中，後續透過 LINE BOT 建立完整客戶資料
-                  </p>
                 </div>
 
                 {/* 委任律師 */}

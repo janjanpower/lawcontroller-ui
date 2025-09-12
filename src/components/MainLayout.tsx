@@ -223,7 +223,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             </div>
             <div className="p-6">
               <p className="text-sm text-gray-800 mb-6">
-                確定要登出系統嗎？您需要重新登入才能繼續使用。
+                確定要登出系統嗎？
               </p>
               <div className="flex justify-end space-x-3">
                 <button

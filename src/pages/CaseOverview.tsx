@@ -973,7 +973,7 @@ export default function CaseOverview() {
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-4">
             {/* 跑馬燈：日期提醒 */}
-            <div className="w-full sm:w-64 order-2 sm:order-1">
+            <div className="w-full sm:w-80 order-2 sm:order-1">
               <DateReminderWidget
                 caseData={cases.map(c => ({
                   case_id: c.id,
@@ -1012,16 +1012,17 @@ export default function CaseOverview() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-sm w-full sm:w-64"
               />
+              {/* 搜尋結果統計 - 顯示在輸入框內右側 */}
+              {searchTerm && (
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2  text-sm text-green-600 bg-gray-50 px-1.5 py-0.5 rounded pointer-events-none">
+                  {filteredCases.length} / {cases.length} 個案件
+                </div>
+              )}
             </div>
-          </div>
+            </div>
+
         </div>
 
-        {/* 搜尋結果統計 */}
-        {searchTerm && (
-          <div className="mt-2 text-sm text-green-600">
-            找到 {filteredCases.length}/{cases.length} 個案件
-          </div>
-        )}
 
         {/* 分界線上的篩選按鈕 - 懸停顯示 */}
         <div className="group absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 z-50">
@@ -1175,7 +1176,7 @@ export default function CaseOverview() {
               <table className="w-full">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                       選擇
                     </th>
                     {visibleColumns.client && (
@@ -1237,10 +1238,10 @@ export default function CaseOverview() {
                             selectedCase?.id === row.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''
                           } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                           onClick={(e) => {
-                            // 防止在手機版點擊checkbox區域時觸發行選擇
                             if (e.target.type === 'checkbox' || e.target.closest('input[type="checkbox"]')) {
                               return;
                             }
+                            console.log('點擊的案件:', row.id); // 添加這行調試
                             setSelectedCase(row);
                           }}
                         >

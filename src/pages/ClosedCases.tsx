@@ -320,7 +320,7 @@ export default function ClosedCases() {
           <div className="w-full lg:w-96 bg-white border-l border-gray-200 overflow-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">結案案件詳情</h3>
+                <h3 className="text-lg font-semibold text-gray-900">結案詳情</h3>
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => handleExportData(selectedCase)}
@@ -328,15 +328,16 @@ export default function ClosedCases() {
                   >
                     <Download className="w-4 h-4" />
                     <span>匯出資料</span>
-                  </button>
-                  {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
-                  <button
+                    <button
                     onClick={() => setSelectedCase(null)}
                     className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                     title="關閉詳情"
                   >
                     <X className="w-5 h-5" />
                   </button>
+                  </button>
+                  {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
+
                 </div>
               </div>
 
