@@ -1233,20 +1233,20 @@ export default function CaseOverview() {
                   {filteredCases.map((row, index) => (
                     <>
                       <tr
-                          key={row.id}
-                          className={`cursor-pointer transition-colors ${
-                            index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                          } hover:bg-gray-50 ${
-                            selectedCase?.id === row.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''
-                          }`}
-                          onClick={(e) => {
-                            if (e.target.type === 'checkbox' || e.target.closest('input[type="checkbox"]')) {
-                              return;
-                            }
-                            console.log('點擊的案件:', row.id); // 添加這行調試
-                            setSelectedCase(row);
-                          }}
-                        >
+                        key={row.id}
+                        className={`cursor-pointer transition-colors ${
+                          selectedCase?.id === row.id
+                            ? 'bg-blue-50 border-l-4 border-[#334d6d]'
+                            : index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                        } hover:bg-gray-50`}
+                        onClick={(e) => {
+                          if (e.target.type === 'checkbox' || e.target.closest('input[type="checkbox"]')) {
+                            return;
+                          }
+                          console.log('點擊的案件:', row.id);
+                          setSelectedCase(row);
+                        }}
+                      >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="checkbox"
