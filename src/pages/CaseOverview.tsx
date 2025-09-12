@@ -1237,7 +1237,7 @@ export default function CaseOverview() {
                         className={`cursor-pointer transition-colors ${
                           index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                         } hover:bg-gray-100 ${
-                          selectedCase?.id === row.id ? 'border-l-2 border-[#334d6d]' : ''
+                          selectedCase?.id === row.id ? 'border-2 border-[#334d6d]' : ''
                         }`}
                         onClick={(e) => {
                           if (e.target instanceof HTMLInputElement && e.target.type === 'checkbox') return;
