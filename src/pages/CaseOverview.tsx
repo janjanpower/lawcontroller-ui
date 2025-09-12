@@ -1024,7 +1024,7 @@ export default function CaseOverview() {
         )}
 
         {/* 分界線上的篩選按鈕 - 懸停顯示 */}
-        <div className="group absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2">
+        <div className="group absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 z-50">
           <div className="relative">
             {/* 觸發區域 */}
             <div className="w-16 h-4 bg-transparent cursor-pointer"></div>
@@ -1049,7 +1049,7 @@ export default function CaseOverview() {
                   className="fixed inset-0 z-10"
                   onClick={() => setShowFilters(false)}
                 />
-                <div className="absolute top-8 left-1/2 transform -translate-x-1/2 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-4">
+                <div className="absolute top-8 left-1/2 transform -translate-x-1/2 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-medium text-gray-900">顯示欄位</h3>
                     <button
