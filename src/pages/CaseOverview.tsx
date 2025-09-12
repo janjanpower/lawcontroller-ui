@@ -1096,37 +1096,46 @@ export default function CaseOverview() {
 
         {/* 批量操作工具列 */}
         {selectedCaseIds.length > 0 && (
-          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 px-4">
             <div className="animate-slide-up">
-              <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-xl px-6 py-4 flex items-center space-x-6">
-                <span className="text-sm text-gray-700 font-medium">
-                  已選擇 {selectedCaseIds.length} 筆案件
-                </span>
+              <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-xl p-4">
+                {/* 頂部：選中數量 */}
+                <div className="text-center mb-3">
+                  <span className="text-sm text-gray-700 font-medium">
+                    已選擇 {selectedCaseIds.length} 筆案件
+                  </span>
+                </div>
 
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => handleSelectAll(true)}
-                    disabled={allSelected}
-                    className={`text-gray-700 hover:text-gray-900 text-sm underline transition-colors ${allSelected ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title="全選目前清單"
-                  >
-                    {allSelected ? '已全選' : '全選'}
-                  </button>
+                {/* 手機版：垂直排列按鈕 */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 flex-1">
+                    <button
+                      onClick={() => handleSelectAll(true)}
+                      disabled={allSelected}
+                      className={`w-full sm:w-auto px-4 py-2 text-sm underline transition-colors rounded-md ${
+                        allSelected
+                          ? 'text-gray-400 cursor-not-allowed'
+                          : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                      title="全選目前清單"
+                    >
+                      {allSelected ? '已全選' : '全選'}
+                    </button>
 
-                  <div className="w-px h-5 bg-gray-300"></div>
+                    <button
+                      onClick={() => handleSelectAll(false)}
+                      className="w-full sm:w-auto px-4 py-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 text-sm underline transition-colors rounded-md"
+                    >
+                      取消選擇
+                    </button>
+                  </div>
 
-                  <button
-                    onClick={() => handleSelectAll(false)}
-                    className="text-gray-500 hover:text-gray-700 text-sm underline transition-colors"
-                  >
-                    取消選擇
-                  </button>
-
-                  <div className="w-px h-5 bg-gray-300"></div>
+                  {/* 分隔線 - 手機版隱藏 */}
+                  <div className="hidden sm:block w-px h-5 bg-gray-300"></div>
 
                   <button
                     onClick={handleBatchDelete}
-                    className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-600 flex items-center space-x-2 transition-all hover:shadow-md"
+                    className="w-full sm:w-auto bg-red-500 text-white px-4 py-3 sm:py-2 rounded-lg text-sm font-medium hover:bg-red-600 flex items-center justify-center space-x-2 transition-all hover:shadow-md"
                   >
                     <Trash2 className="w-4 h-4" />
                     <span>刪除</span>
@@ -1223,12 +1232,18 @@ export default function CaseOverview() {
                   {filteredCases.map((row, index) => (
                     <>
                       <tr
-                        key={row.id}
-                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                          selectedCase?.id === row.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''
-                        } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-                        onClick={() => setSelectedCase(row)}
-                      >
+                          key={row.id}
+                          className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                            selectedCase?.id === row.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''
+                          } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                          onClick={(e) => {
+                            // 防止在手機版點擊checkbox區域時觸發行選擇
+                            if (e.target.type === 'checkbox' || e.target.closest('input[type="checkbox"]')) {
+                              return;
+                            }
+                            setSelectedCase(row);
+                          }}
+                        >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="checkbox"
