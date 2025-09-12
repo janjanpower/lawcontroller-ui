@@ -126,9 +126,8 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
 
         // 新增案件 - 使用新的 API 格式
         const caseDataForAPI = {
-          firm_code: firmCode,
           case_type: formData.case_type,
-          // 不再傳送 client_name，讓 client_id 保持 NULL
+          client_name: formData.client,  // 傳送當事人姓名到後端暫存
           case_reason: formData.case_reason || null,
           case_number: formData.case_number || null,
           court: formData.court || null,
