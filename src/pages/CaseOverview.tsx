@@ -137,7 +137,7 @@ export default function CaseOverview() {
         opposingParty: apiCase.opposing_party || '',
         court: apiCase.court || '',
         division: apiCase.division || '',
-        progress: apiCase.progress || '委任',
+        progress: apiCase.progress || '',
         progressDate: apiCase.progress_date || new Date().toISOString().split('T')[0],
         status: 'active' as CaseStatus,
         stages: stages
@@ -210,7 +210,7 @@ export default function CaseOverview() {
         opposingParty: caseData.opposing_party || '',
         court: caseData.court || '',
         division: caseData.division || '',
-        progress: caseData.progress || '委任',
+        progress: caseData.progress || '',
         progressDate: caseData.progress_date || new Date().toISOString().split('T')[0],
         status: 'active' as CaseStatus,
         stages: []
@@ -912,17 +912,17 @@ export default function CaseOverview() {
   return (
     <div className="flex-1 flex flex-col">
       {/* 頂部工具列 */}
-      <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
+      <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4 relative">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
               <button
                 onClick={() => {
                   setCaseFormMode('add');
                   setEditingCase(null);
                   setShowCaseForm(true);
                 }}
-                className="bg-[#3498db] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
+                className="bg-[#3498db] text-white px-3 py-3 sm:py-2 rounded-md text-sm font-medium hover:bg-[#2980b9] transition-colors flex items-center justify-center space-x-2 w-full sm:w-auto"
               >
                 <Plus className="w-4 h-4" />
                 <span>新增案件</span>
@@ -930,15 +930,15 @@ export default function CaseOverview() {
 
               <button
                 onClick={() => setShowFileUpload(true)}
-                className="bg-[#27ae60] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#229954] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
+                className="bg-[#27ae60] text-white px-3 py-3 sm:py-2 rounded-md text-sm font-medium hover:bg-[#229954] transition-colors flex items-center justify-center space-x-2 w-full sm:w-auto"
               >
                 <Upload className="w-4 h-4" />
                 <span>上傳檔案</span>
               </button>
-              
+
               <button
                 onClick={() => setShowImportDialog(true)}
-                className="bg-[#ff7525] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-green-700 transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
+                className="bg-[#ff7525] text-white px-3 py-3 sm:py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 w-full sm:w-auto"
               >
                 <Download className="w-4 h-4" />
                 <span>匯入資料</span>
@@ -946,13 +946,13 @@ export default function CaseOverview() {
 
               <button
                 onClick={handleTransferToClosed}
-                className="bg-[#f39c12] text-white px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-[#d68910] transition-colors flex items-center space-x-1 sm:space-x-2 flex-1 sm:flex-none justify-center"
+                className="bg-[#f39c12] text-white px-3 py-3 sm:py-2 rounded-md text-sm font-medium hover:bg-[#d68910] transition-colors flex items-center justify-center space-x-2 w-full sm:w-auto"
               >
                 <CheckCircle className="w-4 h-4" />
                 <span>轉移結案</span>
               </button>
 
-               <button
+              <button
                 onClick={() => {
                   if (selectedCaseIds.length === 1) {
                     const selectedCase = filteredCases.find(c => c.id === selectedCaseIds[0]);
@@ -963,18 +963,10 @@ export default function CaseOverview() {
                   }
                   setShowWriteDocument(true);
                 }}
-                className="bg-[#7d37b6] text-white px-3 py-2 rounded-md hover:bg-purple-700 transition-colors flex items-center space-x-2"
+                className="bg-[#7d37b6] text-white px-3 py-3 sm:py-2 rounded-md text-sm font-medium hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2 w-full sm:w-auto"
               >
-                <PenTool className="w-4 h-4" />
+                <PenTool className="w-4 h-3.5" />
                 <span>撰寫文件</span>
-              </button>
-
-
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-              >
-                <Filter className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -1024,100 +1016,129 @@ export default function CaseOverview() {
           </div>
         </div>
 
-        {/* 批量操作工具列 */}
-        {selectedCaseIds.length > 0 && (
-          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 animate-slide-up">
-            <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-xl px-6 py-4 flex items-center space-x-6">
-              <span className="text-sm text-gray-700 font-medium">
-                已選擇 {selectedCaseIds.length} 筆案件
-              </span>
-
-              <div className="flex items-center space-x-3">
-                {/* 新增：全選按鈕（針對當前 filteredCases） */}
-                <button
-                  onClick={() => handleSelectAll(true)}
-                  disabled={allSelected}
-                  className={`text-gray-700 hover:text-gray-900 text-sm underline transition-colors ${allSelected ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  title="全選目前清單"
-                >
-                  {allSelected ? '已全選' : '全選'}
-                </button>
-
-                <div className="w-px h-5 bg-gray-300"></div>
-
-                <button
-                  onClick={() => handleSelectAll(false)}
-                  className="text-gray-500 hover:text-gray-700 text-sm underline transition-colors"
-                >
-                  取消選擇
-                </button>
-
-                <div className="w-px h-5 bg-gray-300"></div>
-
-                <button
-                  onClick={handleBatchDelete}
-                  className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-600 flex items-center space-x-2 transition-all hover:shadow-md"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>刪除</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* 搜尋結果統計 */}
         {searchTerm && (
           <div className="mt-2 text-sm text-green-600">
             找到 {filteredCases.length}/{cases.length} 個案件
           </div>
         )}
-      </div>
 
-      {/* 欄位控制區域 */}
-      {showFilters && (
-        <div className="bg-gray-50 border-b border-gray-200 px-4 lg:px-6 py-3">
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-            <span className="text-sm font-medium text-gray-700">顯示欄位：</span>
-            {Object.entries(visibleColumns).map(([key, visible]) => (
-              <label key={key} className="flex items-center space-x-1 text-xs sm:text-sm whitespace-nowrap">
-                <input
-                  type="checkbox"
-                  checked={visible}
-                  onChange={(e) =>
-                    setVisibleColumns((prev) => ({
-                      ...prev,
-                      [key]: e.target.checked,
-                    }))
-                  }
-                  className="rounded border-gray-300 text-[#334d6d] focus:ring-[#334d6d]"
+        {/* 分界線上的篩選按鈕 - 懸停顯示 */}
+        <div className="group absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2">
+          <div className="relative">
+            {/* 觸發區域 */}
+            <div className="w-16 h-4 bg-transparent cursor-pointer"></div>
+
+            {/* 滑出的篩選按鈕 */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2
+                         opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100
+                         transition-all duration-300 ease-out
+                         p-2 bg-white border border-gray-300 rounded-full shadow-md hover:shadow-lg hover:bg-gray-50 ${
+                showFilters ? 'opacity-100 scale-100 bg-gray-100 border-gray-400' : ''
+              }`}
+            >
+              <Filter className="w-4 h-4 text-gray-600" />
+            </button>
+
+            {/* 下拉選單 */}
+            {showFilters && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowFilters(false)}
                 />
-                <span className="text-gray-600 text-xs sm:text-sm">
-                  {key === 'caseNumber'
-                    ? '案號'
-                    : key === 'client'
-                    ? '當事人'
-                    : key === 'caseType'
-                    ? '案件類型'
-                    : key === 'lawyer'
-                    ? '律師'
-                    : key === 'legalAffairs'
-                    ? '法務'
-                    : key === 'progress'
-                    ? '進度'
-                    : key === 'progressDate'
-                    ? '進度日期'
-                    : key === 'court'
-                    ? '法院'
-                    : key === 'division'
-                    ? '股別'
-                    : key}
-                </span>
-              </label>
-            ))}
+                <div className="absolute top-8 left-1/2 transform -translate-x-1/2 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-medium text-gray-900">顯示欄位</h3>
+                    <button
+                      onClick={() => setShowFilters(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.entries(visibleColumns).map(([key, visible]) => (
+                      <label key={key} className="flex items-center space-x-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={visible}
+                          onChange={(e) =>
+                            setVisibleColumns((prev) => ({
+                              ...prev,
+                              [key]: e.target.checked,
+                            }))
+                          }
+                          className="rounded border-gray-300 text-[#334d6d] focus:ring-[#334d6d]"
+                        />
+                        <span className="text-gray-600">
+                          {key === 'caseNumber' ? '案號' :
+                           key === 'client' ? '當事人' :
+                           key === 'caseType' ? '案件類型' :
+                           key === 'lawyer' ? '律師' :
+                           key === 'legalAffairs' ? '法務' :
+                           key === 'progress' ? '進度' :
+                           key === 'progressDate' ? '進度日期' :
+                           key === 'court' ? '法院' :
+                           key === 'division' ? '股別' : key}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      )}
+
+        {/* 批量操作工具列 */}
+        {selectedCaseIds.length > 0 && (
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
+            <div className="animate-slide-up">
+              <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-xl px-6 py-4 flex items-center space-x-6">
+                <span className="text-sm text-gray-700 font-medium">
+                  已選擇 {selectedCaseIds.length} 筆案件
+                </span>
+
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => handleSelectAll(true)}
+                    disabled={allSelected}
+                    className={`text-gray-700 hover:text-gray-900 text-sm underline transition-colors ${allSelected ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title="全選目前清單"
+                  >
+                    {allSelected ? '已全選' : '全選'}
+                  </button>
+
+                  <div className="w-px h-5 bg-gray-300"></div>
+
+                  <button
+                    onClick={() => handleSelectAll(false)}
+                    className="text-gray-500 hover:text-gray-700 text-sm underline transition-colors"
+                  >
+                    取消選擇
+                  </button>
+
+                  <div className="w-px h-5 bg-gray-300"></div>
+
+                  <button
+                    onClick={handleBatchDelete}
+                    className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-600 flex items-center space-x-2 transition-all hover:shadow-md"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>刪除</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 欄位控制區域 - 已移除，改為上方的下拉選單 */}
 
       {/* 案件列表 + 右側詳情 */}
       <div className="flex-1 flex flex-col lg:flex-row">
@@ -1286,12 +1307,10 @@ export default function CaseOverview() {
                                   return;
                                 }
 
-                                // 正規化：將 null/undefined -> ''；日期裁切成 YYYY-MM-DD
                                 const toStr = (v: any) => (v === null || v === undefined ? '' : String(v));
                                 const normalizeDate = (v: any) =>
                                   typeof v === 'string' ? v.slice(0, 10) : (v instanceof Date ? v.toISOString().slice(0,10) : '');
 
-                                // 將 TableCase(row) 轉為 CaseForm 需要的 snake_case
                                 const formData = {
                                   case_id: row.id,
                                   case_number: toStr(row.caseNumber),
@@ -1305,7 +1324,6 @@ export default function CaseOverview() {
                                   division: toStr(row.division),
                                   progress: toStr(row.progress),
                                   progress_date: normalizeDate(row.progressDate),
-                                  // 若 CaseForm 需要其他欄位，再補上
                                 };
 
                                 setCaseFormMode('edit');
@@ -1355,7 +1373,7 @@ export default function CaseOverview() {
                                 caseId={row.id}
                                 clientName={row.client}
                                 isExpanded={true}
-                                onToggle={() => {}} // 空函數，因為已經在這裡展開了
+                                onToggle={() => {}}
                                 s3Config={{
                                   endpoint: process.env.VITE_SPACES_ENDPOINT || 'https://sgp1.digitaloceanspaces.com',
                                   accessKey: process.env.VITE_SPACES_ACCESS_KEY || '',
@@ -1390,7 +1408,6 @@ export default function CaseOverview() {
                         return;
                       }
 
-                      // 正規化工具
                       const toStr = (v: any) => (v === null || v === undefined ? '' : String(v));
                       const normalizeDate = (v: any) =>
                         typeof v === 'string'
@@ -1399,7 +1416,6 @@ export default function CaseOverview() {
                           ? v.toISOString().slice(0, 10)
                           : '';
 
-                      // 將 TableCase（camelCase）→ CaseForm 需要的 snake_case
                       const formData = {
                         case_id: selectedCase.id,
                         case_number: toStr(selectedCase.caseNumber),
@@ -1413,7 +1429,6 @@ export default function CaseOverview() {
                         division: toStr(selectedCase.division),
                         progress: toStr(selectedCase.progress),
                         progress_date: normalizeDate(selectedCase.progressDate),
-                        // 若表單還有其他欄位，這裡一併補上
                       };
 
                       setCaseFormMode('edit');
@@ -1426,8 +1441,6 @@ export default function CaseOverview() {
                     <span>編輯</span>
                   </button>
 
-                  {/* 統一的關閉按鈕 - 手機和桌面都在右邊 */}
-           
                   <button
                     onClick={() => setSelectedCase(null)}
                     className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md p-2 transition-colors"
@@ -1665,5 +1678,4 @@ export default function CaseOverview() {
         clientName={writeDocumentClientName}
       />
     </div>
-  );
-}
+  );}

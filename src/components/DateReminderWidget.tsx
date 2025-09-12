@@ -144,59 +144,60 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
   };
 
   return (
-    <div className="relative">
-      {/* 控制區域 */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setDaysAhead(Math.max(1, daysAhead - 1))}
-            className="p-1 hover:bg-gray-200 rounded"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-sm font-medium w-4 text-center">{daysAhead}</span>
-          <button
-            onClick={() => setDaysAhead(Math.min(7, daysAhead + 1))}
-            className="p-1 hover:bg-gray-200 rounded"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          <span className="text-sm text-gray-600">天內各案件階段</span>
-        </div>
-      </div>
+    <div className="relative ">
 
       {/* 跑馬燈顯示區域 */}
-      <div className="relative">
-        <div
-          onClick={() => setIsExpanded(true)}
-          className="bg-gray-100 border border-gray-300 rounded-md py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors h-[42px] flex items-center"
-        >
-          {upcomingStages.length > 0 ? (
-            <div className="w-full">
-              <div
-                className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                  getStageColor(upcomingStages[currentIndex]).bg
-                } ${getStageColor(upcomingStages[currentIndex]).text}`}
+        <div className="relative">
+          <div
+            onClick={() => setIsExpanded(true)}
+            className="bg-gray-100 border border-gray-300 rounded-md py-2 px-2 cursor-pointer hover:bg-gray-50 transition-colors h-[38px] flex items-center justify-between"
+          >
+            {/* 左側：控制按鈕 */}
+            <div className="flex items-center mr-2" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setDaysAhead(Math.max(1, daysAhead - 1))}
+                className="p-1 hover:bg-gray-200 rounded"
               >
-                {formatDisplayText(upcomingStages[currentIndex])}
-              </div>
+                <ChevronLeft className="w-3 h-3" />
+              </button>
+              <span className="text-xs font-medium w-3 text-center">{daysAhead}</span>
+              <button
+                onClick={() => setDaysAhead(Math.min(7, daysAhead + 1))}
+                className="p-1 hover:bg-gray-200 rounded"
+              >
+                <ChevronRight className="w-3 h-3" />
+
+              </button>
+              <span className="text-sm text-gray-600 px-1">內案件</span>
             </div>
-          ) : (
-            <div className="text-gray-500 text-sm">即將到期：無資料</div>
-          )}
+
+            {/* 右側：案件內容 */}
+            <div className="flex-1 min-w-0">
+              {upcomingStages.length > 0 ? (
+                <div
+                  className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                    getStageColor(upcomingStages[currentIndex]).bg
+                  } ${getStageColor(upcomingStages[currentIndex]).text}`}
+                >
+                  {formatDisplayText(upcomingStages[currentIndex])}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-600 text-sm">無資料</div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
 
       {/* 展開詳細列表 */}
       {isExpanded && (
         <>
-          <div 
+          <div
             className="fixed inset-0 z-40"
             onClick={() => setIsExpanded(false)}
           />
           <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
             <div className="p-3 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="font-medium text-gray-900">未來 {daysAhead} 天內到期</h3>
+              <h3 className="font-medium text-gray-900"> {daysAhead} 天內案件</h3>
               <button
                 onClick={() => setIsExpanded(false)}
                 className="text-gray-400 hover:text-gray-600"

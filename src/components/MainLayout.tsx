@@ -36,7 +36,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
               <LogOut className="w-4 h-4" />
               <span className="font-medium">登出</span>
             </button>
-            
+
             {/* 桌面版登出按鈕 */}
             <button
               onClick={handleLogout}
@@ -91,9 +91,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
               </button>
 
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-[#334d6d] rounded-full flex items-center justify-center">
-                  <Building className="w-4 h-4 text-white" />
-                </div>
+
                 <h1 className="text-lg lg:text-xl font-semibold text-[#334d6d]">
                   {getPageTitle()}
                 </h1>
@@ -215,7 +213,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           {children}
         </main>
       </div>
-      
+
       {/* 登出確認對話框 */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -225,7 +223,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             </div>
             <div className="p-6">
               <p className="text-sm text-gray-800 mb-6">
-                確定要登出系統嗎？您需要重新登入才能繼續使用。
+                確定要登出系統嗎？
               </p>
               <div className="flex justify-end space-x-3">
                 <button

@@ -80,8 +80,7 @@ export default function CustomerData() {
       {/* 頂部工具列 */}
       <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h2 className="text-xl font-semibold text-[#334d6d]">客戶資料</h2>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             {/* 搜尋 */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
