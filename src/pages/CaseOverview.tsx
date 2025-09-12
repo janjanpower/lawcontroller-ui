@@ -1173,7 +1173,7 @@ export default function CaseOverview() {
             </div>
           ) : (
             <div className="h-full overflow-auto">
-              <table className="w-full">
+              <table className="w-full border-separate border-spacing-0">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
