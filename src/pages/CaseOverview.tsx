@@ -1233,17 +1233,18 @@ export default function CaseOverview() {
                   {filteredCases.map((row, index) => (
                     <>
                       <tr
-                          key={`${row.id}-${selectedCase?.id === row.id ? 'selected' : 'normal'}`}
-                          className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                            index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                          } ${selectedCase?.id === row.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''}`}
-                          onClick={(e) => {
-                            if (e.target.type === 'checkbox' || e.target.closest('input[type="checkbox"]')) {
-                              return;
-                            }
-                            setSelectedCase(row);
-                          }}
-                        >
+                        key={row.id}
+                        className={`cursor-pointer transition-colors ${
+                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                        } hover:bg-gray-100 ${
+                          selectedCase?.id === row.id ? 'border-l-2 border-[#334d6d]' : ''
+                        }`}
+                        onClick={(e) => {
+                          if (e.target instanceof HTMLInputElement && e.target.type === 'checkbox') return;
+                          setSelectedCase(row);
+                        }}
+                      >
+
                         <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="checkbox"
