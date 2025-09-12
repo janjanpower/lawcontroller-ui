@@ -175,7 +175,7 @@ export default function DateReminderWidget({ caseData, onCaseSelect }: DateRemin
             <div className="flex-1 min-w-0">
               {upcomingStages.length > 0 ? (
                 <div
-                  className={`inline-block px-2 py-1 rounded-md text-xs font-medium ${
+                  className={`inline-block px-2 py-1 rounded-md text-sm font-medium ${
                     getStageColor(upcomingStages[currentIndex]).bg
                   } ${getStageColor(upcomingStages[currentIndex]).text}`}
                 >
