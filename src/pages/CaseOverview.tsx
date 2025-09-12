@@ -971,7 +971,7 @@ export default function CaseOverview() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-6">
             {/* 跑馬燈：日期提醒 */}
             <div className="w-full sm:w-80 order-2 sm:order-1">
               <DateReminderWidget
@@ -1234,9 +1234,11 @@ export default function CaseOverview() {
                     <>
                       <tr
                           key={row.id}
-                          className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                          className={`cursor-pointer transition-colors ${
+                            index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                          } hover:bg-gray-50 ${
                             selectedCase?.id === row.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''
-                          } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                          }`}
                           onClick={(e) => {
                             if (e.target.type === 'checkbox' || e.target.closest('input[type="checkbox"]')) {
                               return;
