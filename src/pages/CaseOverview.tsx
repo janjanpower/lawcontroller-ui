@@ -1233,22 +1233,17 @@ export default function CaseOverview() {
                   {filteredCases.map((row, index) => (
                     <>
                       <tr
-                        key={row.id}
-                        className={`hover:bg-gray-50 cursor-pointer transition-colors relative ${
-                          selectedCase?.id === row.id ? 'bg-blue-50' : ''
-                        } ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-                        onClick={(e) => {
-                          if (e.target.type === 'checkbox' || e.target.closest('input[type="checkbox"]')) {
-                            return;
-                          }
-                          setSelectedCase(row);
-                        }}
-                      >
-                        {/* 動態左邊框 */}
-                        {selectedCase?.id === row.id && (
-                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#334d6d] z-10"></div>
-                        )}
-
+                          key={`${row.id}-${selectedCase?.id === row.id ? 'selected' : 'normal'}`}
+                          className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                            index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                          } ${selectedCase?.id === row.id ? 'bg-blue-50 border-l-4 border-[#334d6d]' : ''}`}
+                          onClick={(e) => {
+                            if (e.target.type === 'checkbox' || e.target.closest('input[type="checkbox"]')) {
+                              return;
+                            }
+                            setSelectedCase(row);
+                          }}
+                        >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="checkbox"
