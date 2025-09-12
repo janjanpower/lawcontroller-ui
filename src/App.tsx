@@ -12,18 +12,18 @@ const UserManagement = lazy(() => import('./pages/UserManagement'));
 
 // 路由守衛：需要「已登入 + 有 firm_code」才放行
 function RequireAuthFirm({ children }: PropsWithChildren) {
-  // const location = useLocation();
-  // const authed = hasAuthToken();
-  // const fc = tryGetFirmCode();
+  const location = useLocation();
+  const authed = hasAuthToken();
+  const fc = tryGetFirmCode();
 
-  // if (!authed) {
-  //   const returnTo = encodeURIComponent(location.pathname + location.search);
-  //   return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
-  // }
-  // if (!fc) {
-  //   const returnTo = encodeURIComponent(location.pathname + location.search);
-  //   return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
-  // }
+  if (!authed) {
+    const returnTo = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
+  }
+  if (!fc) {
+    const returnTo = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
+  }
   return <>{children}</>;
 }
 
@@ -61,7 +61,7 @@ export default function App() {
         }
       >
         <Routes>
-          未登入預設是登入頁
+          {/* 未登入預設是登入頁 */}
           <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
 

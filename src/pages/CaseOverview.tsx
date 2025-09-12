@@ -129,7 +129,7 @@ export default function CaseOverview() {
         return {
         id: apiCase.id,
         caseNumber: apiCase.case_number || '未設定',
-        client: apiCase.client_name || apiCase.client?.name || '未綁定',
+        client: apiCase.client_name || apiCase.client?.name || '未知客戶',
         caseType: apiCase.case_type || '未分類',
         lawyer: apiCase.lawyer_name || apiCase.lawyer?.full_name || '',
         legalAffairs: apiCase.legal_affairs_name || apiCase.legal_affairs?.full_name || '',
@@ -198,62 +198,30 @@ export default function CaseOverview() {
     try {
       console.log('DEBUG: handleAddCase 收到資料:', caseData);
 
-      const firmCode = getFirmCodeOrThrow();
-
-      const payload = {
-        case_type: caseData.case_type || '未分類',
-        case_reason: caseData.case_reason || '',
-        case_number: caseData.case_number || '',
-        opposing_party: caseData.opposing_party || '',
+      // 轉換為 TableCase 格式
+      const newCase: TableCase = {
+        id: caseData.case_id,
+        caseNumber: caseData.case_number || '未設定',
+        client: caseData.client || '未知客戶',
+        caseType: caseData.case_type || '未分類',
+        lawyer: caseData.lawyer || '',
+        legalAffairs: caseData.legal_affairs || '',
+        caseReason: caseData.case_reason || '',
+        opposingParty: caseData.opposing_party || '',
         court: caseData.court || '',
         division: caseData.division || '',
-        lawyer: caseData.lawyer || null,
-        legal_affairs: caseData.legal_affairs || null,
-        firm_code: firmCode,
-        // ⚠️ 不再送 client 相關欄位（id_number, client 等）
-        // client_id 後端會自動塞 NULL
-      };
-
-      const res = await apiFetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`, {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        console.error('建立案件失敗:', text);
-        setDialogConfig({
-          title: '建立失敗',
-          message: text,
-          type: 'error'
-        });
-        setShowUnifiedDialog(true);
-        return false;
-      }
-
-      // 從後端回來的完整資料
-      const data = await res.json();
-
-      // 同步到前端
-      const newCase: TableCase = {
-        id: data.id,
-        caseNumber: data.case_number || '未設定',
-        client: data.client_name || '未綁定',  // 🔹 沒有 client_id → 顯示「未綁定」
-        caseType: data.case_type || '未分類',
-        lawyer: data.lawyer_name || '',
-        legalAffairs: data.legal_affairs_name || '',
-        caseReason: data.case_reason || '',
-        opposingParty: data.opposing_party || '',
-        court: data.court || '',
-        division: data.division || '',
-        progress: data.progress || '',
-        progressDate: data.progress_date || new Date().toISOString().split('T')[0],
+        progress: caseData.progress || '',
+        progressDate: caseData.progress_date || new Date().toISOString().split('T')[0],
         status: 'active' as CaseStatus,
         stages: []
       };
 
+      console.log('DEBUG: 轉換後的案件資料:', newCase);
+
+      // 更新本地狀態
       setCases(prev => [newCase, ...prev]);
 
+      // 建立預設資料夾和 Excel 檔案
       FolderManager.createDefaultFolders(newCase.id);
       FolderManager.createCaseInfoExcel(newCase.id, {
         caseNumber: newCase.caseNumber,
@@ -272,18 +240,11 @@ export default function CaseOverview() {
 
       console.log('DEBUG: 案件新增成功');
       return true;
-    } catch (error: any) {
-      console.error('新增案件失敗:', error);
-      setDialogConfig({
-        title: '新增失敗',
-        message: error.message || '新增案件時發生錯誤',
-        type: 'error'
-      });
-      setShowUnifiedDialog(true);
+    } catch (error) {
+      console.error('新增案件到本地狀態失敗:', error);
       return false;
     }
   };
-
 
   // 編輯案件
   const handleEditCase = async (caseData: any): Promise<boolean> => {
@@ -679,11 +640,12 @@ export default function CaseOverview() {
   };
 
   const sanitize = (x: any) => {
+    // 對齊 CaseForm 新增的命名與預設
     let obj: any = {
       case_type: S(x.case_type) || '未分類',
+      client_name: S(x.client),               // client → client_name
       case_reason: S(x.case_reason) || '',
       case_number: S(x.case_number) || '',
-      opposing_party: S(x.opposing_party) || '',
       court: S(x.court) || '',
       division: S(x.division) || '',
       lawyer_name: S(x.lawyer) || '',
@@ -694,12 +656,12 @@ export default function CaseOverview() {
       const lim = LIMITS[k];
       if (lim && typeof obj[k] === 'string') obj[k] = cut(obj[k], lim);
     }
+    // 空字串→null（但必填欄位除外）
     for (const k of Object.keys(obj)) {
-      if (!obj[k]) obj[k] = null;
+      if (!obj[k] && !REQUIRED[k as keyof typeof REQUIRED]) obj[k] = null;
     }
     return obj;
   };
-
 
   const isValid = (payload: any) => !!payload.client_name && !!payload.case_type;
 
@@ -1296,7 +1258,7 @@ export default function CaseOverview() {
 
                         {visibleColumns.client && (
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {row.client ? row.client : '未綁定'}
+                            {row.client}
                           </td>
                         )}
                         {visibleColumns.caseNumber && (

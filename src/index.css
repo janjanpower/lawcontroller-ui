@@ -86,7 +86,7 @@ code {
   background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
   color: white;
   border-color: #b91c1c;
-
+  animation: pulse-glow 2s infinite;
 }
 
 /* 預設階段 */
@@ -129,7 +129,7 @@ code {
     font-size: 12px;
     min-width: 70px;
   }
-
+  
   .stage-tag.small {
     padding: 4px 10px;
     font-size: 10px;
