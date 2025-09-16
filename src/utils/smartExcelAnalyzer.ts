@@ -192,7 +192,6 @@ const rowToCase = (XLSX: any, row: any[], map: Record<number, keyof AnalyzedCase
 
   if (!hasAny) return null;
   if (!item.client && !item.case_number && !item.case_reason && !item.case_type) return null;
-  if (!item.progress) item.progress = '委任';
   return item;
 };
 
@@ -224,7 +223,15 @@ export async function analyzeExcelFile(file: File): Promise<{ cases: AnalyzedCas
         const item = rowToCase(XLSX, rows[r] || [], map);
         if (item) casesInSheet.push(item);
       }
+
+      // 🔑 分頁名稱優先分類
+      if (/民/.test(sheetName)) {
+        casesInSheet.forEach(c => { c.case_type = '民事'; });
+      } else if (/刑/.test(sheetName)) {
+        casesInSheet.forEach(c => { c.case_type = '刑事'; });
+      }
     }
+
 
     allCases.push(...casesInSheet);
     sheets.push({ sheetName, headerRow, rows, cases: casesInSheet, warnings });
