@@ -73,23 +73,23 @@ const FLEX_HEADERS: Record<Key, { synonyms: string[]; keywords?: string[]; patte
     keywords: ['案由', '事由'],
   },
   case_number: {
-    synonyms: ['案號', '字號', '案件編號', '案件號'],
+    synonyms: ['案號', '字號', '案件編號', '案件號', '編號', '案號案號'],
     keywords: ['案', '字號', '編號'],
   },
   client: {
-    synonyms: ['當事人', '客戶', '委任人', '委託人', '原告', '被告'],
-    keywords: ['當事', '客戶', '委任', '委託', '當事人姓名'],
+    synonyms: ['當事人', '客戶', '委任人', '委託人', '原告', '被告', '客戶名稱', '當事人資訊'],
+    keywords: ['當事', '客戶', '委任', '委託'],
   },
   lawyer: {
     synonyms: ['律師', '負責律師', '主辦律師', '承辦律師'],
     keywords: ['律師'],
   },
   legal_affairs: {
-    synonyms: ['法務', '承辦法務', '負責法務'],
-    keywords: ['法務'],
+    synonyms: ['法務', '承辦法務', '負責法務', '案務'],
+    keywords: ['法務', '案務'],
   },
   opposing_party: {
-    synonyms: ['對造', '對造當事人', '相對人'],
+    synonyms: ['對造', '對造當事人', '相對人', '對造資訊'],
     keywords: ['對造', '相對'],
   },
   court: {
@@ -97,8 +97,8 @@ const FLEX_HEADERS: Record<Key, { synonyms: string[]; keywords?: string[]; patte
     keywords: ['法院'],
   },
   division: {
-    synonyms: ['股別', '庭別', '承辦股別'],
-    keywords: ['股', '庭'],
+    synonyms: ['股別', '庭別', '承辦股別', '股別分機'],
+    keywords: ['股', '庭', '分機'],
   },
   progress: {
     synonyms: ['進度', '案件進度', '委任進度'],
