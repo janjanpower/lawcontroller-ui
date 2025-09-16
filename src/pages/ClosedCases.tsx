@@ -78,7 +78,8 @@ export default function ClosedCases() {
   const loadClosedCases = React.useCallback(async () => {
     setLoading(true);
     try {
-      const response = await apiFetch('/api/cases?status=closed');
+      const firmCode = getFirmCodeOrThrow();
+      const response = await apiFetch(`/api/cases?status=closed&firm_code=${encodeURIComponent(firmCode)}`);
       const data = await response.json();
       if (response.ok) {
         const transformedCases = (data.items || []).map((item: any) => ({
@@ -132,18 +133,22 @@ export default function ClosedCases() {
   const handleDeleteCase = async (caseId: string) => {
     if (!confirm('確定要刪除此案件嗎？')) return;
     try {
-      const res = await apiFetch(`/api/cases/${caseId}`, { method: 'DELETE' });
+      const firmCode = getFirmCodeOrThrow();
+      const res = await apiFetch(`/api/cases/${caseId}?firm_code=${encodeURIComponent(firmCode)}`, {
+        method: 'DELETE'
+      });
       if (res.ok) {
         setCases(prev => prev.filter(c => c.id !== caseId));
         setSelectedCaseIds(prev => prev.filter(id => id !== caseId));
         if (selectedCase?.id === caseId) setSelectedCase(null);
+        alert('案件已刪除');
       } else {
         const err = await res.json();
         alert(err?.detail || '刪除失敗');
       }
     } catch (e) {
       console.error(e);
-      alert('刪除發生錯誤');
+      alert('刪除發生錯誤: ' + (e.message || '未知錯誤'));
     }
   };
 
@@ -151,23 +156,54 @@ export default function ClosedCases() {
   const handleBatchDelete = async () => {
     if (selectedCaseIds.length === 0) return;
     if (!confirm(`確定要刪除 ${selectedCaseIds.length} 筆案件嗎？`)) return;
+
+    setLoading(true);
     try {
-      const res = await apiFetch(`/api/cases/bulk-delete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedCaseIds }),
-      });
-      if (res.ok) {
-        setCases(prev => prev.filter(c => !selectedCaseIds.includes(c.id)));
-        setSelectedCaseIds([]);
-        if (selectedCase && selectedCaseIds.includes(selectedCase.id)) setSelectedCase(null);
-      } else {
-        const err = await res.json();
-        alert(err?.detail || '批次刪除失敗');
+      const firmCode = getFirmCodeOrThrow();
+      let successCount = 0;
+      let failedCases = [];
+
+      // 逐一刪除每個案件
+      for (const caseId of selectedCaseIds) {
+        try {
+          const res = await apiFetch(`/api/cases/${caseId}?firm_code=${encodeURIComponent(firmCode)}`, {
+            method: 'DELETE'
+          });
+
+          if (res.ok) {
+            successCount++;
+          } else {
+            const err = await res.json();
+            const caseInfo = cases.find(c => c.id === caseId);
+            failedCases.push(`${caseInfo?.client || caseId}: ${err?.detail || '刪除失敗'}`);
+          }
+        } catch (error) {
+          const caseInfo = cases.find(c => c.id === caseId);
+          failedCases.push(`${caseInfo?.client || caseId}: ${error.message || '網路錯誤'}`);
+        }
       }
+
+      // 更新本地狀態 - 移除成功刪除的案件
+      const successfullyDeleted = selectedCaseIds.slice(0, successCount);
+      setCases(prev => prev.filter(c => !successfullyDeleted.includes(c.id)));
+      setSelectedCaseIds([]);
+
+      if (selectedCase && successfullyDeleted.includes(selectedCase.id)) {
+        setSelectedCase(null);
+      }
+
+      // 顯示結果
+      if (failedCases.length === 0) {
+        alert(`成功刪除 ${successCount} 筆案件`);
+      } else {
+        alert(`成功刪除 ${successCount} 筆案件\n\n失敗的案件：\n${failedCases.join('\n')}`);
+      }
+
     } catch (e) {
       console.error(e);
-      alert('批次刪除發生錯誤');
+      alert('批次刪除發生錯誤: ' + (e.message || '未知錯誤'));
+    } finally {
+      setLoading(false);
     }
   };
 
