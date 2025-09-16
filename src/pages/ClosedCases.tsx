@@ -79,15 +79,15 @@ export default function ClosedCases() {
     setLoading(true);
     try {
       const firmCode = getFirmCodeOrThrow();
-      // 查詢所有案件，然後在前端過濾出已結案的案件
-      const response = await apiFetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`);
+      // 直接查詢已結案的案件
+      const response = await apiFetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}&status=closed`);
       const data = await response.json();
 
       console.log('API 回應資料:', data);
 
       if (response.ok) {
-        // 只保留已結案的案件 (is_closed = true)
-        const closedCases = (data.items || []).filter((item: any) => item.is_closed === true);
+        // 取得已結案的案件
+        const closedCases = data.items || [];
 
         console.log('已結案案件數量:', closedCases.length);
 
@@ -97,7 +97,7 @@ export default function ClosedCases() {
           client: item.client_name || item.client?.name || '',
           caseType: item.case_type || '',
           lawyer: item.lawyer_name || item.lawyer?.full_name || '',
-          closedDate: item.closed_at ? item.closed_at.split('T')[0] : (item.progress_date || new Date().toISOString().split('T')[0]),
+          closedDate: item.closed_at ? item.closed_at.split('T')[0] : (item.updated_at ? item.updated_at.split('T')[0] : new Date().toISOString().split('T')[0]),
         }));
 
         console.log('轉換後的結案案件:', transformedCases);

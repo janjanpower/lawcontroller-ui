@@ -73,6 +73,10 @@ export default function CaseOverview() {
     division: false
   });
 
+  // ✅ 新增：結案階段檢查對話框
+  const [warningDialogOpen, setWarningDialogOpen] = useState(false);
+  const [warningList, setWarningList] = useState<TableCase[]>([]);
+
   // 檢查登入狀態
   useEffect(() => {
     if (!hasAuthToken()) {
@@ -732,16 +736,13 @@ export default function CaseOverview() {
 
 
 
-  // 轉移到結案案件
-  const handleTransferToClosed = async (payload?: { targetPath?: string }) => {
-    if (selectedCaseIds.length === 0) return;
 
+  // ✅ 抽出共用轉移邏輯
+  const doTransferToClosed = async (ids: string[]) => {
     try {
       setLoading(true);
       const firmCode = getFirmCodeOrThrow();
-
-      // 批量更新案件狀態為已結案
-      for (const caseId of selectedCaseIds) {
+      for (const caseId of ids) {
         const response = await apiFetch(`/api/cases/${caseId}?firm_code=${encodeURIComponent(firmCode)}`, {
           method: 'PATCH',
           body: JSON.stringify({
@@ -749,26 +750,21 @@ export default function CaseOverview() {
             closed_at: new Date().toISOString().split('T')[0]
           })
         });
-
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.detail || `轉移案件 ${caseId} 失敗`);
         }
       }
-
-      // 從當前列表移除已轉移的案件
-      setCases(prev => prev.filter(c => !selectedCaseIds.includes(c.id)));
+      setCases(prev => prev.filter(c => !ids.includes(c.id)));
       setSelectedCaseIds([]);
       setSelectedCase(null);
-
       setDialogConfig({
         title: '轉移成功',
-        message: `成功轉移 ${selectedCaseIds.length} 筆案件到結案案件`,
+        message: `成功轉移 ${ids.length} 筆案件到結案案件`,
         type: 'success'
       });
       setShowUnifiedDialog(true);
-
-    } catch (error) {
+    } catch (error: any) {
       console.error('轉移案件失敗:', error);
       setDialogConfig({
         title: '轉移失敗',
@@ -780,6 +776,24 @@ export default function CaseOverview() {
       setLoading(false);
     }
   };
+
+  // ✅ 修改：轉移邏輯加檢查
+  const handleTransferToClosed = async () => {
+    if (selectedCaseIds.length === 0) return;
+    const withoutClosedStage = selectedCaseIds
+      .map((id) => cases.find((c) => c.id === id))
+      .filter(
+        (caseItem): caseItem is TableCase =>
+          !!caseItem && !caseItem.stages?.some((s) => s.name === '結案')
+      );
+    if (withoutClosedStage.length > 0) {
+      setWarningList(withoutClosedStage);
+      setWarningDialogOpen(true);
+      return;
+    }
+    await doTransferToClosed(selectedCaseIds);
+  };
+
 
   // 批量刪除
   const handleBatchDelete = async () => {
@@ -1608,6 +1622,44 @@ export default function CaseOverview() {
           </div>
         )}
       </div>
+
+
+      {/* ✅ 新增：警告對話框 */}
+      {warningDialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+            <h3 className="text-lg font-bold mb-2">部分案件缺少「結案階段」</h3>
+            <p className="text-sm text-gray-700 mb-4">
+              以下案件沒有結案階段，確定要強制轉移嗎？
+            </p>
+            <ul className="text-sm text-red-600 mb-4 list-disc pl-5 space-y-1">
+              {warningList.map((c) => (
+                <li key={c.id}>
+                  {c.caseNumber} - {c.client}
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200 text-sm"
+                onClick={() => setWarningDialogOpen(false)}
+              >
+                取消
+              </button>
+              <button
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
+                onClick={() => {
+                  setWarningDialogOpen(false);
+                  doTransferToClosed(selectedCaseIds); // ✅ 強制轉移
+                }}
+              >
+                強制轉移
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* 對話框們 */}
       <CaseForm
