@@ -79,18 +79,31 @@ export default function ClosedCases() {
     setLoading(true);
     try {
       const firmCode = getFirmCodeOrThrow();
-      const response = await apiFetch(`/api/cases?status=closed&firm_code=${encodeURIComponent(firmCode)}`);
+      // 查詢所有案件，然後在前端過濾出已結案的案件
+      const response = await apiFetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`);
       const data = await response.json();
+
+      console.log('API 回應資料:', data);
+
       if (response.ok) {
-        const transformedCases = (data.items || []).map((item: any) => ({
+        // 只保留已結案的案件 (is_closed = true)
+        const closedCases = (data.items || []).filter((item: any) => item.is_closed === true);
+
+        console.log('已結案案件數量:', closedCases.length);
+
+        const transformedCases = closedCases.map((item: any) => ({
           id: item.id,
           caseNumber: item.case_number || '',
           client: item.client_name || item.client?.name || '',
           caseType: item.case_type || '',
           lawyer: item.lawyer_name || item.lawyer?.full_name || '',
-          closedDate: item.closed_at || item.progress_date || new Date().toISOString().split('T')[0],
+          closedDate: item.closed_at ? item.closed_at.split('T')[0] : (item.progress_date || new Date().toISOString().split('T')[0]),
         }));
+
+        console.log('轉換後的結案案件:', transformedCases);
         setCases(transformedCases);
+      } else {
+        console.error('載入結案案件失敗:', data);
       }
     } catch (error) {
       console.error('載入結案案件錯誤:', error);
