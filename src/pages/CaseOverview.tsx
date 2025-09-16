@@ -746,9 +746,10 @@ export default function CaseOverview() {
         const response = await apiFetch(`/api/cases/${caseId}?firm_code=${encodeURIComponent(firmCode)}`, {
           method: 'PATCH',
           body: JSON.stringify({
-            is_closed: true,
-            closed_at: new Date().toISOString().split('T')[0]
-          })
+          is_closed: true,
+          status: 'closed',
+          closed_at: new Date().toISOString().split('T')[0]
+        })
         });
         if (!response.ok) {
           const errorData = await response.json();
