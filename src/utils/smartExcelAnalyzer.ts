@@ -1,6 +1,5 @@
 // src/utils/smartExcelAnalyzer.ts
 
-
 // 全形→半形
 const toHalfWidth = (s: string) =>
   s.replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)).replace(/\u3000/g, ' ');
@@ -60,7 +59,6 @@ type SheetResult = {
   warnings: string[];
 };
 
-
 // 支援更寬鬆的標題比對：同義詞、關鍵字、正則
 type Key = keyof AnalyzedCase;
 const FLEX_HEADERS: Record<Key, { synonyms: string[]; keywords?: string[]; patterns?: RegExp[] }> = {
@@ -110,7 +108,6 @@ const FLEX_HEADERS: Record<Key, { synonyms: string[]; keywords?: string[]; patte
     patterns: [/^\s*(日期|日期\(進度\))\s*$/i],
   },
 };
-
 
 const isDateLike = (v: any) => {
   if (v === 0) return true;
@@ -231,7 +228,6 @@ export async function analyzeExcelFile(file: File): Promise<{ cases: AnalyzedCas
         casesInSheet.forEach(c => { c.case_type = '刑事'; });
       }
     }
-
 
     allCases.push(...casesInSheet);
     sheets.push({ sheetName, headerRow, rows, cases: casesInSheet, warnings });
