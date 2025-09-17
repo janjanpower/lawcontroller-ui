@@ -386,14 +386,34 @@ export default function FolderTree({
       const folderMapping: Record<string, string> = {
         pleadings: '狀紙',
         info: '案件資訊',
-        progress: '案件進度',
-        stage: '案件進度'
+        progress: '案件進度'
       };
 
       Object.entries(filesData).forEach(([folderType, files]) => {
         if (folderType === 'folders') return;
+        if (!Array.isArray(files)) return;
+
+        // ✅ 專門處理階段資料夾
+        if (folderType === 'stages') {
+          files.forEach((file: any) => {
+            const target = folderMap[file.folder_id];  // 用 folder_id 找正確子資料夾
+            if (target) {
+              target.children?.push({
+                id: file.id,
+                name: file.name,
+                type: 'file',
+                path: `${target.path}/${file.name}`,
+                size: file.size_bytes,
+                modified: file.created_at
+              });
+            }
+          });
+          return;
+        }
+
+        // 📂 其他類型走舊邏輯
         const displayName = folderMapping[folderType];
-        if (!displayName || !Array.isArray(files)) return;
+        if (!displayName) return;
 
         const target = Object.values(folderMap).find(f => f.name === displayName);
         if (!target) return;
@@ -409,6 +429,7 @@ export default function FolderTree({
           });
         });
       });
+
     } else {
       // 沒有資料 → 建立預設三個
       rootNode.children = [
@@ -463,8 +484,10 @@ export default function FolderTree({
       formData.append("file", file);
 
       if (folderId) {
-        formData.append("folder_id", folderId);  // ✅ 永遠優先用 UUID
+        console.log("👉 append folder_id:", folderId);
+        formData.append("folder_id", folderId);
       } else {
+        console.warn("⚠️ 沒有 folderId，會失敗");
         throw new Error("缺少 folder_id，無法決定要上傳到哪裡");
       }
 
