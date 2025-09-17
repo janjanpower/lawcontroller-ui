@@ -506,17 +506,15 @@ export default function CaseOverview() {
     }
   };
 
-  const actuallyDeleteStage = async (stageName: string, stageIndex: number) => {
+  const actuallyDeleteStage = async (stageName: string, stageId: string) => {
   if (!selectedCase) return;
 
   try {
     const firmCode = getFirmCodeOrThrow();
-
-    // 直接刪除後端的階段，DB cascade 會自動刪掉資料夾 & 檔案
     const resp = await apiFetch(
-    `/api/cases/${selectedCase.id}/stages/${stageId}?firm_code=${encodeURIComponent(firmCode)}`,
-    { method: 'DELETE' }
-  );
+      `/api/cases/${selectedCase.id}/stages/${stageId}?firm_code=${encodeURIComponent(firmCode)}`,
+      { method: 'DELETE' }
+    );
 
     if (!resp.ok) {
       const text = await resp.text();
