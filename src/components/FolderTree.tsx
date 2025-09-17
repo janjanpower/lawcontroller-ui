@@ -369,7 +369,7 @@ export default function FolderTree({
       const folderMapping: Record<string, string> = {
         pleadings: '狀紙',
         info: '案件資訊',
-        progress: '案件進度'
+        progress: '案件進度',
         stage: '案件進度'
       };
 
