@@ -220,13 +220,24 @@ export default function FolderTree({
     }
   }, [caseId, isExpanded]);
 
+  // 🔔 監聽外部事件：刪除階段後刷新資料夾
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e?.detail?.caseId === caseId) {
+        loadFolderStructure(); // 重新抓最新結構
+      }
+    };
+    window.addEventListener('folders:refresh', handler);
+    return () => window.removeEventListener('folders:refresh', handler);
+  }, [caseId]);
+
   const loadFolderStructure = async () => {
     // 再次檢查登入狀態
     if (!hasAuthToken()) {
       console.warn('登入狀態不完整，無法載入資料夾');
       return;
     }
-    
+
     try {
       let firmCode;
       try {
@@ -283,12 +294,12 @@ export default function FolderTree({
       } else {
         const errorText = await response.text();
         console.error('載入檔案列表失敗:', response.status, errorText);
-        
+
         // 如果是 401 或 403 錯誤，可能是登入狀態問題
         if (response.status === 401 || response.status === 403) {
           console.warn('可能是登入狀態過期，設定預設資料夾');
         }
-        
+
         // 設定預設資料夾結構
         setFolderData({
           id: 'root',
@@ -304,7 +315,7 @@ export default function FolderTree({
       }
     } catch (error) {
       console.error('載入資料夾結構失敗:', error);
-      
+
       // 設定預設資料夾結構作為備援
       setFolderData({
         id: 'root',
@@ -492,7 +503,7 @@ export default function FolderTree({
     if (!hasAuthToken()) {
       throw new Error('登入狀態已過期，請重新登入');
     }
-    
+
     try {
       let firmCode;
       try {
@@ -504,7 +515,7 @@ export default function FolderTree({
       // 將資料夾路徑轉換為 folder_type
       const folderTypeMapping: Record<string, string> = {
         '案件資訊': 'info',
-        '狀紙': 'pleadings', 
+        '狀紙': 'pleadings',
         '案件進度': 'progress',
       };
 
@@ -516,7 +527,7 @@ export default function FolderTree({
       } else {
         folderName = folderPath;
       }
-      
+
       const mappedType = folderTypeMapping[folderName] || 'progress';
 
       console.log('資料夾路徑對應:', { folderPath, folderName, mappedType });
@@ -573,7 +584,7 @@ export default function FolderTree({
   // 檔案挑選器（多檔）＋逐一上傳
   const handleFileUpload = (opts: { folderId?: string; folderPath: string }) => {
    const { folderId, folderPath } = opts;
-    
+
     // 檢查登入狀態
     if (!hasAuthToken()) {
       alert('請先登入系統');
@@ -625,12 +636,12 @@ export default function FolderTree({
 
     if (confirm(confirmMessage)) {
       console.log(`刪除 ${type}: ${path}`);
-      
+
       if (type === 'file') {
         // 實現檔案刪除邏輯
         await deleteFile(path);
       }
-      
+
       if (onDelete) {
         onDelete(path, type);
       }
@@ -679,20 +690,20 @@ export default function FolderTree({
     try {
       const firmCode = getFirmCodeOrThrow();
       const response = await fetch(`/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`);
-      
+
       if (!response.ok) return null;
-      
+
       const filesData = await response.json();
-      
+
       // 在所有資料夾中搜尋檔案
       const allFiles: any[] = [];
       if (filesData.pleadings) allFiles.push(...filesData.pleadings);
       if (filesData.info) allFiles.push(...filesData.info);
       if (filesData.progress) allFiles.push(...filesData.progress);
-      
+
       const fileName = filePath.split('/').pop();
       const file = allFiles.find(f => f.name === fileName);
-      
+
       return file ? file.id : null;
     } catch (error) {
       console.error('查找檔案 ID 失敗:', error);

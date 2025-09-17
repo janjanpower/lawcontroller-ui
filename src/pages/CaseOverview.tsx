@@ -462,84 +462,101 @@ export default function CaseOverview() {
     }
   };
 
-  const handleDeleteStage = async (stageName: string, stageIndex: number) => {
+  const handleDeleteStage = async (stageId: string, stageName: string, stageIndex: number) => {
     if (!selectedCase) return;
 
-    const folderPath = FolderManager.getStageFolder(selectedCase.id, stageName);
-
-    let hasFiles = false;
     try {
-      hasFiles = await FolderManager.hasFilesInFolder(folderPath);
-    } catch {
-      // 取不到清單時保守視為有檔案，避免誤刪
-      hasFiles = true;
-    }
+      const firmCode = getFirmCodeOrThrow();
+      // 呼叫後端 API 查詢該階段底下的檔案數量
+      const res = await apiFetch(
+        `/api/cases/${selectedCase.id}/stages/${stageId}/files/count?firm_code=${encodeURIComponent(firmCode)}`
+      );
 
-    if (hasFiles) {
+      const data = await res.json();
+      const fileCount = data.count ?? 0;
+
+      if (fileCount > 0) {
+        // 有檔案 → 跳出自訂確認視窗
+        setDialogConfig({
+          title: '資料夾內仍有檔案',
+          message: `階段「${stageName}」的資料夾內仍有 ${fileCount} 個檔案，確定要一併刪除嗎？此操作無法復原。`,
+          type: 'warning',
+          onConfirm: async () => {
+            await actuallyDeleteStage(stageName, stageIndex);
+          },
+        });
+        setShowUnifiedDialog(true);
+        return;
+      }
+
+      // 沒檔案 → 直接刪除
+      await actuallyDeleteStage(stageName, stageIndex);
+    } catch (err) {
+      // API 失敗時，保守視為有檔案，避免誤刪
       setDialogConfig({
-        title: '資料夾內仍有檔案',
-        message: `階段「${stageName}」的資料夾仍有檔案，確定要一併刪除嗎？此操作無法復原。`,
+        title: '刪除確認',
+        message: `無法檢查階段「${stageName}」的檔案狀態，是否仍要刪除？`,
         type: 'warning',
         onConfirm: async () => {
           await actuallyDeleteStage(stageName, stageIndex);
         },
       });
       setShowUnifiedDialog(true);
-      return;
     }
-
-    await actuallyDeleteStage(stageName, stageIndex);
   };
 
   const actuallyDeleteStage = async (stageName: string, stageIndex: number) => {
-    if (!selectedCase) return;
+  if (!selectedCase) return;
 
-    try {
-      const firmCode = getFirmCodeOrThrow();
-      // 先刪後端的階段
-      const resp = await apiFetch(
-        `/api/cases/${selectedCase.id}/stages/${stageIndex}?firm_code=${encodeURIComponent(firmCode)}`,
-        { method: 'DELETE' }
-      );
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(text || '刪除階段失敗');
-      }
+  try {
+    const firmCode = getFirmCodeOrThrow();
 
-      // 再刪對應階段資料夾（有無檔案都清乾淨）
-      const folderPath = FolderManager.getStageFolder(selectedCase.id, stageName);
-      try {
-        await FolderManager.deleteFolderRecursive(folderPath);
-      } catch (e) {
-        console.warn('刪除階段資料夾失敗（略過，不阻斷流程）', e);
-      }
-
-      // 更新前端列表
-      setCases(prev => prev.map(c =>
-        c.id === selectedCase.id ? { ...c, stages: c.stages.filter((_, i) => i !== stageIndex) } : c
-      ));
-      // ✅ 同步右側詳情
-      setSelectedCase(prev =>
-        prev && prev.id === selectedCase.id
-          ? { ...prev, stages: prev.stages.filter((_, i) => i !== stageIndex) }
-          : prev
-      );
-
-      setDialogConfig({
-        title: '刪除成功',
-        message: `已刪除階段「${stageName}」。`,
-        type: 'success',
-      });
-      setShowUnifiedDialog(true);
-    } catch (err: any) {
-      setDialogConfig({
-        title: '刪除失敗',
-        message: err?.message || '刪除階段時發生錯誤',
-        type: 'error',
-      });
-      setShowUnifiedDialog(true);
+    // 直接刪除後端的階段，DB cascade 會自動刪掉資料夾 & 檔案
+    const resp = await apiFetch(
+      `/api/cases/${selectedCase.id}/stages/${stageIndex}?firm_code=${encodeURIComponent(firmCode)}`,
+      { method: 'DELETE' }
+    );
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(text || '刪除階段失敗');
     }
-  };
+
+    // 更新前端列表
+    setCases(prev =>
+      prev.map(c =>
+        c.id === selectedCase.id
+          ? { ...c, stages: c.stages.filter((_, i) => i !== stageIndex) }
+          : c
+      )
+    );
+
+    // ✅ 同步右側詳情
+    setSelectedCase(prev =>
+      prev && prev.id === selectedCase.id
+        ? { ...prev, stages: prev.stages.filter((_, i) => i !== stageIndex) }
+        : prev
+    );
+
+    // ✅ 提醒使用者成功
+    setDialogConfig({
+      title: '刪除成功',
+      message: `已刪除階段「${stageName}」，相關資料夾與檔案已一併移除。`,
+      type: 'success',
+    });
+    setShowUnifiedDialog(true);
+
+    // ✅ 刷新檔案樹 (確保 FolderTree 更新)
+    window.dispatchEvent(new CustomEvent('folders:refresh', { detail: { caseId: selectedCase.id } }));
+  } catch (err: any) {
+    setDialogConfig({
+      title: '刪除失敗',
+      message: err?.message || '刪除階段時發生錯誤',
+      type: 'error',
+    });
+    setShowUnifiedDialog(true);
+  }
+};
+
 
   // 切換階段完成狀態（含樂觀更新與回滾，同步列表與右側詳情）
   const toggleStageCompletion = (stageIndex: number) => {
