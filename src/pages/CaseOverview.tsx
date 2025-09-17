@@ -514,7 +514,7 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
 
   try {
     const firmCode = getFirmCodeOrThrow();
-      const resp = await apiFetch(
+    const resp = await apiFetch(
       `/api/cases/${selectedCase.id}/stages/${stageId}?firm_code=${encodeURIComponent(firmCode)}`,
       { method: 'DELETE' }
     );
@@ -535,20 +535,17 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
 
     setSelectedCase(prev =>
       prev && prev.id === selectedCase.id
-        ? { ...prev, stages: prev.stages.filter(s => s.id !== stageId) }
+        ? { ...prev, stages: prev.stages.filter((_, i) => i !== stageIndex) }
         : prev
     );
 
-
-    // 成功提示
     setDialogConfig({
       title: '刪除成功',
-      message: `已刪除階段「${stageName}」，相關資料夾與檔案已一併移除。`,
+      message: `已刪除階段「${stageName}」`,
       type: 'success',
     });
     setShowUnifiedDialog(true);
 
-    // 刷新資料夾樹
     window.dispatchEvent(new CustomEvent('folders:refresh', { detail: { caseId: selectedCase.id } }));
   } catch (err: any) {
     setDialogConfig({
@@ -559,7 +556,6 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
     setShowUnifiedDialog(true);
   }
 };
-
 
 
   // 切換階段完成狀態（含樂觀更新與回滾，同步列表與右側詳情）
