@@ -103,13 +103,13 @@ export default function FileUploadDialog({
         return;
       }
 
-      const folder = availableFolders.find(f => f.path === selectedFolder);
+      const folder = availableFolders.find(f => f.id === selectedFolder); // ✅ 用 id 找
         if (!folder) throw new Error('找不到指定的資料夾');
 
         for (const file of selectedFiles) {
           const form = new FormData();
           form.append('file', file);
-          form.append('folder_id', folder.id);   // ✅ 關鍵：只要這個
+          form.append('folder_id', folder.id);  // ✅ 保證傳正確的 folder_id
 
           const headers: Record<string, string> = {};
           const token = localStorage.getItem('token');
@@ -214,12 +214,12 @@ export default function FileUploadDialog({
               </div>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {availableFolders.map(f => (
-                  <label key={f.path} className="flex items-center p-2 border rounded cursor-pointer hover:bg-gray-50">
+                  <label key={f.id} className="flex items-center p-2 border rounded cursor-pointer hover:bg-gray-50">
                     <input
                       type="radio"
                       name="folder"
-                      value={f.path}
-                      checked={selectedFolder === f.path}
+                      value={f.id}  // ✅ 改成存 folder.id
+                      checked={selectedFolder === f.id}
                       onChange={(e) => setSelectedFolder(e.target.value)}
                       className="mr-3"
                     />
@@ -227,6 +227,7 @@ export default function FileUploadDialog({
                     <span className="text-sm">{f.name}</span>
                   </label>
                 ))}
+
               </div>
             </div>
           )}

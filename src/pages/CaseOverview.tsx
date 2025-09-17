@@ -369,7 +369,7 @@ export default function CaseOverview() {
         const errorData = await response.json();
         throw new Error(errorData.detail || '新增階段失敗');
       }
-
+      const data = await response.json()
       const newStage: Stage = {
         id: data.id,  // ✅ 後端回傳的 UUID
         name: data.stage_name,
@@ -431,12 +431,14 @@ export default function CaseOverview() {
       }
 
       const updatedStage: Stage = {
+        id: editingStage.stage.id,   // ⬅️ 保留原本的 UUID
         name: stageData.stageName,
         date: stageData.date,
         completed: editingStage.stage.completed,
         note: stageData.note,
         time: stageData.time
       };
+
 
       // 更新本地狀態
       setCases(prev => prev.map(c =>
@@ -571,7 +573,7 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
       try {
         const firmCode = getFirmCodeOrThrow();
         const response = await apiFetch(
-          `/api/cases/${selectedCase.id}/stages/${stageIndex}?firm_code=${encodeURIComponent(firmCode)}`,
+          `/api/cases/${selectedCase.id}/stages/${stage.id}?firm_code=${encodeURIComponent(firmCode)}`,
           {
             method: 'PATCH',
             body: JSON.stringify({ is_completed: newCompleted }),
