@@ -54,13 +54,15 @@ export default function FileUploadDialog({
       };
 
       const folders = (data.folders || [])
-        .filter((f: any) => f.folder_type !== 'root') // 只排掉最上層，不要排 stage
-        .map((f: any) => ({
-          id: f.id,
-          name: f.folder_name,
-          path: f.folder_path,
-          type: f.folder_type
-        }));
+      .filter((f: any) => f.folder_type !== 'root') // 排掉根目錄
+      .map((f: any) => ({
+        id: f.id,
+        name: f.folder_name,
+        path: f.folder_path,
+        // 👇 重點：如果是 stage → 改成 progress
+        type: f.folder_type === 'stage' ? 'progress' : f.folder_type
+      }));
+
 
       setAvailableFolders(uniqByNamePath(folders));
     } catch (err) {
