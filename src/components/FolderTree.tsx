@@ -64,12 +64,13 @@ const FolderTreeNode: React.FC<{
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleUploadClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (node.type === 'folder' && onFileUpload) {
-      onFileUpload({ folderId: node.id, folderPath: node.path });
-    }
-  };
+  // FolderTreeNode 裡
+const handleUploadClick = (e: React.MouseEvent) => {
+  e.stopPropagation();
+  if (node.type === 'folder' && onFileUpload) {
+    onFileUpload({ folderId: node.id, folderPath: node.path }); // ✅ 傳 id
+  }
+};
 
   const handleFolderCreateClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -347,12 +348,15 @@ export default function FolderTree({
 
       filesData.folders.forEach((f: any) => {
         folderMap[f.id] = {
-          id: f.id,
-          name: f.folder_name,
-          type: 'folder',
-          path: f.folder_path,
-          children: []
-        };
+        id: f.id,
+        name: f.folder_name,
+        type: 'folder',
+        path: f.folder_path,
+        children: [],
+        // 新增
+        folderType: f.folder_type,   // ← 關鍵：保留後端的 folder_type
+      };
+
       });
 
       // 掛接 parent/child 關係

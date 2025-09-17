@@ -56,8 +56,10 @@ export default function FileUploadDialog({
       id: f.id,
       name: f.folder_name,
       path: f.folder_path,
-      type: f.folder_type
+      type: 'folder',          // UI 用 type
+      folderType: f.folder_type // 保留資料庫的 folder_type
     }));
+
 
     // ✅ 包含所有子資料夾
     setAvailableFolders(uniqByNamePath(folders));
