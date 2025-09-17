@@ -231,7 +231,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: Ca
             opposing_party: '',
             court: '',
             division: '',
-            progress: '委任',
+            progress: '',
             progress_date: new Date().toISOString().split('T')[0]
           });
           onClose();
