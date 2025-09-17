@@ -54,11 +54,12 @@ export default function FileUploadDialog({
       };
 
       const folders = (data.folders || [])
-        .filter((f: any) => f.folder_name !== '進度追蹤') // 🚫 過濾掉不要的
+        .filter((f: any) => f.folder_type !== 'root') // 只排掉最上層，不要排 stage
         .map((f: any) => ({
+          id: f.id,
           name: f.folder_name,
           path: f.folder_path,
-          type: FOLDER_TYPE_MAP[f.folder_name] || 'progress'  // ✅ 轉換成後端要的
+          type: f.folder_type
         }));
 
       setAvailableFolders(uniqByNamePath(folders));
@@ -110,6 +111,7 @@ export default function FileUploadDialog({
           form.append('folder_name', folder.name);
           form.append('folder_path', folder.path);
           form.append('folder_type', folder.type); // ✅ 補上
+          form.append('folder_id', folder.id);
 
           const headers: Record<string, string> = {};
           const token = localStorage.getItem('token');
