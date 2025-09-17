@@ -110,10 +110,10 @@ export default function FileUploadDialog({
         for (const file of selectedFiles) {
           const form = new FormData();
           form.append('file', file);
+          form.append('folder_id', folder.id);
           form.append('folder_name', folder.name);
           form.append('folder_path', folder.path);
           form.append('folder_type', folder.type); // ✅ 補上
-          form.append('folder_id', folder.id);
 
           const headers: Record<string, string> = {};
           const token = localStorage.getItem('token');
