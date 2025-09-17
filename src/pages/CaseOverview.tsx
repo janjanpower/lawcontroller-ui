@@ -483,7 +483,7 @@ export default function CaseOverview() {
           message: `階段「${stageName}」的資料夾內仍有 ${fileCount} 個檔案，確定要一併刪除嗎？此操作無法復原。`,
           type: 'warning',
           onConfirm: async () => {
-            await actuallyDeleteStage(stageName, stageIndex);
+            await actuallyDeleteStage(stage.stage_name, stage.id);
           },
         });
         setShowUnifiedDialog(true);
@@ -491,7 +491,7 @@ export default function CaseOverview() {
       }
 
       // 沒檔案 → 直接刪除
-      await actuallyDeleteStage(stageName, stageIndex);
+      await actuallyDeleteStage(stage.stage_name, stage.id);
     } catch (err) {
       // API 失敗時，保守視為有檔案，避免誤刪
       setDialogConfig({
@@ -499,7 +499,7 @@ export default function CaseOverview() {
         message: `無法檢查階段「${stageName}」的檔案狀態，是否仍要刪除？`,
         type: 'warning',
         onConfirm: async () => {
-          await actuallyDeleteStage(stageName, stageIndex);
+          await actuallyDeleteStage(stage.stage_name, stage.id);
         },
       });
       setShowUnifiedDialog(true);
@@ -514,9 +514,10 @@ export default function CaseOverview() {
 
     // 直接刪除後端的階段，DB cascade 會自動刪掉資料夾 & 檔案
     const resp = await apiFetch(
-      `/api/cases/${selectedCase.id}/stages/${stageIndex}?firm_code=${encodeURIComponent(firmCode)}`,
-      { method: 'DELETE' }
-    );
+    `/api/cases/${selectedCase.id}/stages/${stageId}?firm_code=${encodeURIComponent(firmCode)}`,
+    { method: 'DELETE' }
+  );
+
     if (!resp.ok) {
       const text = await resp.text();
       throw new Error(text || '刪除階段失敗');
