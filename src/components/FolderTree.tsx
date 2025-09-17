@@ -361,12 +361,25 @@ export default function FolderTree({
 
       // 掛接 parent/child 關係
       filesData.folders.forEach((f: any) => {
-        const node = folderMap[f.id];
-        if (f.parent_id && folderMap[f.parent_id]) {
+        const node: FolderNode = {
+          id: f.id,
+          name: f.folder_name,
+          type: 'folder',
+          path: f.folder_path,
+          children: []
+        };
+
+        if (f.folder_type === 'stage') {
+          // ✅ 掛到「案件進度」底下
+          const progressFolder = rootNode.children?.find(c => c.name === '案件進度');
+          progressFolder?.children?.push(node);
+        } else if (f.parent_id && folderMap[f.parent_id]) {
           folderMap[f.parent_id].children?.push(node);
         } else {
           rootNode.children?.push(node);
         }
+
+        folderMap[f.id] = node;
       });
 
       // 如果還有 filesData.progress / info / pleadings 這些檔案陣列，也要掛到對應的資料夾
