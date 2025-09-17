@@ -109,10 +109,7 @@ export default function FileUploadDialog({
         for (const file of selectedFiles) {
           const form = new FormData();
           form.append('file', file);
-          form.append('folder_id', folder.id);   // ✅ 關鍵
-          form.append('folder_type', folder.type);
-          form.append('folder_name', folder.name);
-          form.append('folder_path', folder.path);
+          form.append('folder_id', folder.id);   // ✅ 關鍵：只要這個
 
           const headers: Record<string, string> = {};
           const token = localStorage.getItem('token');
@@ -128,6 +125,7 @@ export default function FileUploadDialog({
             throw new Error(text || `上傳 ${file.name} 失敗`);
           }
         }
+
 
 
       alert(`成功上傳 ${selectedFiles.length} 個檔案`);
