@@ -370,6 +370,7 @@ export default function FolderTree({
         pleadings: '狀紙',
         info: '案件資訊',
         progress: '案件進度'
+        stage: '案件進度'
       };
 
       Object.entries(filesData).forEach(([folderType, files]) => {
@@ -443,9 +444,10 @@ export default function FolderTree({
       // 建立 FormData
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('folder_type', finalFolderType);
-      if (folderId) formData.append('folder_id', folderId);      // 新增，後端若支援就用這個
-      formData.append('folder_path', folderPath);                // 備援，後端可用路徑判斷
+      if (folderId) {
+        formData.append('folder_id', folderId); // ✅ 優先使用
+      } else {
+        formData.append('folder_type', finalFolderType);          // 備援，後端可用路徑判斷
       console.log('準備上傳檔案:', {
         fileName: file.name,
         folderPath,

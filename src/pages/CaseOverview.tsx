@@ -371,11 +371,12 @@ export default function CaseOverview() {
       }
 
       const newStage: Stage = {
-        name: stageData.stageName,
-        date: stageData.date,
-        completed: false,
-        note: stageData.note,
-        time: stageData.time
+        id: data.id,  // ✅ 後端回傳的 UUID
+        name: data.stage_name,
+        date: data.stage_date,
+        completed: data.is_completed,
+        note: data.note,
+        time: data.stage_time
       };
 
       // 更新本地狀態
@@ -413,7 +414,8 @@ export default function CaseOverview() {
       const firmCode = getFirmCodeOrThrow();
 
       // 呼叫後端 API 更新階段
-      const response = await apiFetch(`/api/cases/${selectedCase.id}/stages/${editingStage.index}?firm_code=${encodeURIComponent(firmCode)}`, {
+      const response = await apiFetch(
+      `/api/cases/${selectedCase.id}/stages/${editingStage.stage.id}?firm_code=${encodeURIComponent(firmCode)}`, {
         method: 'PATCH',
         body: JSON.stringify({
           stage_name: stageData.stageName,
@@ -525,17 +527,14 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
     }
 
     // 更新前端列表
-    setCases(prev =>
-      prev.map(c =>
-        c.id === selectedCase.id
-          ? { ...c, stages: c.stages.filter((_, i) => i !== stageIndex) }
-          : c
-      )
-    );
-
+    setCases(prev => prev.map(c =>
+      c.id === selectedCase.id
+        ? { ...c, stages: c.stages.filter(s => s.id !== stageId) }
+        : c
+    ));
     setSelectedCase(prev =>
       prev && prev.id === selectedCase.id
-        ? { ...prev, stages: prev.stages.filter((_, i) => i !== stageIndex) }
+        ? { ...prev, stages: prev.stages.filter(s => s.id !== stageId) }
         : prev
     );
 

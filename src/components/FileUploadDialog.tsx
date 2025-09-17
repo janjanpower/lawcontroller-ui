@@ -53,13 +53,13 @@ export default function FileUploadDialog({
       };
 
     const folders = (data.folders || [])
-      .filter((f: any) => f.folder_name !== '進度追蹤')
-      .map((f: any) => ({
-        id: f.id,                // ✅ 傳給後端的 folder_id
-        name: f.folder_name,
-        path: f.folder_path,
-        type: f.folder_type      // ✅ 保留原始類型 (pleadings, info, progress, stage)
-      }));
+    .map((f: any) => ({
+      id: f.id,
+      name: f.folder_name,
+      path: f.folder_path,
+      type: f.folder_type
+    }));
+
 
 
 
