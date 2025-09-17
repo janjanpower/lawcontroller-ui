@@ -47,12 +47,18 @@ export default function FileUploadDialog({
       if (!res.ok) throw new Error("讀取資料夾失敗");
       const data = await res.json();
 
+      const FOLDER_TYPE_MAP: Record<string, string> = {
+        '狀紙': 'pleadings',
+        '案件資訊': 'info',
+        '案件進度': 'progress'
+      };
+
       const folders = (data.folders || [])
-        .filter((f: any) => f.folder_name !== '進度追蹤')
+        .filter((f: any) => f.folder_name !== '進度追蹤') // 🚫 過濾掉不要的
         .map((f: any) => ({
           name: f.folder_name,
           path: f.folder_path,
-          type: f.folder_type  // ✅ 保留 folder_type
+          type: FOLDER_TYPE_MAP[f.folder_name] || 'progress'  // ✅ 轉換成後端要的
         }));
 
       setAvailableFolders(uniqByNamePath(folders));
@@ -61,6 +67,7 @@ export default function FileUploadDialog({
       setAvailableFolders([]);
     }
   };
+
 
   const selectedCaseData = useMemo(
     () => cases.find(c => c.id === selectedCase),
