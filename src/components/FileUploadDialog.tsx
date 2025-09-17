@@ -52,16 +52,15 @@ export default function FileUploadDialog({
         '案件進度': 'progress'
       };
 
-    const folders = (data.folders || [])
-    .map((f: any) => ({
+    const folders = (data.folders || []).map((f: any) => ({
       id: f.id,
       name: f.folder_name,
       path: f.folder_path,
       type: f.folder_type
     }));
 
-
-
+    // ✅ 包含所有子資料夾
+    setAvailableFolders(uniqByNamePath(folders));
 
       setAvailableFolders(uniqByNamePath(folders));
     } catch (err) {

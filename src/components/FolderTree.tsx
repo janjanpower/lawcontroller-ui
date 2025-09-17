@@ -444,10 +444,11 @@ export default function FolderTree({
       // 建立 FormData
       const formData = new FormData();
         formData.append("file", file);
+
         if (folderId) {
-          formData.append("folder_id", folderId);  // ✅ 確保送出 UUID
+          formData.append("folder_id", folderId);  // ✅ 確保永遠送 UUID
         } else {
-          formData.append("folder_type", finalFolderType); // fallback 才用 type
+          throw new Error("缺少 folder_id，無法決定要上傳到哪裡");
         }
 
 
