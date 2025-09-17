@@ -119,12 +119,13 @@ export default function CaseOverview() {
           if (stagesResponse.ok) {
             const stagesData = await stagesResponse.json();
             stages = (stagesData || []).map((stage: any) => ({
-              name: stage.stage_name,
-              date: stage.stage_date || '',
-              completed: stage.is_completed || false,
-              note: stage.note || '',
-              time: stage.stage_time || ''
-            }));
+            id: stage.id, // 後端 UUID
+            name: stage.stage_name,
+            date: stage.stage_date || '',
+            completed: stage.is_completed || false,
+            note: stage.note || '',
+            time: stage.stage_time || ''
+          }));
           }
         } catch (error) {
           console.error(`載入案件 ${apiCase.id} 的階段失敗:`, error);
@@ -1623,12 +1624,12 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
                                     <Folder className="w-3 h-3" />
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteStage(stage.id, stage.stage_name, stageIndex)}
-                                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all p-1 rounded"
-                                    title="刪除階段"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
+                                  onClick={() => handleDeleteStage(stage.id, stage.name, stageIndex)}
+                                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all p-1 rounded"
+                                  title="刪除階段"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
                                 </div>
                               </div>
                             </div>
