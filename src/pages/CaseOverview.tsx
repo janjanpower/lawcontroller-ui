@@ -388,8 +388,9 @@ export default function CaseOverview() {
 
       // 建立階段資料夾
       FolderManager.createStageFolder(selectedCase.id, stageData.stageName);
-
+      window.dispatchEvent(new CustomEvent('folders:refresh', { detail: { caseId: selectedCase.id } }));
       console.log('階段新增成功:', newStage);
+
       return true;
     } catch (error) {
       console.error('新增階段失敗:', error);
