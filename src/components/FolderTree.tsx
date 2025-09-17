@@ -640,7 +640,7 @@ export default function FolderTree({
   };
 
   // 根據檔案路徑找到檔案 ID
-  const findFileIdByPath = async (filePath: string): Promise<string | null> => {
+  const findFileIdByPath = async (filePath: string, folderId?: string): Promise<string | null> => {
     try {
       const firmCode = getFirmCodeOrThrow();
       const response = await fetch(`/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`);
@@ -649,16 +649,17 @@ export default function FolderTree({
 
       const filesData = await response.json();
 
-      // 在所有資料夾中搜尋檔案
       const allFiles: any[] = [];
       if (filesData.pleadings) allFiles.push(...filesData.pleadings);
       if (filesData.info) allFiles.push(...filesData.info);
       if (filesData.progress) allFiles.push(...filesData.progress);
-      if (filesData.stages) allFiles.push(...filesData.stages);
-
+      if (filesData.stage) allFiles.push(...filesData.stage); // ✅ stage 檔案
 
       const fileName = filePath.split('/').pop();
-      const file = allFiles.find(f => f.name === fileName);
+
+      const file = allFiles.find(f =>
+        f.name === fileName && (!folderId || f.folder_id === folderId)
+      );
 
       return file ? file.id : null;
     } catch (error) {
@@ -666,6 +667,7 @@ export default function FolderTree({
       return null;
     }
   };
+
 
   if (!isExpanded) return null;
 
