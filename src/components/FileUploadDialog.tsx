@@ -53,13 +53,12 @@ export default function FileUploadDialog({
         '案件進度': 'progress'
       };
 
-      const folders = (data.folders || [])
-      .filter((f: any) => f.folder_type !== 'root') // 排掉根目錄
+    const folders = (data.folders || [])
+      .filter((f: any) => f.folder_name !== '進度追蹤')
       .map((f: any) => ({
-        id: f.id,
+        id: f.id, // ✅ 帶上 folder_id
         name: f.folder_name,
         path: f.folder_path,
-        // 👇 重點：如果是 stage → 改成 progress
         type: f.folder_type === 'stage' ? 'progress' : f.folder_type
       }));
 
@@ -110,10 +109,10 @@ export default function FileUploadDialog({
         for (const file of selectedFiles) {
           const form = new FormData();
           form.append('file', file);
-          form.append('folder_id', folder.id);
+          form.append('folder_id', folder.id);   // ✅ 關鍵
           form.append('folder_name', folder.name);
           form.append('folder_path', folder.path);
-          form.append('folder_type', folder.type); // ✅ 補上
+          form.append('folder_type', folder.type);
 
           const headers: Record<string, string> = {};
           const token = localStorage.getItem('token');
