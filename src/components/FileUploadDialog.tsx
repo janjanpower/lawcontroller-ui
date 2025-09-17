@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { X, Upload, FileText, AlertCircle, Folder } from 'lucide-react';
+import { X, Upload, AlertCircle, Folder } from 'lucide-react';
 import { getFirmCodeOrThrow } from '../utils/api';
 
 interface FileUploadDialogProps {
@@ -21,13 +21,12 @@ export default function FileUploadDialog({
 }: FileUploadDialogProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedCase, setSelectedCase] = useState<string>('');
-  const [selectedFolder, setSelectedFolder] = useState<string>(''); // 存 path
+  const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [availableFolders, setAvailableFolders] = useState<AvFolder[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [showCaseWarning, setShowCaseWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ====== helpers ======
   const uniqByNamePath = (items: AvFolder[]) =>
     Array.from(new Map(items.map(i => [`${i.name}::${i.path}`, i])).values());
 
@@ -36,7 +35,7 @@ export default function FileUploadDialog({
     setSelectedFiles(files);
   };
 
-  // ✅ 改成呼叫後端 API 取得 folders，而不是用 FolderManager
+  // ✅ 改為從後端 API 取得資料夾
   const handleCaseSelect = async (caseId: string) => {
     setSelectedCase(caseId);
     setSelectedFolder('');
@@ -47,11 +46,12 @@ export default function FileUploadDialog({
       if (!res.ok) throw new Error("讀取資料夾失敗");
       const data = await res.json();
 
-      // 從後端回傳的 folders 組合可選清單
-      const folders = (data.folders || []).map((f: any) => ({
-        name: f.folder_name,
-        path: f.folder_path
-      }));
+      const folders = (data.folders || [])
+        .filter((f: any) => f.folder_name !== '進度追蹤') // 🚫 過濾掉不要的資料夾
+        .map((f: any) => ({
+          name: f.folder_name,
+          path: f.folder_path
+        }));
 
       setAvailableFolders(uniqByNamePath(folders));
     } catch (err) {
@@ -60,36 +60,12 @@ export default function FileUploadDialog({
     }
   };
 
-  // 依 folder.name / folder.path 推導 folder_type 與 stage_name
-  const resolveFolderTarget = (folder: AvFolder) => {
-    const name = folder.name.trim();
-    const path = folder.path || '';
-
-    // 1) 固定對應
-    if (name === '狀紙') return { folder_type: 'pleadings' as const };
-    if (name === '案件資訊') return { folder_type: 'info' as const };
-    if (name === '案件進度') return { folder_type: 'progress' as const };
-
-    // 2) 案件進度/某階段
-    if (path.includes('案件進度/')) {
-      const parts = path.split('/').filter(Boolean);
-      const stage = decodeURIComponent(parts[parts.length - 1] || '');
-      if (stage && stage !== '案件進度') {
-        return { folder_type: 'progress' as const, stage_name: stage };
-      }
-      return { folder_type: 'progress' as const };
-    }
-
-    // 3) 其他未知 → 一律放在 progress
-    return { folder_type: 'progress' as const };
-  };
-
   const selectedCaseData = useMemo(
     () => cases.find(c => c.id === selectedCase),
     [cases, selectedCase]
   );
 
-  // ✅ 新增：監聽 folders:refresh，確保新增/刪除階段後會更新清單
+  // ✅ 監聽 folders:refresh → 即時更新
   useEffect(() => {
     const handler = (e: any) => {
       if (e?.detail?.caseId === selectedCase) {
@@ -100,7 +76,6 @@ export default function FileUploadDialog({
     return () => window.removeEventListener('folders:refresh', handler);
   }, [selectedCase]);
 
-  // ====== 上傳 ======
   const handleUpload = async () => {
     if (selectedCaseIds.length === 0) { setShowCaseWarning(true); return; }
     if (!selectedCase) { alert('請選擇要上傳的案件'); return; }
@@ -120,14 +95,8 @@ export default function FileUploadDialog({
       const folder = availableFolders.find(f => f.path === selectedFolder);
       if (!folder) throw new Error('找不到指定的資料夾');
 
-      const target = resolveFolderTarget(folder);
-
       for (const file of selectedFiles) {
         const form = new FormData();
-        form.append('folder_type', target.folder_type);
-        if (target.stage_name) {
-          form.append('stage_name', target.stage_name);
-        }
         form.append('file', file);
 
         const headers: Record<string, string> = {};
@@ -145,7 +114,7 @@ export default function FileUploadDialog({
         }
       }
 
-      alert(`成功上傳 ${selectedFiles.length} 個檔案到案件資料夾`);
+      alert(`成功上傳 ${selectedFiles.length} 個檔案`);
       onUploadComplete();
       handleClose();
     } catch (err: any) {
@@ -301,24 +270,6 @@ export default function FileUploadDialog({
             </button>
           </div>
         </div>
-
-        {/* 提醒對話框 */}
-        {showCaseWarning && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-sm">
-              <div className="flex items-center mb-4">
-                <AlertCircle className="w-5 h-5 text-yellow-600 mr-2" />
-                <h3 className="text-lg font-semibold">提醒</h3>
-              </div>
-              <p className="text-sm text-gray-600 mb-4">請先在案件列表中勾選要上傳檔案的案件</p>
-              <div className="flex justify-end">
-                <button onClick={() => setShowCaseWarning(false)} className="px-4 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d]">
-                  確定
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

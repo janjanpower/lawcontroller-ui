@@ -341,160 +341,65 @@ export default function FolderTree({
       children: []
     };
 
-    console.log('開始建構資料夾樹，filesData 類型:', typeof filesData, Array.isArray(filesData));
+    if (filesData.folders && Array.isArray(filesData.folders)) {
+      // 建立 id → node 的 map
+      const folderMap: Record<string, FolderNode> = {};
 
-    // 處理 API 回傳的資料
-    if (typeof filesData === 'object' && !Array.isArray(filesData)) {
-      // 檢查是否有 folders 資訊
-      if (filesData.folders && Array.isArray(filesData.folders)) {
-        console.log('找到資料夾資訊:', filesData.folders);
+      filesData.folders.forEach((f: any) => {
+        folderMap[f.id] = {
+          id: f.id,
+          name: f.folder_name,
+          type: 'folder',
+          path: f.folder_path,
+          children: []
+        };
+      });
 
-        // 建立資料夾結構，只保留預設的三個資料夾
-        const validFolderNames = ['狀紙', '案件資訊', '案件進度'];
-        rootNode.children = filesData.folders
-          .filter((folder: any) => validFolderNames.includes(folder.folder_name))
-          .map((folder: any) => ({
-            id: folder.id,
-            name: folder.folder_name,
-            type: 'folder' as const,
-            path: folder.folder_path,
-            children: []
-          }));
-      } else {
-        // 如果沒有 folders 資訊，建立預設資料夾
-        rootNode.children = [
-          {
-            id: 'pleadings',
-            name: '狀紙',
-            type: 'folder' as const,
-            path: '/狀紙',
-            children: []
-          },
-          {
-            id: 'info',
-            name: '案件資訊',
-            type: 'folder' as const,
-            path: '/案件資訊',
-            children: []
-          },
-          {
-            id: 'progress',
-            name: '案件進度',
-            type: 'folder' as const,
-            path: '/案件進度',
-            children: []
-          }
-        ];
-      }
+      // 掛接 parent/child 關係
+      filesData.folders.forEach((f: any) => {
+        const node = folderMap[f.id];
+        if (f.parent_id && folderMap[f.parent_id]) {
+          folderMap[f.parent_id].children?.push(node);
+        } else {
+          rootNode.children?.push(node);
+        }
+      });
 
-      // 處理檔案資料：{ pleadings: [...], info: [...], progress: [...] }
+      // 如果還有 filesData.progress / info / pleadings 這些檔案陣列，也要掛到對應的資料夾
       const folderMapping: Record<string, string> = {
         pleadings: '狀紙',
         info: '案件資訊',
         progress: '案件進度'
       };
 
-      // 小工具：確保資料夾存在（若不存在則建立）
-      function ensureFolder(name: string): FolderNode {
-        if (!rootNode.children) rootNode.children = [];
-        let node = rootNode.children.find(f => f.type === 'folder' && f.name === name);
-        if (!node) {
-          node = {
-            id: name, // 這裡可以用 name 或固定 key
-            name,
-            type: 'folder',
-            path: `/${name}`,
-            children: []
-          };
-          rootNode.children.push(node);
-        }
-        return node;
-      }
-
       Object.entries(filesData).forEach(([folderType, files]) => {
-        if (folderType === 'folders') return; // 跳過 folders 欄位
-
+        if (folderType === 'folders') return;
         const displayName = folderMapping[folderType];
         if (!displayName || !Array.isArray(files)) return;
 
-        // 確保資料夾存在
-        const targetFolder = ensureFolder(displayName);
+        const target = Object.values(folderMap).find(f => f.name === displayName);
+        if (!target) return;
 
         files.forEach((file: any) => {
-          const fileNode: FolderNode = {
+          target.children?.push({
             id: file.id,
             name: file.name,
             type: 'file',
-            path: `${targetFolder.path}/${file.name}`,
+            path: `${target.path}/${file.name}`,
             size: file.size_bytes,
             modified: file.created_at
-          };
-          if (!targetFolder.children) targetFolder.children = [];
-          targetFolder.children.push(fileNode);
+          });
         });
       });
-
-    } else if (Array.isArray(filesData)) {
-      // 舊版 API 回傳格式：檔案陣列
-      console.log('處理陣列格式的檔案資料，數量:', filesData.length);
-
-      // 建立預設資料夾
-      rootNode.children = [
-        {
-          id: 'info',
-          name: '案件資訊',
-          type: 'folder' as const,
-          path: '/案件資訊',
-          children: []
-        },
-        {
-          id: 'progress',
-          name: '案件進度',
-          type: 'folder' as const,
-          path: '/案件進度',
-          children: []
-        }
-      ];
-
-      (filesData as any[]).forEach((file: any) => {
-        const fileNode: FolderNode = {
-          id: file.id,
-          name: file.name,
-          type: 'file',
-          path: file.path || `/${file.name}`,
-          size: file.size_bytes,
-          modified: file.created_at
-        };
-
-        // 預設放在第一個資料夾
-        if (rootNode.children && rootNode.children[0]) {
-          if (!rootNode.children[0].children) rootNode.children[0].children = [];
-          rootNode.children[0].children.push(fileNode);
-        }
-      });
     } else {
-      console.log('未知的檔案資料格式，建立預設資料夾');
-
-      // 建立預設資料夾結構
+      // 沒有資料 → 建立預設三個
       rootNode.children = [
-        {
-          id: 'info',
-          name: '案件資訊',
-          type: 'folder' as const,
-          path: '/案件資訊',
-          children: []
-        },
-        {
-          id: 'progress',
-          name: '案件進度',
-          type: 'folder' as const,
-          path: '/案件進度',
-          children: []
-        }
+        { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
+        { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
+        { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
       ];
     }
 
-    console.log('最終建構的資料夾樹:', rootNode);
     return rootNode;
   };
 
