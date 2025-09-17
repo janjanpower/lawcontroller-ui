@@ -10,8 +10,7 @@ interface FileUploadDialogProps {
   cases: Array<{ id: string; client: string; caseNumber: string }>;
 }
 
-type AvFolder = { name: string; path: string; type: string };
-
+type AvFolder = { id: string; name: string; path: string; type: string };
 
 export default function FileUploadDialog({
   isOpen,
@@ -56,11 +55,12 @@ export default function FileUploadDialog({
     const folders = (data.folders || [])
       .filter((f: any) => f.folder_name !== '進度追蹤')
       .map((f: any) => ({
-        id: f.id, // ✅ 帶上 folder_id
+        id: f.id,                // ✅ 傳給後端的 folder_id
         name: f.folder_name,
         path: f.folder_path,
-        type: f.folder_type === 'stage' ? 'progress' : f.folder_type
+        type: f.folder_type      // ✅ 保留原始類型 (pleadings, info, progress, stage)
       }));
+
 
 
       setAvailableFolders(uniqByNamePath(folders));
@@ -110,9 +110,9 @@ export default function FileUploadDialog({
           const form = new FormData();
           form.append('file', file);
           form.append('folder_id', folder.id);   // ✅ 關鍵
+          form.append('folder_type', folder.type);
           form.append('folder_name', folder.name);
           form.append('folder_path', folder.path);
-          form.append('folder_type', folder.type);
 
           const headers: Record<string, string> = {};
           const token = localStorage.getItem('token');
