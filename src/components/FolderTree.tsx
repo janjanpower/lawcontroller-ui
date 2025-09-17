@@ -393,10 +393,10 @@ export default function FolderTree({
         if (folderType === 'folders') return;
         if (!Array.isArray(files)) return;
 
-        // ✅ 專門處理 stage：用 folder_id 對應
-        if (folderType === "stages") {
+        // ✅ 專門處理 stage 的檔案：用 folder_id 對應
+        if (folderType === "stage") {
           files.forEach((file: any) => {
-            const target = folderMap[file.folder_id];  // 直接找到該階段的資料夾
+            const target = folderMap[file.folder_id]; // 找到正確的子資料夾
             if (target) {
               target.children?.push({
                 id: file.id,
@@ -408,10 +408,10 @@ export default function FolderTree({
               });
             }
           });
-          return; // ⬅️ 記得這裡 return，避免跑進下面的邏輯
+          return; // 記得 return，避免跑進下方邏輯
         }
 
-        // 📂 處理一般資料夾 (pleadings / info / progress)
+        // 📂 一般類別 (pleadings/info/progress)
         const displayName = folderMapping[folderType];
         if (!displayName) return;
 
