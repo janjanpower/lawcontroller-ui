@@ -464,7 +464,7 @@ export default function CaseOverview() {
   };
 
   // 檢查是否有檔案
-const handleDeleteStage = async (stageId: string, stageName: string) => {
+const handleDeleteStage = async (stageId: string, stageName: string, stageIndex: number) => {
   if (!selectedCase) return;
 
   try {
@@ -483,7 +483,7 @@ const handleDeleteStage = async (stageId: string, stageName: string) => {
         message: `階段「${stageName}」的資料夾內仍有 ${fileCount} 個檔案，確定要一併刪除嗎？此操作無法復原。`,
         type: 'warning',
         onConfirm: async () => {
-          await actuallyDeleteStage(stageName, stageId);  // ✅ 用函數參數，而不是不存在的 stage
+          await actuallyDeleteStage(stageId, stageName);   // ✅ 用函數參數，而不是不存在的 stage
         },
       });
       setShowUnifiedDialog(true);
@@ -499,7 +499,7 @@ const handleDeleteStage = async (stageId: string, stageName: string) => {
       message: `無法檢查階段「${stageName}」的檔案狀態，是否仍要刪除？`,
       type: 'warning',
       onConfirm: async () => {
-        await actuallyDeleteStage(stageName, stageId);
+        await actuallyDeleteStage(stageId, stageName);
       },
     });
 
@@ -1623,7 +1623,7 @@ const actuallyDeleteStage = async (stageId: string, stageName: string) => {
                                     <Folder className="w-3 h-3" />
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteStage(stage.id, stage.stage_name)}
+                                    onClick={() => handleDeleteStage(stage.id, stage.stage_name, stageIndex)}
                                     className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all p-1 rounded"
                                     title="刪除階段"
                                   >
