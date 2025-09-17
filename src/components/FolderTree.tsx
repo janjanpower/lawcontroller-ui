@@ -460,22 +460,21 @@ export default function FolderTree({
 
       // 建立 FormData
       const formData = new FormData();
-        formData.append("file", file);
+      formData.append("file", file);
 
-        if (folderId) {
-          formData.append("folder_id", folderId);  // ✅ 確保永遠送 UUID
-        } else {
-          throw new Error("缺少 folder_id，無法決定要上傳到哪裡");
-        }
-
+      if (folderId) {
+        formData.append("folder_id", folderId);  // ✅ 永遠優先用 UUID
+      } else {
+        throw new Error("缺少 folder_id，無法決定要上傳到哪裡");
+      }
 
       console.log("準備上傳檔案:", {
         fileName: file.name,
-        folderPath,
-        finalFolderType,
         caseId,
-        folderId: folderId || selectedFolder?.id
+        folderId,   // ✅ 只 log 傳進來的
+        folderPath
       });
+
 
       // 直接上傳檔案
       const uploadResponse = await fetch(
