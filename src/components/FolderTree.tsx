@@ -393,10 +393,10 @@ export default function FolderTree({
         if (folderType === 'folders') return;
         if (!Array.isArray(files)) return;
 
-        // ✅ 專門處理階段資料夾
-        if (folderType === 'stages') {
+        // ✅ 專門處理 stage：用 folder_id 對應
+        if (folderType === "stages") {
           files.forEach((file: any) => {
-            const target = folderMap[file.folder_id];  // 用 folder_id 找正確子資料夾
+            const target = folderMap[file.folder_id];  // 直接找到該階段的資料夾
             if (target) {
               target.children?.push({
                 id: file.id,
@@ -408,10 +408,10 @@ export default function FolderTree({
               });
             }
           });
-          return;
+          return; // ⬅️ 記得這裡 return，避免跑進下面的邏輯
         }
 
-        // 📂 其他類型走舊邏輯
+        // 📂 處理一般資料夾 (pleadings / info / progress)
         const displayName = folderMapping[folderType];
         if (!displayName) return;
 
@@ -429,6 +429,7 @@ export default function FolderTree({
           });
         });
       });
+
 
     } else {
       // 沒有資料 → 建立預設三個
@@ -653,6 +654,8 @@ export default function FolderTree({
       if (filesData.pleadings) allFiles.push(...filesData.pleadings);
       if (filesData.info) allFiles.push(...filesData.info);
       if (filesData.progress) allFiles.push(...filesData.progress);
+      if (filesData.stages) allFiles.push(...filesData.stages);
+
 
       const fileName = filePath.split('/').pop();
       const file = allFiles.find(f => f.name === fileName);
