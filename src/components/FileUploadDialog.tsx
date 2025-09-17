@@ -176,9 +176,10 @@ export default function FileUploadDialog({
                 <option value="">請選擇案件</option>
                 {selectedCaseIds.map(caseId => {
                   const c = cases.find(x => x.id === caseId);
+                  if (!c) return null; // 🚫 過濾掉沒有對應資料的 caseId
                   return (
                     <option key={caseId} value={caseId}>
-                      {c ? `${c.client} - ${c.caseNumber}` : caseId}
+                      {`${c.client || '未命名當事人'}${c.caseNumber ? ` - ${c.caseNumber}` : ''}`}
                     </option>
                   );
                 })}

@@ -1621,7 +1621,7 @@ const actuallyDeleteStage = async (stageId: string, stageName: string) => {
                                     <Folder className="w-3 h-3" />
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteStage(stage.name, stageIndex)}
+                                    onClick={() => handleDeleteStage(stage.id, stage.stage_name)}
                                     className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all p-1 rounded"
                                     title="刪除階段"
                                   >
