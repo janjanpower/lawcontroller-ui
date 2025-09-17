@@ -10,7 +10,8 @@ interface FileUploadDialogProps {
   cases: Array<{ id: string; client: string; caseNumber: string }>;
 }
 
-type AvFolder = { name: string; path: string };
+type AvFolder = { name: string; path: string; type: string };
+
 
 export default function FileUploadDialog({
   isOpen,
@@ -47,10 +48,11 @@ export default function FileUploadDialog({
       const data = await res.json();
 
       const folders = (data.folders || [])
-        .filter((f: any) => f.folder_name !== '進度追蹤') // 🚫 過濾掉不要的資料夾
+        .filter((f: any) => f.folder_name !== '進度追蹤')
         .map((f: any) => ({
           name: f.folder_name,
-          path: f.folder_path
+          path: f.folder_path,
+          type: f.folder_type  // ✅ 保留 folder_type
         }));
 
       setAvailableFolders(uniqByNamePath(folders));
@@ -93,26 +95,30 @@ export default function FileUploadDialog({
       }
 
       const folder = availableFolders.find(f => f.path === selectedFolder);
-      if (!folder) throw new Error('找不到指定的資料夾');
+        if (!folder) throw new Error('找不到指定的資料夾');
 
-      for (const file of selectedFiles) {
-        const form = new FormData();
-        form.append('file', file);
+        for (const file of selectedFiles) {
+          const form = new FormData();
+          form.append('file', file);
+          form.append('folder_name', folder.name);
+          form.append('folder_path', folder.path);
+          form.append('folder_type', folder.type); // ✅ 補上
 
-        const headers: Record<string, string> = {};
-        const token = localStorage.getItem('token');
-        if (token) headers['Authorization'] = `Bearer ${token}`;
+          const headers: Record<string, string> = {};
+          const token = localStorage.getItem('token');
+          if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const res = await fetch(
-          `/api/cases/${selectedCase}/files?firm_code=${encodeURIComponent(firmCode)}`,
-          { method: 'POST', body: form, headers }
-        );
+          const res = await fetch(
+            `/api/cases/${selectedCase}/files?firm_code=${encodeURIComponent(firmCode)}`,
+            { method: 'POST', body: form, headers }
+          );
 
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || `上傳 ${file.name} 失敗`);
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || `上傳 ${file.name} 失敗`);
+          }
         }
-      }
+
 
       alert(`成功上傳 ${selectedFiles.length} 個檔案`);
       onUploadComplete();
