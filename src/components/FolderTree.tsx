@@ -231,6 +231,7 @@ export default function FolderTree({
     return () => window.removeEventListener('folders:refresh', handler);
   }, [caseId]);
 
+
   const loadFolderStructure = async () => {
     // 再次檢查登入狀態
     if (!hasAuthToken()) {

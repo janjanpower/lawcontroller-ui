@@ -1,6 +1,5 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { X, Upload, FileText, AlertCircle, Folder } from 'lucide-react';
-import { FolderManager } from '../utils/folderManager';
 import { getFirmCodeOrThrow } from '../utils/api';
 
 interface FileUploadDialogProps {
@@ -37,13 +36,28 @@ export default function FileUploadDialog({
     setSelectedFiles(files);
   };
 
-  const handleCaseSelect = (caseId: string) => {
+  // ✅ 改成呼叫後端 API 取得 folders，而不是用 FolderManager
+  const handleCaseSelect = async (caseId: string) => {
     setSelectedCase(caseId);
     setSelectedFolder('');
 
-    // 從 FolderManager 抓資料夾後做一次去重（避免「狀紙、進度追蹤」重複）
-    const folders = uniqByNamePath(FolderManager.getAvailableFolders(caseId) || []);
-    setAvailableFolders(folders);
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const res = await fetch(`/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`);
+      if (!res.ok) throw new Error("讀取資料夾失敗");
+      const data = await res.json();
+
+      // 從後端回傳的 folders 組合可選清單
+      const folders = (data.folders || []).map((f: any) => ({
+        name: f.folder_name,
+        path: f.folder_path
+      }));
+
+      setAvailableFolders(uniqByNamePath(folders));
+    } catch (err) {
+      console.error("讀取案件資料夾失敗", err);
+      setAvailableFolders([]);
+    }
   };
 
   // 依 folder.name / folder.path 推導 folder_type 與 stage_name
@@ -58,17 +72,15 @@ export default function FileUploadDialog({
 
     // 2) 案件進度/某階段
     if (path.includes('案件進度/')) {
-      // /.../案件進度/{stage}/
       const parts = path.split('/').filter(Boolean);
       const stage = decodeURIComponent(parts[parts.length - 1] || '');
       if (stage && stage !== '案件進度') {
         return { folder_type: 'progress' as const, stage_name: stage };
       }
-      // 若只點到「案件進度」根，就當一般 progress 類
       return { folder_type: 'progress' as const };
     }
 
-    // 3) 其他未知 → 一律放在 progress（後端如有更多型別可再補）
+    // 3) 其他未知 → 一律放在 progress
     return { folder_type: 'progress' as const };
   };
 
@@ -76,6 +88,17 @@ export default function FileUploadDialog({
     () => cases.find(c => c.id === selectedCase),
     [cases, selectedCase]
   );
+
+  // ✅ 新增：監聽 folders:refresh，確保新增/刪除階段後會更新清單
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e?.detail?.caseId === selectedCase) {
+        handleCaseSelect(selectedCase);
+      }
+    };
+    window.addEventListener('folders:refresh', handler);
+    return () => window.removeEventListener('folders:refresh', handler);
+  }, [selectedCase]);
 
   // ====== 上傳 ======
   const handleUpload = async () => {
@@ -97,7 +120,7 @@ export default function FileUploadDialog({
       const folder = availableFolders.find(f => f.path === selectedFolder);
       if (!folder) throw new Error('找不到指定的資料夾');
 
-      const target = resolveFolderTarget(folder); // { folder_type, stage_name? }
+      const target = resolveFolderTarget(folder);
 
       for (const file of selectedFiles) {
         const form = new FormData();
@@ -107,7 +130,6 @@ export default function FileUploadDialog({
         }
         form.append('file', file);
 
-        // ⚠ 這裡用原生 fetch，避免 apiFetch 幫你加上 Content-Type: application/json
         const headers: Record<string, string> = {};
         const token = localStorage.getItem('token');
         if (token) headers['Authorization'] = `Bearer ${token}`;
