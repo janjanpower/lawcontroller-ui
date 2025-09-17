@@ -483,7 +483,7 @@ const handleDeleteStage = async (stageId: string, stageName: string) => {
         message: `階段「${stageName}」的資料夾內仍有 ${fileCount} 個檔案，確定要一併刪除嗎？此操作無法復原。`,
         type: 'warning',
         onConfirm: async () => {
-          await actuallyDeleteStage(stageId, stageName);
+          await actuallyDeleteStage(stageName, stageId);  // ✅ 用函數參數，而不是不存在的 stage
         },
       });
       setShowUnifiedDialog(true);
@@ -499,9 +499,10 @@ const handleDeleteStage = async (stageId: string, stageName: string) => {
       message: `無法檢查階段「${stageName}」的檔案狀態，是否仍要刪除？`,
       type: 'warning',
       onConfirm: async () => {
-        await actuallyDeleteStage(stageId, stageName);
+        await actuallyDeleteStage(stageName, stageId);
       },
     });
+
     setShowUnifiedDialog(true);
   }
 };
@@ -536,6 +537,7 @@ const actuallyDeleteStage = async (stageId: string, stageName: string) => {
         ? { ...prev, stages: prev.stages.filter(s => s.id !== stageId) }
         : prev
     );
+
 
     // 成功提示
     setDialogConfig({
