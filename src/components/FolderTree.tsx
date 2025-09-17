@@ -443,16 +443,13 @@ export default function FolderTree({
 
       // 建立 FormData
       const formData = new FormData();
-      formData.append("file", file);
+        formData.append("file", file);
+        if (folderId) {
+          formData.append("folder_id", folderId);  // ✅ 確保送出 UUID
+        } else {
+          formData.append("folder_type", finalFolderType); // fallback 才用 type
+        }
 
-      // ✅ 決定使用 folder_id 還是 folder_type
-      if (folderId) {
-        formData.append("folder_id", folderId);  // 後端直接用 UUID
-      } else if (selectedFolder?.id) {
-        formData.append("folder_id", selectedFolder.id); // 若有選到子資料夾
-      } else {
-        formData.append("folder_type", finalFolderType); // fallback：案件進度 / pleadings 等
-      }
 
       console.log("準備上傳檔案:", {
         fileName: file.name,
