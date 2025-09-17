@@ -483,7 +483,7 @@ const handleDeleteStage = async (stageId: string, stageName: string, stageIndex:
         message: `階段「${stageName}」的資料夾內仍有 ${fileCount} 個檔案，確定要一併刪除嗎？此操作無法復原。`,
         type: 'warning',
         onConfirm: async () => {
-          await actuallyDeleteStage(stageId, stageName);   // ✅ 用函數參數，而不是不存在的 stage
+          await actuallyDeleteStage(stageId, stageName, stageIndex);   // ✅ 用函數參數，而不是不存在的 stage
         },
       });
       setShowUnifiedDialog(true);
@@ -491,7 +491,7 @@ const handleDeleteStage = async (stageId: string, stageName: string, stageIndex:
     }
 
     // 沒檔案 → 直接刪除
-    await actuallyDeleteStage(stageId, stageName);
+    await actuallyDeleteStage(stageId, stageName, stageIndex);
   } catch (err) {
     // API 失敗時，保守視為有檔案
     setDialogConfig({
@@ -499,7 +499,7 @@ const handleDeleteStage = async (stageId: string, stageName: string, stageIndex:
       message: `無法檢查階段「${stageName}」的檔案狀態，是否仍要刪除？`,
       type: 'warning',
       onConfirm: async () => {
-        await actuallyDeleteStage(stageId, stageName);
+        await actuallyDeleteStage(stageId, stageName, stageIndex);
       },
     });
 
@@ -508,12 +508,12 @@ const handleDeleteStage = async (stageId: string, stageName: string, stageIndex:
 };
 
 // 真正刪除
-const actuallyDeleteStage = async (stageId: string, stageName: string) => {
+const actuallyDeleteStage = async (stageId: string, stageName: string, stageIndex: number) => {
   if (!selectedCase) return;
 
   try {
     const firmCode = getFirmCodeOrThrow();
-    const resp = await apiFetch(
+      const resp = await apiFetch(
       `/api/cases/${selectedCase.id}/stages/${stageId}?firm_code=${encodeURIComponent(firmCode)}`,
       { method: 'DELETE' }
     );
@@ -523,11 +523,11 @@ const actuallyDeleteStage = async (stageId: string, stageName: string) => {
       throw new Error(text || '刪除階段失敗');
     }
 
-    // 更新前端列表（用 stageId 過濾，不用 index）
+    // 更新前端列表
     setCases(prev =>
       prev.map(c =>
         c.id === selectedCase.id
-          ? { ...c, stages: c.stages.filter(s => s.id !== stageId) }
+          ? { ...c, stages: c.stages.filter((_, i) => i !== stageIndex) }
           : c
       )
     );
