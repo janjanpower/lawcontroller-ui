@@ -115,6 +115,13 @@ export default function CaseOverview() {
     const data = await response.json();
     console.log('載入的案件資料:', data);
 
+    // ✅ 加這裡，避免後端回傳格式不對整個掛掉
+    if (!data || !Array.isArray(data.items)) {
+      console.warn("API 回傳格式不符合預期:", data);
+      setCases([]);  // 預設清空
+      return;
+    }
+
     // 轉換後端資料為前端格式
     const transformedCases: TableCase[] = await Promise.all(
       (data.items || []).map(async (apiCase: any) => {
@@ -201,7 +208,6 @@ export default function CaseOverview() {
   } catch (error: any) {
     console.error('載入案件失敗:', error);
     setError(error.message || '載入案件失敗');
-
     if (error.message?.includes('登入狀態已過期')) {
       clearLoginAndRedirect();
     }
