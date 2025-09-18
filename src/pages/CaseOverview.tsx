@@ -278,22 +278,6 @@ export default function CaseOverview() {
       // 更新本地狀態
       setCases(prev => [newCase, ...prev]);
 
-      // 建立預設資料夾和 Excel 檔案
-      FolderManager.createDefaultFolders(newCase.id);
-      FolderManager.createCaseInfoExcel(newCase.id, {
-        caseNumber: newCase.caseNumber,
-        client: newCase.client,
-        caseType: newCase.caseType,
-        lawyer: newCase.lawyer,
-        legalAffairs: newCase.legalAffairs,
-        caseReason: newCase.caseReason,
-        opposingParty: newCase.opposingParty,
-        court: newCase.court,
-        division: newCase.division,
-        progress: newCase.progress,
-        progressDate: newCase.progressDate,
-        createdDate: new Date().toISOString().split('T')[0]
-      });
 
       console.log('DEBUG: 案件新增成功');
       return true;

@@ -122,13 +122,13 @@ export default function FileUploadDialog({
 
     alert(`成功上傳 ${selectedFiles.length} 個檔案`);
 
-    // ✅ 廣播刷新 FolderTree
+    // ✅ 通知 CaseOverview & FolderTree 同步刷新
     window.dispatchEvent(new CustomEvent("folders:refresh", { detail: { caseId: selectedCase } }));
+    window.dispatchEvent(new CustomEvent("caseDetail:refresh", { detail: { caseId: selectedCase } }));
 
-    // ✅ 通知 CaseOverview 重新載入案件詳情
     onUploadComplete();
-
     handleClose();
+
   } catch (err: any) {
     console.error('檔案上傳失敗:', err);
     alert(`上傳失敗：${err?.message || '請稍後再試'}`);
