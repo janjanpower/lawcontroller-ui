@@ -96,10 +96,10 @@ const handleUploadClick = (e: React.MouseEvent) => {
         }`}
         style={{ paddingLeft: `${level * 20 + 8}px` }}
         onClick={() => {
-          if (node.type === 'folder' && onPreview) {
-            onPreview(node.id);   // ✅ 呼叫父層的 handleOpenPreview
-          } else {
-            handleToggle();
+          if (node.type === 'file' && onPreview) {
+            onPreview(node.id);   // ✅ 點檔案 → 預覽
+          } else if (node.type === 'folder') {
+            handleToggle();       // ✅ 點資料夾 → 展開/收合
           }
         }}
         onMouseEnter={() => setShowActions(true)}
@@ -207,17 +207,17 @@ export default function FolderTree({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<any[]>([]);
 
-  const handleOpenPreview = async (folderId: string) => {
-    try {
-      const firmCode = getFirmCodeOrThrow();
-      const res = await fetch(`/api/cases/${caseId}/folders/${folderId}/files?firm_code=${firmCode}`);
-      const data = await res.json();
-      setSelectedFiles(data);
-      setPreviewOpen(true);
-    } catch (err) {
-      console.error('讀取檔案失敗', err);
-    }
-  };
+  const handleOpenPreview = async (fileId: string) => {
+  try {
+    const firmCode = getFirmCodeOrThrow();
+    const res = await fetch(`/api/files/${fileId}?firm_code=${firmCode}`);
+    const data = await res.json();
+    setSelectedFiles([data]);  // 單檔就放進陣列
+    setPreviewOpen(true);
+  } catch (err) {
+    console.error('讀取檔案失敗', err);
+  }
+};
   // 從 API 載入真實的資料夾結構
   useEffect(() => {
     if (isExpanded) {
