@@ -87,7 +87,6 @@ export default function CaseOverview() {
     loadCases();
   }, []);
 
-  // 載入案件列表
   const loadCases = useCallback(async () => {
     if (!hasAuthToken()) {
       console.warn('登入狀態不完整，無法載入案件');
@@ -99,7 +98,9 @@ export default function CaseOverview() {
 
     try {
       const firmCode = getFirmCodeOrThrow();
-      const response = await apiFetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}&status=open`);
+      const response = await apiFetch(
+        `/api/cases?firm_code=${encodeURIComponent(firmCode)}&status=open`
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -111,52 +112,79 @@ export default function CaseOverview() {
       console.log('載入的案件資料:', data);
 
       // 轉換後端資料為前端格式
-      const transformedCases: TableCase[] = await Promise.all((data.items || []).map(async (apiCase: any) => {
-        // 載入案件的階段資料
-        let stages: Stage[] = [];
-        try {
-          const stagesResponse = await apiFetch(`/api/cases/${apiCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`);
-          if (stagesResponse.ok) {
-            const stagesData = await stagesResponse.json();
-            stages = (stagesData || []).map((stage: any) => ({
-            id: stage.id, // 後端 UUID
-            name: stage.stage_name,
-            date: stage.stage_date || '',
-            completed: stage.is_completed || false,
-            note: stage.note || '',
-            time: stage.stage_time || ''
-          }));
-          }
-        } catch (error) {
-          console.error(`載入案件 ${apiCase.id} 的階段失敗:`, error);
-        }
+      const transformedCases: TableCase[] = await Promise.all(
+        (data.items || []).map(async (apiCase: any) => {
+          let stages: Stage[] = [];
 
-        return {
-        id: apiCase.id,
-        caseNumber: apiCase.case_number || '未設定',
-        client: apiCase.client_name || apiCase.client?.name || '未知客戶',
-        caseType: apiCase.case_type || '未分類',
-        lawyer: apiCase.lawyer_name || apiCase.lawyer?.full_name || '',
-        legalAffairs: apiCase.legal_affairs_name || apiCase.legal_affairs?.full_name || '',
-        caseReason: apiCase.case_reason || '',
-        opposingParty: apiCase.opposing_party || '',
-        court: apiCase.court || '',
-        division: apiCase.division || '',
-        progress: apiCase.progress || '',
-        progressDate: apiCase.progress_date || new Date().toISOString().split('T')[0],
-        status: 'active' as CaseStatus,
-        stages: stages
-        };
-      }));
+          try {
+            // 先載入案件的階段資料
+            const stagesResponse = await apiFetch(
+              `/api/cases/${apiCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`
+            );
+
+            // 同時載入案件檔案（含 stage 對應的）
+            let filesData: any = {};
+            try {
+              const filesResponse = await apiFetch(
+                `/api/cases/${apiCase.id}/files?firm_code=${encodeURIComponent(firmCode)}`
+              );
+              if (filesResponse.ok) {
+                filesData = await filesResponse.json();
+              }
+            } catch (err) {
+              console.warn(`載入案件 ${apiCase.id} 的檔案失敗:`, err);
+            }
+
+            if (stagesResponse.ok) {
+              const stagesData = await stagesResponse.json();
+
+              stages = (stagesData || []).map((stage: any) => {
+                // 找出屬於這個 stage 的檔案
+                const stageFiles = (filesData.stage || []).filter(
+                  (f: any) => f.folder_id === stage.id
+                );
+
+                return {
+                  id: stage.id, // 後端 UUID
+                  name: stage.stage_name,
+                  date: stage.stage_date || '',
+                  completed: stage.is_completed || false,
+                  note: stage.note || '',
+                  time: stage.stage_time || '',
+                  files: stageFiles, // ✅ 附加檔案
+                };
+              });
+            }
+          } catch (error) {
+            console.error(`載入案件 ${apiCase.id} 的階段失敗:`, error);
+          }
+
+          return {
+            id: apiCase.id,
+            caseNumber: apiCase.case_number || '未設定',
+            client: apiCase.client_name || apiCase.client?.name || '未知客戶',
+            caseType: apiCase.case_type || '未分類',
+            lawyer: apiCase.lawyer_name || apiCase.lawyer?.full_name || '',
+            legalAffairs: apiCase.legal_affairs_name || apiCase.legal_affairs?.full_name || '',
+            caseReason: apiCase.case_reason || '',
+            opposingParty: apiCase.opposing_party || '',
+            court: apiCase.court || '',
+            division: apiCase.division || '',
+            progress: apiCase.progress || '',
+            progressDate:
+              apiCase.progress_date || new Date().toISOString().split('T')[0],
+            status: 'active' as CaseStatus,
+            stages: stages,
+          };
+        })
+      );
 
       setCases(transformedCases);
       console.log('轉換後的案件資料:', transformedCases);
-
-    } catch (error) {
+    } catch (error: any) {
       console.error('載入案件失敗:', error);
       setError(error.message || '載入案件失敗');
 
-      // 如果是認證錯誤，清除登入狀態
       if (error.message?.includes('登入狀態已過期')) {
         clearLoginAndRedirect();
       }
@@ -164,6 +192,7 @@ export default function CaseOverview() {
       setLoading(false);
     }
   }, []);
+
 
   // 搜尋和過濾
   useEffect(() => {
@@ -555,6 +584,33 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
       type: 'error',
     });
     setShowUnifiedDialog(true);
+  }
+};
+
+const handleDownload = async (fileId: string) => {
+  try {
+    const firmCode = getFirmCodeOrThrow();
+    const res = await apiFetch(`/api/files/${fileId}/url?firm_code=${encodeURIComponent(firmCode)}`);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText || '取得下載連結失敗');
+    }
+
+    const data = await res.json();
+    if (data?.url) {
+      const link = document.createElement('a');
+      link.href = data.url;
+      link.download = data.name || 'download';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      throw new Error('回傳缺少下載 URL');
+    }
+  } catch (err: any) {
+    console.error('下載檔案失敗:', err);
+    alert(err?.message || '下載檔案失敗');
   }
 };
 
@@ -1569,7 +1625,9 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
                         if (!stage.date) return 'bg-gray-200 text-gray-600';
                         const stageDate = new Date(stage.date);
                         const today = new Date();
-                        const diffDays = Math.ceil((stageDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                        const diffDays = Math.ceil(
+                          (stageDate.getTime() - today.getTime()) / (1000 * 3600 * 24)
+                        );
                         if (stage.completed) return 'bg-green-500 text-white';
                         if (diffDays < 0) return 'bg-red-500 text-white';
                         if (diffDays <= 3) return 'bg-yellow-400 text-black';
@@ -1579,87 +1637,78 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
                       return (
                         <div
                           key={`${stage.name}-${stageIndex}`}
-                          className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 group border border-gray-100 mb-2"
+                          className="flex flex-col space-y-2 p-3 rounded-lg hover:bg-gray-50 group border border-gray-100 mb-2"
                         >
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between">
+                          {/* 標題與操作區 */}
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div
+                                className={`inline-block px-3 py-1.5 rounded-full text-sm font-medium cursor-pointer transition-colors ${getStageColor(
+                                  stage,
+                                  isCurrent
+                                )}`}
+                                onClick={() => {
+                                  setStageDialogMode('edit');
+                                  setEditingStage({ index: stageIndex, stage });
+                                  setShowStageDialog(true);
+                                }}
+                                title="點擊編輯此進度"
+                              >
+                                {stage.name}
+                              </div>
+                              {stage.note && (
+                                <p className="text-xs text-gray-500 mt-2 ml-1">{stage.note}</p>
+                              )}
+                            </div>
 
-                            {/* ✅ 檔案清單區塊 */}
-                              <div className="ml-4 mt-2 w-full">
-                                {stage.files && stage.files.length > 0 ? (
-                                  <ul className="space-y-1">
-                                    {stage.files.map((f: any) => (
-                                      <li
-                                        key={f.id}
-                                        className="flex items-center justify-between text-sm bg-gray-50 rounded-md px-2 py-1"
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <FileText className="w-4 h-4 text-gray-600" />
-                                          <span>{f.name}</span>
-                                        </div>
-                                        <button
-                                          onClick={() => handleDownload(f.id)}
-                                          className="text-blue-600 hover:underline text-xs flex items-center gap-1"
-                                        >
-                                          <Download className="w-3 h-3" />
-                                          下載
-                                        </button>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <p className="text-xs text-gray-400">此階段尚無檔案</p>
-                                )}
+                            <div className="flex flex-col items-end space-y-1">
+                              <div className="bg-white px-2 py-1 rounded-md shadow-sm border border-gray-200">
+                                <span className="text-xs font-medium text-gray-700">
+                                  {stage.date}
+                                  {stage.time ? ` ${stage.time}` : ''}
+                                </span>
                               </div>
 
-
-                              <div className="flex-1">
-                                <div
-                                  className={`inline-block px-3 py-1.5 rounded-full text-sm font-medium cursor-pointer transition-colors ${getStageColor(stage, isCurrent)}`}
-                                  onClick={() => {
-                                    setStageDialogMode('edit');
-                                    setEditingStage({ index: stageIndex, stage });
-                                    setShowStageDialog(true);
-                                  }}
-                                  title="點擊編輯此進度"
-                                >
-                                  {stage.name}
-                                </div>
-                                {stage.note && (
-                                  <p className="text-xs text-gray-500 mt-2 ml-1">{stage.note}</p>
-                                )}
-                              </div>
-
-                              <div className="flex flex-col items-end space-y-1">
-                                <div className="bg-white px-2 py-1 rounded-md shadow-sm border border-gray-200">
-                                  <span className="text-xs font-medium text-gray-700">
-                                    {stage.date}
-                                    {stage.time ? ` ${stage.time}` : ''}
-                                  </span>
-                                </div>
-
-                                <div className="flex items-center space-x-1">
-                                  <button
-                                    onClick={() => {
-                                      const folderPath = FolderManager.getStageFolder(selectedCase.id, stage.name);
-                                      console.log(`開啟階段資料夾: ${folderPath}`);
-                                      alert(`開啟階段資料夾：${stage.name}\n路徑：${folderPath}`);
-                                    }}
-                                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-all p-1 rounded"
-                                    title="開啟階段資料夾"
-                                  >
-                                    <Folder className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                  onClick={() => handleDeleteStage(stage.id, stage.name, stageIndex)}
+                              <div className="flex items-center space-x-1">
+                                <button
+                                  onClick={() =>
+                                    handleDeleteStage(stage.id, stage.name, stageIndex)
+                                  }
                                   className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all p-1 rounded"
                                   title="刪除階段"
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
-                                </div>
                               </div>
                             </div>
+                          </div>
+
+                          {/* ✅ 檔案清單區塊 */}
+                          <div className="ml-4 mt-2 w-full">
+                            {stage.files && stage.files.length > 0 ? (
+                              <ul className="space-y-1">
+                                {stage.files.map((f: any) => (
+                                  <li
+                                    key={f.id}
+                                    className="flex items-center justify-between text-sm bg-gray-50 rounded-md px-2 py-1"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="w-4 h-4 text-gray-600" />
+                                      <span>{f.name}</span>
+                                    </div>
+                                    <button
+                                      onClick={() => handleDownload(f.id)}
+                                      className="text-blue-600 hover:underline text-xs flex items-center gap-1"
+                                    >
+                                      <Download className="w-3 h-3" />
+                                      下載
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-xs text-gray-400">此階段尚無檔案</p>
+                            )}
                           </div>
                         </div>
                       );
@@ -1667,10 +1716,7 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
                   )}
                 </div>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
+
 
 
       {/* ✅ 新增：警告對話框 */}
