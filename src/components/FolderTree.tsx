@@ -47,8 +47,8 @@ const FolderTreeNode: React.FC<{
   onFileUpload?: (opts: { folderId?: string; folderPath: string }) => void;
   onFolderCreate?: (parentPath: string) => void;
   onDelete?: (path: string, type: 'folder' | 'file') => void;
-  onPreview?: (folderId: string) => void;
-}> = ({ node, level, onFileUpload, onFolderCreate, onDelete }) => {
+  onPreview?: (fileId: string) => void;
+}> = ({ node, level, onFileUpload, onFolderCreate, onDelete,onPreview }) => {
   const [isExpanded, setIsExpanded] = useState(level < 2);
   const [showActions, setShowActions] = useState(false);
 
