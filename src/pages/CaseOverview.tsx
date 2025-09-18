@@ -449,7 +449,7 @@ export default function CaseOverview() {
   };
 
   // 編輯階段
-  const handleEditStage = async (stageData: StageFormData): Promise<boolean> => {
+const handleEditStage = async (stageData: StageFormData): Promise<boolean> => {
   if (!selectedCase || !editingStage) return false;
 
   try {
@@ -471,13 +471,15 @@ export default function CaseOverview() {
       throw new Error(errorData.detail || '更新階段失敗');
     }
 
+    const data = await response.json();
+
     const updatedStage: Stage = {
       id: editingStage.stage.id,
-      name: stageData.stageName,
-      date: stageData.date,
+      name: data.stage_name,
+      date: data.stage_date,
       completed: editingStage.stage.completed,
-      note: stageData.note,
-      time: stageData.time
+      note: data.note,
+      time: data.stage_time
     };
 
     setCases(prev => prev.map(c =>
@@ -492,22 +494,16 @@ export default function CaseOverview() {
         : prev
     );
 
-    // ✅ 讓資料夾樹同步刷新
+    // ✅ 觸發資料夾樹刷新
     window.dispatchEvent(new CustomEvent('folders:refresh', { detail: { caseId: selectedCase.id } }));
 
-    console.log('階段編輯成功:', updatedStage);
     return true;
   } catch (error) {
     console.error('編輯階段失敗:', error);
-    setDialogConfig({
-      title: '編輯階段失敗',
-      message: error.message || '編輯階段失敗',
-      type: 'error'
-    });
-    setShowUnifiedDialog(true);
     return false;
   }
 };
+
 
 
   // 檢查是否有檔案
