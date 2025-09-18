@@ -497,6 +497,10 @@ export default function CaseOverview() {
 
 
       console.log('階段編輯成功:', updatedStage);
+      window.dispatchEvent(
+        new CustomEvent('folders:refresh', { detail: { caseId: selectedCase.id } })
+      );
+
       return true;
     } catch (error) {
       console.error('編輯階段失敗:', error);
