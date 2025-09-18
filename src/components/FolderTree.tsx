@@ -195,6 +195,7 @@ const handleUploadClick = (e: React.MouseEvent) => {
               onFileUpload={onFileUpload}
               onFolderCreate={onFolderCreate}
               onDelete={onDelete}
+              onPreview={onPreview}
             />
           ))}
         </div>
