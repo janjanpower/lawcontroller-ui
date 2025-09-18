@@ -138,22 +138,34 @@ export default function CaseOverview() {
           if (stagesResponse.ok) {
             const stagesData = await stagesResponse.json();
 
-            stages = (stagesData || []).map((stage: any) => {
-              // ✅ 用 folder_id 來比對，不用 folder_name
-              const stageFiles = (filesData.stage || []).filter(
-                (f: any) => f.folder_id === stage.id
-              );
+            stages = await Promise.all(
+              (stagesData || []).map(async (stage: any) => {
+                let stageFiles: any[] = [];
 
-              return {
-                id: stage.id, // 後端 UUID
-                name: stage.stage_name,
-                date: stage.stage_date || '',
-                completed: stage.is_completed || false,
-                note: stage.note || '',
-                time: stage.stage_time || '',
-                files: stageFiles, // ✅ 保證正確掛進去
-              };
-            });
+                try {
+                  // ✅ 照 FolderTree 的方式抓檔案（依 folder_id）
+                  const filesRes = await apiFetch(
+                    `/api/cases/${apiCase.id}/files?firm_code=${encodeURIComponent(firmCode)}&folder_id=${stage.id}`
+                  );
+                  if (filesRes.ok) {
+                    const filesJson = await filesRes.json();
+                    stageFiles = filesJson.items || filesJson; // FolderTree 也是這樣用
+                  }
+                } catch (err) {
+                  console.warn(`載入階段 ${stage.stage_name} 的檔案失敗:`, err);
+                }
+
+                return {
+                  id: stage.id,
+                  name: stage.stage_name,
+                  date: stage.stage_date || '',
+                  completed: stage.is_completed || false,
+                  note: stage.note || '',
+                  time: stage.stage_time || '',
+                  files: stageFiles, // ✅ 這裡就是跟 FolderTree 同步的檔案清單
+                };
+              })
+            );
           }
 
         } catch (error) {
