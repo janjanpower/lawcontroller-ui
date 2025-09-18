@@ -221,14 +221,18 @@ export default function FolderTree({
   const handleOpenPreview = async (fileId: string) => {
   try {
     const firmCode = getFirmCodeOrThrow();
+    console.log("👉 handleOpenPreview 被呼叫, fileId:", fileId);
     const res = await fetch(`/api/files/${fileId}/url?firm_code=${firmCode}`);
+    console.log("👉 API 回應狀態:", res.status);
     const data = await res.json();
+    console.log("👉 API 回應資料:", data);
     setSelectedFiles([data]);
     setPreviewOpen(true);
   } catch (err) {
     console.error("讀取檔案失敗", err);
   }
 };
+
 
 
   // 從 API 載入真實的資料夾結構

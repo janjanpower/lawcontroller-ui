@@ -1583,6 +1583,36 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
                         >
                           <div className="flex-1">
                             <div className="flex items-start justify-between">
+
+                            {/* ✅ 檔案清單區塊 */}
+                              <div className="ml-4 mt-2 w-full">
+                                {stage.files && stage.files.length > 0 ? (
+                                  <ul className="space-y-1">
+                                    {stage.files.map((f: any) => (
+                                      <li
+                                        key={f.id}
+                                        className="flex items-center justify-between text-sm bg-gray-50 rounded-md px-2 py-1"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <FileText className="w-4 h-4 text-gray-600" />
+                                          <span>{f.name}</span>
+                                        </div>
+                                        <button
+                                          onClick={() => handleDownload(f.id)}
+                                          className="text-blue-600 hover:underline text-xs flex items-center gap-1"
+                                        >
+                                          <Download className="w-3 h-3" />
+                                          下載
+                                        </button>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="text-xs text-gray-400">此階段尚無檔案</p>
+                                )}
+                              </div>
+
+
                               <div className="flex-1">
                                 <div
                                   className={`inline-block px-3 py-1.5 rounded-full text-sm font-medium cursor-pointer transition-colors ${getStageColor(stage, isCurrent)}`}
