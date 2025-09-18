@@ -377,64 +377,64 @@ export default function FolderTree({
       name: '案件資料夾',
       type: 'folder',
       path: '/',
-      children: []
+      children: [
+        { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
+        { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
+        { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+      ]
     };
 
     if (filesData.folders && Array.isArray(filesData.folders)) {
-      // 建立 id → node 的 map
       const folderMap: Record<string, FolderNode> = {};
 
+      // 先建立 map
       filesData.folders.forEach((f: any) => {
         folderMap[f.id] = {
-        id: f.id,
-        name: f.folder_name,
-        type: 'folder',
-        path: f.folder_path,
-        children: [],
-        // 新增
-        folderType: f.folder_type,   // ← 關鍵：保留後端的 folder_type
-      };
-
-      });
-
-      // 掛接 parent/child 關係
-      filesData.folders.forEach((f: any) => {
-        const node: FolderNode = {
           id: f.id,
           name: f.folder_name,
           type: 'folder',
           path: f.folder_path,
-          children: []
+          children: [],
         };
-
-        if (f.folder_type === 'stage') {
-          // ✅ 掛到「案件進度」底下
-          const progressFolder = rootNode.children?.find(c => c.name === '案件進度');
-          progressFolder?.children?.push(node);
-        } else if (f.parent_id && folderMap[f.parent_id]) {
-          folderMap[f.parent_id].children?.push(node);
-        } else {
-          rootNode.children?.push(node);
-        }
-
-        folderMap[f.id] = node;
       });
 
-      // 如果還有 filesData.progress / info / pleadings 這些檔案陣列，也要掛到對應的資料夾
+      // 掛接正確的父子層級
+      filesData.folders.forEach((f: any) => {
+        const node = folderMap[f.id];
+
+        if (f.folder_type === 'stage') {
+          // ✅ 掛到「案件進度」
+          const progressFolder = rootNode.children?.find(c => c.name === '案件進度');
+          progressFolder?.children?.push(node);
+        } else if (f.folder_type === 'pleadings') {
+          // ✅ 狀紙固定在 root
+          const pleadingsFolder = rootNode.children?.find(c => c.name === '狀紙');
+          pleadingsFolder?.children?.push(node);
+        } else if (f.folder_type === 'info') {
+          // ✅ 案件資訊固定在 root
+          const infoFolder = rootNode.children?.find(c => c.name === '案件資訊');
+          infoFolder?.children?.push(node);
+        } else if (f.parent_id && folderMap[f.parent_id]) {
+          // ✅ 其他子資料夾
+          folderMap[f.parent_id].children?.push(node);
+        }
+      });
+
+      // 掛檔案
       const folderMapping: Record<string, string> = {
         pleadings: '狀紙',
         info: '案件資訊',
-        progress: '案件進度'
+        progress: '案件進度',
       };
 
       Object.entries(filesData).forEach(([folderType, files]) => {
         if (folderType === 'folders') return;
         if (!Array.isArray(files)) return;
 
-        // ✅ 專門處理 stage 的檔案：用 folder_id 對應
-        if (folderType === "stage") {
+        if (folderType === 'stage') {
+          // ✅ stage 檔案 → 對應 folder_id
           files.forEach((file: any) => {
-            const target = folderMap[file.folder_id]; // 找到正確的子資料夾
+            const target = folderMap[file.folder_id];
             if (target) {
               target.children?.push({
                 id: file.id,
@@ -442,18 +442,18 @@ export default function FolderTree({
                 type: 'file',
                 path: `${target.path}/${file.name}`,
                 size: file.size_bytes,
-                modified: file.created_at
+                modified: file.created_at,
               });
             }
           });
-          return; // 記得 return，避免跑進下方邏輯
+          return;
         }
 
-        // 📂 一般類別 (pleadings/info/progress)
+        // 📂 一般類別
         const displayName = folderMapping[folderType];
         if (!displayName) return;
 
-        const target = Object.values(folderMap).find(f => f.name === displayName);
+        const target = rootNode.children?.find(f => f.name === displayName);
         if (!target) return;
 
         files.forEach((file: any) => {
@@ -463,23 +463,15 @@ export default function FolderTree({
             type: 'file',
             path: `${target.path}/${file.name}`,
             size: file.size_bytes,
-            modified: file.created_at
+            modified: file.created_at,
           });
         });
       });
-
-
-    } else {
-      // 沒有資料 → 建立預設三個
-      rootNode.children = [
-        { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
-        { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-        { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
-      ];
     }
 
     return rootNode;
   };
+
 
   // 單檔上傳
   const uploadFileToS3 = async (file: File, folderPath: string, folderId?: string) => {
