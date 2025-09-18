@@ -88,110 +88,110 @@ export default function CaseOverview() {
   }, []);
 
   const loadCases = useCallback(async () => {
-    if (!hasAuthToken()) {
-      console.warn('登入狀態不完整，無法載入案件');
-      return;
+  if (!hasAuthToken()) {
+    console.warn('登入狀態不完整，無法載入案件');
+    return;
+  }
+
+  setLoading(true);
+  setError('');
+
+  try {
+    const firmCode = getFirmCodeOrThrow();
+    const response = await apiFetch(
+      `/api/cases?firm_code=${encodeURIComponent(firmCode)}&status=open`
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('載入案件失敗:', errorText);
+      throw new Error(`載入案件失敗: ${response.status} ${response.statusText}`);
     }
 
-    setLoading(true);
-    setError('');
+    const data = await response.json();
+    console.log('載入的案件資料:', data);
 
-    try {
-      const firmCode = getFirmCodeOrThrow();
-      const response = await apiFetch(
-        `/api/cases?firm_code=${encodeURIComponent(firmCode)}&status=open`
-      );
+    // 轉換後端資料為前端格式
+    const transformedCases: TableCase[] = await Promise.all(
+      (data.items || []).map(async (apiCase: any) => {
+        let stages: Stage[] = [];
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('載入案件失敗:', errorText);
-        throw new Error(`載入案件失敗: ${response.status} ${response.statusText}`);
-      }
+        try {
+          // 先抓案件的階段
+          const stagesResponse = await apiFetch(
+            `/api/cases/${apiCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`
+          );
 
-      const data = await response.json();
-      console.log('載入的案件資料:', data);
-
-      // 轉換後端資料為前端格式
-      const transformedCases: TableCase[] = await Promise.all(
-        (data.items || []).map(async (apiCase: any) => {
-          let stages: Stage[] = [];
-
+          // 再抓案件檔案（含 stage 對應的檔案）
+          let filesData: any = {};
           try {
-            // 先載入案件的階段資料
-            const stagesResponse = await apiFetch(
-              `/api/cases/${apiCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`
+            const filesResponse = await apiFetch(
+              `/api/cases/${apiCase.id}/files?firm_code=${encodeURIComponent(firmCode)}`
             );
-
-            // 同時載入案件檔案（含 stage 對應的）
-            let filesData: any = {};
-            try {
-              const filesResponse = await apiFetch(
-                `/api/cases/${apiCase.id}/files?firm_code=${encodeURIComponent(firmCode)}`
-              );
-              if (filesResponse.ok) {
-                filesData = await filesResponse.json();
-              }
-            } catch (err) {
-              console.warn(`載入案件 ${apiCase.id} 的檔案失敗:`, err);
+            if (filesResponse.ok) {
+              filesData = await filesResponse.json();
             }
-
-            if (stagesResponse.ok) {
-              const stagesData = await stagesResponse.json();
-
-              stages = (stagesData || []).map((stage: any) => {
-                // 找出屬於這個 stage 的檔案
-                const stageFiles = (filesData.stage || []).filter(
-                  (f: any) => f.folder_id === stage.id
-                );
-
-                return {
-                  id: stage.id, // 後端 UUID
-                  name: stage.stage_name,
-                  date: stage.stage_date || '',
-                  completed: stage.is_completed || false,
-                  note: stage.note || '',
-                  time: stage.stage_time || '',
-                  files: stageFiles, // ✅ 附加檔案
-                };
-              });
-            }
-          } catch (error) {
-            console.error(`載入案件 ${apiCase.id} 的階段失敗:`, error);
+          } catch (err) {
+            console.warn(`載入案件 ${apiCase.id} 的檔案失敗:`, err);
           }
 
-          return {
-            id: apiCase.id,
-            caseNumber: apiCase.case_number || '未設定',
-            client: apiCase.client_name || apiCase.client?.name || '未知客戶',
-            caseType: apiCase.case_type || '未分類',
-            lawyer: apiCase.lawyer_name || apiCase.lawyer?.full_name || '',
-            legalAffairs: apiCase.legal_affairs_name || apiCase.legal_affairs?.full_name || '',
-            caseReason: apiCase.case_reason || '',
-            opposingParty: apiCase.opposing_party || '',
-            court: apiCase.court || '',
-            division: apiCase.division || '',
-            progress: apiCase.progress || '',
-            progressDate:
-              apiCase.progress_date || new Date().toISOString().split('T')[0],
-            status: 'active' as CaseStatus,
-            stages: stages,
-          };
-        })
-      );
+          if (stagesResponse.ok) {
+            const stagesData = await stagesResponse.json();
 
-      setCases(transformedCases);
-      console.log('轉換後的案件資料:', transformedCases);
-    } catch (error: any) {
-      console.error('載入案件失敗:', error);
-      setError(error.message || '載入案件失敗');
+            stages = (stagesData || []).map((stage: any) => {
+              // ✅ 用 folder_name 來對應 stage.name
+              const stageFiles = (filesData.stage || []).filter(
+                (f: any) => f.folder_name === stage.stage_name
+              );
 
-      if (error.message?.includes('登入狀態已過期')) {
-        clearLoginAndRedirect();
-      }
-    } finally {
-      setLoading(false);
+              return {
+                id: stage.id, // 後端 UUID
+                name: stage.stage_name,
+                date: stage.stage_date || '',
+                completed: stage.is_completed || false,
+                note: stage.note || '',
+                time: stage.stage_time || '',
+                files: stageFiles, // ✅ 保證跟資料夾樹一致
+              };
+            });
+          }
+        } catch (error) {
+          console.error(`載入案件 ${apiCase.id} 的階段失敗:`, error);
+        }
+
+        return {
+          id: apiCase.id,
+          caseNumber: apiCase.case_number || '未設定',
+          client: apiCase.client_name || apiCase.client?.name || '未知客戶',
+          caseType: apiCase.case_type || '未分類',
+          lawyer: apiCase.lawyer_name || apiCase.lawyer?.full_name || '',
+          legalAffairs: apiCase.legal_affairs_name || apiCase.legal_affairs?.full_name || '',
+          caseReason: apiCase.case_reason || '',
+          opposingParty: apiCase.opposing_party || '',
+          court: apiCase.court || '',
+          division: apiCase.division || '',
+          progress: apiCase.progress || '',
+          progressDate:
+            apiCase.progress_date || new Date().toISOString().split('T')[0],
+          status: 'active' as CaseStatus,
+          stages: stages,
+        };
+      })
+    );
+
+    setCases(transformedCases);
+    console.log('轉換後的案件資料:', transformedCases);
+  } catch (error: any) {
+    console.error('載入案件失敗:', error);
+    setError(error.message || '載入案件失敗');
+
+    if (error.message?.includes('登入狀態已過期')) {
+      clearLoginAndRedirect();
     }
-  }, []);
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
 
   // 搜尋和過濾
