@@ -450,13 +450,11 @@ export default function CaseOverview() {
 
   // 編輯階段
   const handleEditStage = async (stageData: StageFormData): Promise<boolean> => {
-    if (!selectedCase || !editingStage) return false;
+  if (!selectedCase || !editingStage) return false;
 
-    try {
-      const firmCode = getFirmCodeOrThrow();
-
-      // 呼叫後端 API 更新階段
-      const response = await apiFetch(
+  try {
+    const firmCode = getFirmCodeOrThrow();
+    const response = await apiFetch(
       `/api/cases/${selectedCase.id}/stages/${editingStage.stage.id}?firm_code=${encodeURIComponent(firmCode)}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -465,54 +463,52 @@ export default function CaseOverview() {
           stage_time: stageData.time,
           note: stageData.note
         })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || '更新階段失敗');
       }
+    );
 
-      const updatedStage: Stage = {
-        id: editingStage.stage.id,   // ⬅️ 保留原本的 UUID
-        name: stageData.stageName,
-        date: stageData.date,
-        completed: editingStage.stage.completed,
-        note: stageData.note,
-        time: stageData.time
-      };
-
-
-      // 更新本地狀態
-      setCases(prev => prev.map(c =>
-        c.id === selectedCase.id
-          ? { ...c, stages: c.stages.map((s, i) => i === editingStage.index ? updatedStage : s) }
-          : c
-      ));
-      // ✅ 同步右側詳情
-      setSelectedCase(prev =>
-        prev && prev.id === selectedCase.id
-          ? { ...prev, stages: prev.stages.map((s, i) => i === editingStage.index ? updatedStage : s) }
-          : prev
-      );
-
-
-      console.log('階段編輯成功:', updatedStage);
-      window.dispatchEvent(
-        new CustomEvent('folders:refresh', { detail: { caseId: selectedCase.id } })
-      );
-
-      return true;
-    } catch (error) {
-      console.error('編輯階段失敗:', error);
-      setDialogConfig({
-        title: '編輯階段失敗',
-        message: error.message || '編輯階段失敗',
-        type: 'error'
-      });
-      setShowUnifiedDialog(true);
-      return false;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || '更新階段失敗');
     }
-  };
+
+    const updatedStage: Stage = {
+      id: editingStage.stage.id,
+      name: stageData.stageName,
+      date: stageData.date,
+      completed: editingStage.stage.completed,
+      note: stageData.note,
+      time: stageData.time
+    };
+
+    setCases(prev => prev.map(c =>
+      c.id === selectedCase.id
+        ? { ...c, stages: c.stages.map((s, i) => i === editingStage.index ? updatedStage : s) }
+        : c
+    ));
+
+    setSelectedCase(prev =>
+      prev && prev.id === selectedCase.id
+        ? { ...prev, stages: prev.stages.map((s, i) => i === editingStage.index ? updatedStage : s) }
+        : prev
+    );
+
+    // ✅ 讓資料夾樹同步刷新
+    window.dispatchEvent(new CustomEvent('folders:refresh', { detail: { caseId: selectedCase.id } }));
+
+    console.log('階段編輯成功:', updatedStage);
+    return true;
+  } catch (error) {
+    console.error('編輯階段失敗:', error);
+    setDialogConfig({
+      title: '編輯階段失敗',
+      message: error.message || '編輯階段失敗',
+      type: 'error'
+    });
+    setShowUnifiedDialog(true);
+    return false;
+  }
+};
+
 
   // 檢查是否有檔案
 const handleDeleteStage = async (stageId: string, stageName: string, stageIndex: number) => {
