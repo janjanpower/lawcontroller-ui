@@ -550,6 +550,11 @@ export default function FolderTree({
         // 上傳後重新載入資料夾
         if (hasAuthToken()) {
           await loadFolderStructure();
+
+          // ✅ 通知 CaseOverview 刷新右側詳情
+          window.dispatchEvent(new CustomEvent("caseDetail:refresh", {
+            detail: { caseId }
+          }));
         }
       }
     };

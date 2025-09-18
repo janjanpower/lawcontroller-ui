@@ -407,6 +407,18 @@ export default function CaseOverview() {
     }
   };
 
+  // ✅ 監聽 caseDetail:refresh → 即時更新右側詳情
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e?.detail?.caseId) {
+        refreshCaseDetail(e.detail.caseId); // 重新抓該案件的 stages + files
+      }
+    };
+    window.addEventListener("caseDetail:refresh", handler);
+    return () => window.removeEventListener("caseDetail:refresh", handler);
+  }, []);
+
+
   // 刪除案件
   const handleDeleteCase = async (caseId: string) => {
     if (!hasAuthToken()) {
@@ -445,14 +457,17 @@ export default function CaseOverview() {
   };
 
   // 新增階段
-  const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
-    if (!selectedCase) return false;
+  // 新增階段
+const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
+  if (!selectedCase) return false;
 
-    try {
-      const firmCode = getFirmCodeOrThrow();
+  try {
+    const firmCode = getFirmCodeOrThrow();
 
-      // 呼叫後端 API 新增階段
-      const response = await apiFetch(`/api/cases/${selectedCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`, {
+    // 1. 呼叫後端 API 新增階段
+    const response = await apiFetch(
+      `/api/cases/${selectedCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`,
+      {
         method: 'POST',
         body: JSON.stringify({
           stage_name: stageData.stageName,
@@ -460,50 +475,75 @@ export default function CaseOverview() {
           stage_time: stageData.time,
           note: stageData.note,
           is_completed: false,
-          sort_order: selectedCase.stages.length
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || '新增階段失敗');
+          sort_order: selectedCase.stages.length,
+        }),
       }
-      const data = await response.json()
-      const newStage: Stage = {
-        id: data.id,  // ✅ 後端回傳的 UUID
-        name: data.stage_name,
-        date: data.stage_date,
-        completed: data.is_completed,
-        note: data.note,
-        time: data.stage_time
-      };
+    );
 
-      // 更新本地狀態
-      setCases(prev => prev.map(c =>
-        c.id === selectedCase.id ? { ...c, stages: [...c.stages, newStage] } : c
-      ));
-      // ✅ 同步右側詳情
-      setSelectedCase(prev =>
-        prev && prev.id === selectedCase.id ? { ...prev, stages: [...prev.stages, newStage] } : prev
-      );
-
-      // 建立階段資料夾
-      FolderManager.createStageFolder(selectedCase.id, stageData.stageName);
-      window.dispatchEvent(new CustomEvent('folders:refresh', { detail: { caseId: selectedCase.id } }));
-      console.log('階段新增成功:', newStage);
-
-      return true;
-    } catch (error) {
-      console.error('新增階段失敗:', error);
-      setDialogConfig({
-        title: '新增階段失敗',
-        message: error.message || '新增階段失敗',
-        type: 'error'
-      });
-      setShowUnifiedDialog(true);
-      return false;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || '新增階段失敗');
     }
-  };
+
+    const data = await response.json();
+    const newStage: Stage = {
+      id: data.id,
+      name: data.stage_name,
+      date: data.stage_date,
+      completed: data.is_completed,
+      note: data.note,
+      time: data.stage_time,
+      files: [] // ✅ 預設空檔案清單
+    };
+
+    // 2. 更新本地狀態
+    setCases(prev =>
+      prev.map(c =>
+        c.id === selectedCase.id
+          ? { ...c, stages: [...c.stages, newStage] }
+          : c
+      )
+    );
+    setSelectedCase(prev =>
+      prev && prev.id === selectedCase.id
+        ? { ...prev, stages: [...prev.stages, newStage] }
+        : prev
+    );
+
+    // 3. 🔥 馬上在後端建立對應的資料夾 (直接掛在案件進度下)
+    const folderRes = await apiFetch(
+      `/api/cases/${selectedCase.id}/folders?firm_code=${encodeURIComponent(firmCode)}`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          folder_name: stageData.stageName,
+          folder_type: "stage",
+          parent_type: "progress" // ✅ 指定要掛在「案件進度」資料夾下
+        })
+      }
+    );
+
+    if (!folderRes.ok) {
+      console.warn("階段資料夾建立失敗，但不影響階段本身");
+    }
+
+    // 4. 通知 FolderTree 即時刷新
+    window.dispatchEvent(new CustomEvent("folders:refresh", { detail: { caseId: selectedCase.id } }));
+
+    console.log("階段新增成功:", newStage);
+    return true;
+  } catch (error: any) {
+    console.error("新增階段失敗:", error);
+    setDialogConfig({
+      title: "新增階段失敗",
+      message: error.message || "新增階段失敗",
+      type: "error",
+    });
+    setShowUnifiedDialog(true);
+    return false;
+  }
+};
+
 
 // 編輯階段
 const handleEditStage = async (stageData: StageFormData): Promise<boolean> => {
