@@ -1717,6 +1717,10 @@ const handleDownload = async (fileId: string) => {
                 </div>
               </div>
 
+            </div>
+          </div>
+        )}
+      </div>
 
 
       {/* ✅ 新增：警告對話框 */}
