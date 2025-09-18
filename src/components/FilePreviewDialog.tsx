@@ -8,6 +8,7 @@ interface FilePreviewDialogProps {
 }
 
 export default function FilePreviewDialog({ open, onClose, files }: FilePreviewDialogProps) {
+  console.log("👉 FilePreviewDialog render, open=", open, "files=", files);
   if (!open) return null;
 
   return (

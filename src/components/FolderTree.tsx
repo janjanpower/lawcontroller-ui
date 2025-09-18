@@ -103,12 +103,15 @@ const handleUploadClick = (e: React.MouseEvent) => {
         }`}
         style={{ paddingLeft: `${level * 20 + 8}px` }}
         onClick={() => {
-          if (node.type === 'file' && onPreview) {
-            onPreview(node.id);   // ✅ 點檔案 → 預覽
-          } else if (node.type === 'folder') {
-            handleToggle();       // ✅ 點資料夾 → 展開/收合
-          }
-        }}
+        console.log("👉 點擊節點:", node);  // <-- 檢查有沒有進來
+        if (node.type === 'file' && onPreview) {
+          console.log("👉 準備呼叫 onPreview, fileId:", node.id);
+          onPreview(node.id);
+        } else if (node.type === 'folder') {
+          handleToggle();
+        }
+      }}
+
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
       >
@@ -215,16 +218,20 @@ export default function FolderTree({
   const [selectedFiles, setSelectedFiles] = useState<any[]>([]);
 
   const handleOpenPreview = async (fileId: string) => {
+  console.log("👉 handleOpenPreview 被呼叫, fileId:", fileId);
   try {
     const firmCode = getFirmCodeOrThrow();
     const res = await fetch(`/api/files/${fileId}?firm_code=${firmCode}`);
+    console.log("👉 API 回應狀態:", res.status);
     const data = await res.json();
-    setSelectedFiles([data]);  // 單檔就放進陣列
+    console.log("👉 API 回應資料:", data);
+    setSelectedFiles([data]);
     setPreviewOpen(true);
   } catch (err) {
     console.error('讀取檔案失敗', err);
   }
 };
+
   // 從 API 載入真實的資料夾結構
   useEffect(() => {
     if (isExpanded) {
