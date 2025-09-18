@@ -1,5 +1,6 @@
 // src/components/FolderTree.tsx
 import React, { useState, useEffect } from 'react';
+import FilePreviewDialog from './FilePreviewDialog';  // ✅ 新增 import
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2 } from 'lucide-react';
 import { getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect, apiFetch } from '../utils/api';
 import { FolderManager } from '../utils/folderManager';
@@ -46,6 +47,7 @@ const FolderTreeNode: React.FC<{
   onFileUpload?: (opts: { folderId?: string; folderPath: string }) => void;
   onFolderCreate?: (parentPath: string) => void;
   onDelete?: (path: string, type: 'folder' | 'file') => void;
+  onPreview?: (folderId: string) => void;
 }> = ({ node, level, onFileUpload, onFolderCreate, onDelete }) => {
   const [isExpanded, setIsExpanded] = useState(level < 2);
   const [showActions, setShowActions] = useState(false);
@@ -93,7 +95,13 @@ const handleUploadClick = (e: React.MouseEvent) => {
           level === 0 ? 'font-semibold' : ''
         }`}
         style={{ paddingLeft: `${level * 20 + 8}px` }}
-        onClick={handleToggle}
+        onClick={() => {
+          if (node.type === 'folder' && onPreview) {
+            onPreview(node.id);   // ✅ 呼叫父層的 handleOpenPreview
+          } else {
+            handleToggle();
+          }
+        }}
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
       >
@@ -196,7 +204,20 @@ export default function FolderTree({
   s3Config
 }: FolderTreeProps) {
   const [folderData, setFolderData] = useState<FolderNode>(defaultFolderStructure);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<any[]>([]);
 
+  const handleOpenPreview = async (folderId: string) => {
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const res = await fetch(`/api/cases/${caseId}/folders/${folderId}/files?firm_code=${firmCode}`);
+      const data = await res.json();
+      setSelectedFiles(data);
+      setPreviewOpen(true);
+    } catch (err) {
+      console.error('讀取檔案失敗', err);
+    }
+  };
   // 從 API 載入真實的資料夾結構
   useEffect(() => {
     if (isExpanded) {
@@ -689,8 +710,15 @@ export default function FolderTree({
           onFileUpload={handleFileUpload}
           onFolderCreate={handleFolderCreate}
           onDelete={handleDelete}
+          onPreview={handleOpenPreview}
         />
       </div>
+
+      <FilePreviewDialog
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        files={selectedFiles}
+      />
     </div>
   );
 }
