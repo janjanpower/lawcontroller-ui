@@ -13,6 +13,7 @@ interface FolderNode {
   children?: FolderNode[];
   size?: number;
   modified?: string;
+  folderType?: string;   // ← 方便除錯，非必須
 }
 
 interface FolderTreeProps {
@@ -377,17 +378,13 @@ export default function FolderTree({
       name: '案件資料夾',
       type: 'folder',
       path: '/',
-      children: [
-        { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
-        { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-        { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
-      ]
+      children: []
     };
 
-    if (filesData.folders && Array.isArray(filesData.folders)) {
-      const folderMap: Record<string, FolderNode> = {};
+    const folderMap: Record<string, FolderNode> = {};
 
-      // 先建立 map
+    // 1) 先把所有資料夾實體化
+    if (Array.isArray(filesData.folders)) {
       filesData.folders.forEach((f: any) => {
         folderMap[f.id] = {
           id: f.id,
@@ -395,79 +392,39 @@ export default function FolderTree({
           type: 'folder',
           path: f.folder_path,
           children: [],
+          folderType: f.folder_type,
         };
       });
 
-      // 掛接正確的父子層級
+      // 2) 依 parent_id 掛樹；沒有 parent_id 的就掛在 root
       filesData.folders.forEach((f: any) => {
         const node = folderMap[f.id];
-
-        if (f.folder_type === 'stage') {
-          // ✅ 掛到「案件進度」
-          const progressFolder = rootNode.children?.find(c => c.name === '案件進度');
-          progressFolder?.children?.push(node);
-        } else if (f.folder_type === 'pleadings') {
-          // ✅ 狀紙固定在 root
-          const pleadingsFolder = rootNode.children?.find(c => c.name === '狀紙');
-          pleadingsFolder?.children?.push(node);
-        } else if (f.folder_type === 'info') {
-          // ✅ 案件資訊固定在 root
-          const infoFolder = rootNode.children?.find(c => c.name === '案件資訊');
-          infoFolder?.children?.push(node);
-        } else if (f.parent_id && folderMap[f.parent_id]) {
-          // ✅ 其他子資料夾
-          folderMap[f.parent_id].children?.push(node);
+        if (f.parent_id && folderMap[f.parent_id]) {
+          (folderMap[f.parent_id].children ||= []).push(node);
+        } else {
+          rootNode.children!.push(node);
         }
-      });
-
-      // 掛檔案
-      const folderMapping: Record<string, string> = {
-        pleadings: '狀紙',
-        info: '案件資訊',
-        progress: '案件進度',
-      };
-
-      Object.entries(filesData).forEach(([folderType, files]) => {
-        if (folderType === 'folders') return;
-        if (!Array.isArray(files)) return;
-
-        if (folderType === 'stage') {
-          // ✅ stage 檔案 → 對應 folder_id
-          files.forEach((file: any) => {
-            const target = folderMap[file.folder_id];
-            if (target) {
-              target.children?.push({
-                id: file.id,
-                name: file.name,
-                type: 'file',
-                path: `${target.path}/${file.name}`,
-                size: file.size_bytes,
-                modified: file.created_at,
-              });
-            }
-          });
-          return;
-        }
-
-        // 📂 一般類別
-        const displayName = folderMapping[folderType];
-        if (!displayName) return;
-
-        const target = rootNode.children?.find(f => f.name === displayName);
-        if (!target) return;
-
-        files.forEach((file: any) => {
-          target.children?.push({
-            id: file.id,
-            name: file.name,
-            type: 'file',
-            path: `${target.path}/${file.name}`,
-            size: file.size_bytes,
-            modified: file.created_at,
-          });
-        });
       });
     }
+
+    // 3) 檔案一律依 folder_id 掛到對應資料夾（含 stage/pleadings/info/progress）
+    const attachByFolderId = (file: any) => {
+      const parent = file.folder_id && folderMap[file.folder_id];
+      if (!parent) return;
+      parent.children!.push({
+        id: file.id,
+        name: file.name,
+        type: 'file',
+        path: `${parent.path}/${file.name}`,
+        size: file.size_bytes,
+        modified: file.created_at,
+      });
+    };
+
+    ['pleadings', 'info', 'progress', 'stage'].forEach((key) => {
+      const arr = filesData[key];
+      if (Array.isArray(arr)) arr.forEach(attachByFolderId);
+    });
 
     return rootNode;
   };
