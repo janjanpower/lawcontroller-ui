@@ -139,9 +139,9 @@ export default function CaseOverview() {
             const stagesData = await stagesResponse.json();
 
             stages = (stagesData || []).map((stage: any) => {
-              // ✅ 用 folder_name 來對應 stage.name
+              // ✅ 用 folder_id 來比對，不用 folder_name
               const stageFiles = (filesData.stage || []).filter(
-                (f: any) => f.folder_name === stage.stage_name
+                (f: any) => f.folder_id === stage.id
               );
 
               return {
@@ -151,10 +151,11 @@ export default function CaseOverview() {
                 completed: stage.is_completed || false,
                 note: stage.note || '',
                 time: stage.stage_time || '',
-                files: stageFiles, // ✅ 保證跟資料夾樹一致
+                files: stageFiles, // ✅ 保證正確掛進去
               };
             });
           }
+
         } catch (error) {
           console.error(`載入案件 ${apiCase.id} 的階段失敗:`, error);
         }
