@@ -19,6 +19,7 @@ import { FolderManager } from '../utils/folderManager';
 import { hasClosedStage } from '../utils/caseStage';
 import { apiFetch, getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect } from '../utils/api';
 import type { TableCase, Stage, CaseStatus, VisibleColumns, DialogConfig } from '../types';
+import FilePreviewDialog from "../components/FilePreviewDialog";
 
 export default function CaseOverview() {
   // 基本狀態
@@ -35,6 +36,9 @@ export default function CaseOverview() {
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewFiles, setPreviewFiles] = useState<any[]>([]);
 
   // 對話框狀態
 
@@ -350,6 +354,53 @@ export default function CaseOverview() {
     }
   };
 
+  // ✅ 重新抓某案件的詳細資料
+  const refreshCaseDetail = async (caseId: string) => {
+    try {
+      const firmCode = getFirmCodeOrThrow();
+
+      const stagesResp = await apiFetch(`/api/cases/${caseId}/stages?firm_code=${encodeURIComponent(firmCode)}`);
+      const filesResp = await apiFetch(`/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`);
+
+      if (!stagesResp.ok || !filesResp.ok) return;
+      const stagesData = await stagesResp.json();
+      const filesData = await filesResp.json();
+
+      // 準備 folderId mapping
+      const folderIdMap: Record<string, string> = {};
+      if (filesData.folders) {
+        filesData.folders.forEach((f: any) => {
+          if (f.folder_type === "stage") folderIdMap[f.folder_name] = f.id;
+        });
+      }
+
+      const stages: Stage[] = (stagesData || []).map((stage: any) => {
+        const folderId = folderIdMap[stage.stage_name];
+        const stageFiles = folderId
+          ? (filesData.stage || []).filter((f: any) => f.folder_id === folderId)
+          : [];
+        return {
+          id: stage.id,
+          name: stage.stage_name,
+          date: stage.stage_date || "",
+          completed: stage.is_completed || false,
+          note: stage.note || "",
+          time: stage.stage_time || "",
+          files: stageFiles,
+        };
+      });
+
+      setCases(prev =>
+        prev.map(c => c.id === caseId ? { ...c, stages } : c)
+      );
+      setSelectedCase(prev =>
+        prev && prev.id === caseId ? { ...prev, stages } : prev
+      );
+    } catch (err) {
+      console.error("refreshCaseDetail 失敗:", err);
+    }
+  };
+
   // 刪除案件
   const handleDeleteCase = async (caseId: string) => {
     if (!hasAuthToken()) {
@@ -627,6 +678,26 @@ const handleDownload = async (fileId: string) => {
   } catch (err: any) {
     console.error('下載檔案失敗:', err);
     alert(err?.message || '下載檔案失敗');
+  }
+};
+
+// ✅ 檔案預覽
+const handlePreview = async (fileId: string) => {
+  try {
+    const firmCode = getFirmCodeOrThrow();
+    const res = await apiFetch(`/api/files/${fileId}/url?firm_code=${encodeURIComponent(firmCode)}`);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText || "取得檔案預覽連結失敗");
+    }
+
+    const data = await res.json();
+    setPreviewFiles([data]);   // FilePreviewDialog 支援陣列
+    setPreviewOpen(true);
+  } catch (err: any) {
+    console.error("預覽檔案失敗:", err);
+    alert(err?.message || "預覽檔案失敗");
   }
 };
 
@@ -1495,6 +1566,7 @@ const handleDownload = async (fileId: string) => {
                                 clientName={row.client}
                                 isExpanded={true}
                                 onToggle={() => {}}
+                                onCaseDetailRefresh={refreshCaseDetail}
                                 s3Config={{
                                   endpoint: process.env.VITE_SPACES_ENDPOINT || 'https://sgp1.digitaloceanspaces.com',
                                   accessKey: process.env.VITE_SPACES_ACCESS_KEY || '',
@@ -1712,13 +1784,22 @@ const handleDownload = async (fileId: string) => {
                                       <FileText className="w-4 h-4 text-gray-600" />
                                       <span>{f.name}</span>
                                     </div>
-                                    <button
-                                      onClick={() => handleDownload(f.id)}
-                                      className="text-blue-600 hover:underline text-xs flex items-center gap-1"
-                                    >
-                                      <Download className="w-3 h-3" />
-                                      下載
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => handlePreview(f.id)}
+                                        className="text-indigo-600 hover:underline text-xs flex items-center gap-1"
+                                      >
+                                        <Eye className="w-3 h-3" />
+                                        預覽
+                                      </button>
+                                      <button
+                                        onClick={() => handleDownload(f.id)}
+                                        className="text-blue-600 hover:underline text-xs flex items-center gap-1"
+                                      >
+                                        <Download className="w-3 h-3" />
+                                        下載
+                                      </button>
+                                    </div>
                                   </li>
                                 ))}
                               </ul>
@@ -1726,6 +1807,7 @@ const handleDownload = async (fileId: string) => {
                               <p className="text-xs text-gray-400">此階段尚無檔案</p>
                             )}
                           </div>
+
                         </div>
                       );
                     })
@@ -1808,9 +1890,12 @@ const handleDownload = async (fileId: string) => {
       <FileUploadDialog
         isOpen={showFileUpload}
         onClose={() => setShowFileUpload(false)}
-        onUploadComplete={() => {
+        onUploadComplete={async () => {
           setShowFileUpload(false);
-          // 重新載入案件資料或檔案列表
+          if (selectedCase) {
+            await refreshCaseDetail(selectedCase.id); // ✅ 上傳後刷新右側
+          }
+          await loadCases(); // ✅ 刷新案件列表
         }}
         selectedCaseIds={selectedCaseIds}
         cases={cases.map(c => ({
@@ -1819,6 +1904,7 @@ const handleDownload = async (fileId: string) => {
           caseNumber: c.caseNumber
         }))}
       />
+
 
       <ClosedTransferDialog
         isOpen={showClosedTransfer}
@@ -1859,6 +1945,12 @@ const handleDownload = async (fileId: string) => {
         }}
         caseId={writeDocumentCaseId}
         clientName={writeDocumentClientName}
+      />
+
+      <FilePreviewDialog
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        files={previewFiles}
       />
     </div>
   );}

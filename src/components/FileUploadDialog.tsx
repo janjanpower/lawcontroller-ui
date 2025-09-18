@@ -89,56 +89,54 @@ export default function FileUploadDialog({
   }, [selectedCase]);
 
   const handleUpload = async () => {
-    if (selectedCaseIds.length === 0) { setShowCaseWarning(true); return; }
-    if (!selectedCase) { alert('請選擇要上傳的案件'); return; }
-    if (!selectedFolder) { alert('請選擇要存放的資料夾'); return; }
-    if (selectedFiles.length === 0) { alert('請選擇要上傳的檔案'); return; }
+  if (selectedCaseIds.length === 0) { setShowCaseWarning(true); return; }
+  if (!selectedCase) { alert('請選擇要上傳的案件'); return; }
+  if (!selectedFolder) { alert('請選擇要存放的資料夾'); return; }
+  if (selectedFiles.length === 0) { alert('請選擇要上傳的檔案'); return; }
 
-    setIsUploading(true);
-    try {
-      let firmCode;
-      try {
-        firmCode = getFirmCodeOrThrow();
-      } catch (error) {
-        alert('找不到事務所代碼，請重新登入');
-        return;
+  setIsUploading(true);
+  try {
+    const firmCode = getFirmCodeOrThrow();
+    const folder = availableFolders.find(f => f.id === selectedFolder);
+    if (!folder) throw new Error('找不到指定的資料夾');
+
+    for (const file of selectedFiles) {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('folder_id', folder.id);
+
+      const headers: Record<string, string> = {};
+      const token = localStorage.getItem('token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(
+        `/api/cases/${selectedCase}/files?firm_code=${encodeURIComponent(firmCode)}`,
+        { method: 'POST', body: form, headers }
+      );
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `上傳 ${file.name} 失敗`);
       }
-
-      const folder = availableFolders.find(f => f.id === selectedFolder); // ✅ 用 id 找
-        if (!folder) throw new Error('找不到指定的資料夾');
-
-        for (const file of selectedFiles) {
-          const form = new FormData();
-          form.append('file', file);
-          form.append('folder_id', folder.id);  // ✅ 保證傳正確的 folder_id
-
-          const headers: Record<string, string> = {};
-          const token = localStorage.getItem('token');
-          if (token) headers['Authorization'] = `Bearer ${token}`;
-
-          const res = await fetch(
-            `/api/cases/${selectedCase}/files?firm_code=${encodeURIComponent(firmCode)}`,
-            { method: 'POST', body: form, headers }
-          );
-
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || `上傳 ${file.name} 失敗`);
-          }
-        }
-
-
-
-      alert(`成功上傳 ${selectedFiles.length} 個檔案`);
-      onUploadComplete();
-      handleClose();
-    } catch (err: any) {
-      console.error('檔案上傳失敗:', err);
-      alert(`上傳失敗：${err?.message || '請稍後再試'}`);
-    } finally {
-      setIsUploading(false);
     }
-  };
+
+    alert(`成功上傳 ${selectedFiles.length} 個檔案`);
+
+    // ✅ 廣播刷新 FolderTree
+    window.dispatchEvent(new CustomEvent("folders:refresh", { detail: { caseId: selectedCase } }));
+
+    // ✅ 通知 CaseOverview 重新載入案件詳情
+    onUploadComplete();
+
+    handleClose();
+  } catch (err: any) {
+    console.error('檔案上傳失敗:', err);
+    alert(`上傳失敗：${err?.message || '請稍後再試'}`);
+  } finally {
+    setIsUploading(false);
+  }
+};
+
 
   const handleBrowseClick = () => fileInputRef.current?.click();
 

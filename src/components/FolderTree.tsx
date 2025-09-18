@@ -24,6 +24,7 @@ interface FolderTreeProps {
   onFileUpload?: (folderPath: string) => void;
   onFolderCreate?: (parentPath: string) => void;
   onDelete?: (path: string, type: 'folder' | 'file') => void;
+  onCaseDetailRefresh?: (caseId: string) => void;
   s3Config?: {
     endpoint: string;
     accessKey: string;
