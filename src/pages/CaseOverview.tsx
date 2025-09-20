@@ -251,105 +251,128 @@ export default function CaseOverview() {
   // 新增案件
   const handleAddCase = async (caseData: any): Promise<boolean> => {
   try {
-    console.log("DEBUG: handleAddCase 收到資料:", caseData);
-
     const firmCode = getFirmCodeOrThrow();
     const res = await apiFetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`, {
       method: "POST",
-      body: JSON.stringify(caseData), // ✅ 直接送給後端
+      body: JSON.stringify({
+        case_type: caseData.case_type,
+        client_name: caseData.client,        // ⚡ 用正確欄位
+        case_reason: caseData.case_reason,
+        case_number: caseData.case_number,
+        court: caseData.court,
+        division: caseData.division,
+        lawyer_name: caseData.lawyer,
+        legal_affairs_name: caseData.legal_affairs,
+      }),
     });
 
     if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.detail || "建立案件失敗");
+      const errText = await res.text();
+      throw new Error(errText || "新增案件失敗");
     }
 
-    const createdCase = await res.json();  // ✅ 後端的正確資料
-    console.log("✅ 後端回傳:", createdCase);
+    const createdCase = await res.json();
+    console.log("✅ 後端回傳案件:", createdCase);
 
-    // 直接把後端回傳塞進去
-    setCases((prev) => [createdCase, ...prev]);
+    // 重新載入案件列表
+    await loadCases();
+
+    // 通知資料夾樹刷新
+    window.dispatchEvent(new CustomEvent("folders:refresh", { detail: { caseId: createdCase.id } }));
 
     return true;
   } catch (error: any) {
     console.error("新增案件失敗:", error);
     setDialogConfig({
       title: "新增失敗",
-      message: error.message || "新增案件時發生錯誤",
+      message: error.message || "新增案件失敗",
       type: "error",
     });
     setShowUnifiedDialog(true);
     return false;
   }
 };
-
 
 
   // 編輯案件
   const handleEditCase = async (caseData: any): Promise<boolean> => {
-  if (!caseData.case_id) {
-    setDialogConfig({
-      title: "編輯失敗",
-      message: "案件 ID 不存在，無法編輯",
-      type: "error",
-    });
-    setShowUnifiedDialog(true);
-    return false;
-  }
-
-  try {
-    const firmCode = getFirmCodeOrThrow();
-    const res = await apiFetch(
-      `/api/cases/${caseData.case_id}?firm_code=${encodeURIComponent(firmCode)}`,
-      {
-        method: "PATCH",
-        body: JSON.stringify(caseData),
-      }
-    );
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.detail || "更新案件失敗");
+    if (!caseData.case_id) {
+      console.error('編輯案件失敗: 缺少 case_id');
+      setDialogConfig({
+        title: '編輯失敗',
+        message: '案件 ID 不存在，無法編輯',
+        type: 'error'
+      });
+      setShowUnifiedDialog(true);
+      return false;
     }
 
-    const updatedCase = await res.json();
-    console.log("✅ 後端回傳:", updatedCase);
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      console.log("👉 handleEditCase 傳給後端的資料:", caseData);
 
-    // ✅ 直接覆蓋
-    setCases((prev) =>
-      prev.map((c) => (c.id === updatedCase.id ? updatedCase : c))
-    );
-    setSelectedCase((prev) =>
-      prev && prev.id === updatedCase.id ? updatedCase : prev
-    );
+      const res = await apiFetch(
+        `/api/cases/${caseData.case_id}?firm_code=${encodeURIComponent(firmCode)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            case_type: caseData.case_type,
+            client_name: caseData.client,
+            case_reason: caseData.case_reason,
+            case_number: caseData.case_number,
+            court: caseData.court,
+            division: caseData.division,
+            lawyer_name: caseData.lawyer,
+            legal_affairs_name: caseData.legal_affairs,
+            progress: caseData.progress,
+            progress_date: caseData.progress_date,
+          }),
+        }
+      );
 
-    // Excel 同步
-    FolderManager.updateCaseInfoExcel(updatedCase.id, {
-      caseNumber: updatedCase.case_number,
-      client: updatedCase.client_name,
-      caseType: updatedCase.case_type,
-      lawyer: updatedCase.lawyer_name,
-      legalAffairs: updatedCase.legal_affairs_name,
-      caseReason: updatedCase.case_reason,
-      opposingParty: updatedCase.opposing_party,
-      court: updatedCase.court,
-      division: updatedCase.division,
-      progress: updatedCase.progress,
-      progressDate: updatedCase.progress_date,
-    });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || "更新案件失敗");
+      }
 
-    return true;
-  } catch (error: any) {
-    console.error("編輯案件失敗:", error);
-    setDialogConfig({
-      title: "編輯失敗",
-      message: error.message || "編輯案件時發生錯誤",
-      type: "error",
-    });
-    setShowUnifiedDialog(true);
-    return false;
-  }
-};
+      const updatedCase = await res.json();
+      console.log("✅ 後端更新成功:", updatedCase);
+
+      // 重新載入案件列表（避免只改本地 state 與 DB 不一致）
+      await loadCases();
+
+      // ✅ 更新右側詳情（如果有打開）
+      setSelectedCase((prev) =>
+        prev && prev.id === updatedCase.id
+          ? {
+              ...prev,
+              caseNumber: updatedCase.case_number,
+              client: updatedCase.client_name,
+              caseType: updatedCase.case_type,
+              lawyer: updatedCase.lawyer_name,
+              legalAffairs: updatedCase.legal_affairs_name,
+              caseReason: updatedCase.case_reason,
+              opposingParty: updatedCase.opposing_party,
+              court: updatedCase.court,
+              division: updatedCase.division,
+              progress: updatedCase.progress,
+              progressDate: updatedCase.progress_date,
+            }
+          : prev
+      );
+
+      return true;
+    } catch (error: any) {
+      console.error("編輯案件失敗:", error);
+      setDialogConfig({
+        title: "編輯失敗",
+        message: error.message || "編輯案件失敗",
+        type: "error",
+      });
+      setShowUnifiedDialog(true);
+      return false;
+    }
+  };
 
 
 
