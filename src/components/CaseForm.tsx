@@ -28,7 +28,7 @@ interface CaseFormProps {
   mode: 'add' | 'edit';
 }
 
-const CASE_TYPES = ['民事', '刑事'];
+const CASE_TYPES = ['民事', '刑事','非訟'];
 
 export default function CaseForm({ isOpen, onClose, onSave, caseData, mode }: CaseFormProps) {
   const [formData, setFormData] = useState<CaseData>({

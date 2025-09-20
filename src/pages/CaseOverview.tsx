@@ -250,63 +250,44 @@ export default function CaseOverview() {
 
   // 新增案件
   const handleAddCase = async (caseData: any): Promise<boolean> => {
-    try {
-      console.log("DEBUG: handleAddCase 收到資料:", caseData);
+  try {
+    console.log("DEBUG: handleAddCase 收到資料:", caseData);
 
-      const firmCode = getFirmCodeOrThrow();
-      const res = await apiFetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`, {
-        method: "POST",
-        body: JSON.stringify(caseData), // ✅ 直接送給後端
-      });
+    const firmCode = getFirmCodeOrThrow();
+    const res = await apiFetch(`/api/cases?firm_code=${encodeURIComponent(firmCode)}`, {
+      method: "POST",
+      body: JSON.stringify(caseData), // ✅ 直接送給後端
+    });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.detail || "建立案件失敗");
-      }
-
-      const createdCase = await res.json();
-      console.log("DEBUG: 後端回傳:", createdCase);
-
-      // ✅ 使用後端回傳的資料更新 state
-      const newCase: TableCase = {
-      id: caseData.case_id,
-      caseNumber: caseData.case_number || '未設定',
-      client: caseData.client_name || caseData.client?.name || '未知客戶',  // ✅ 修正
-      caseType: caseData.case_type || '未分類',
-      lawyer: caseData.lawyer_name || '',
-      legalAffairs: caseData.legal_affairs_name || '',
-      caseReason: caseData.case_reason || '',
-      opposingParty: caseData.opposing_party || '',
-      court: caseData.court || '',
-      division: caseData.division || '',
-      progress: caseData.progress || '',
-      progressDate: caseData.progress_date || new Date().toISOString().split('T')[0],
-      status: 'active' as CaseStatus,
-      stages: []
-    };
-
-
-      setCases((prev) => [newCase, ...prev]);
-
-      console.log("DEBUG: 案件新增成功");
-      return true;
-    } catch (error: any) {
-      console.error("新增案件失敗:", error);
-      setDialogConfig({
-        title: "新增失敗",
-        message: error.message || "新增案件時發生錯誤",
-        type: "error",
-      });
-      setShowUnifiedDialog(true);
-      return false;
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.detail || "建立案件失敗");
     }
-  };
+
+    const createdCase = await res.json();  // ✅ 後端的正確資料
+    console.log("✅ 後端回傳:", createdCase);
+
+    // 直接把後端回傳塞進去
+    setCases((prev) => [createdCase, ...prev]);
+
+    return true;
+  } catch (error: any) {
+    console.error("新增案件失敗:", error);
+    setDialogConfig({
+      title: "新增失敗",
+      message: error.message || "新增案件時發生錯誤",
+      type: "error",
+    });
+    setShowUnifiedDialog(true);
+    return false;
+  }
+};
+
 
 
   // 編輯案件
   const handleEditCase = async (caseData: any): Promise<boolean> => {
   if (!caseData.case_id) {
-    console.error("編輯案件失敗: 缺少 case_id");
     setDialogConfig({
       title: "編輯失敗",
       message: "案件 ID 不存在，無法編輯",
@@ -317,8 +298,6 @@ export default function CaseOverview() {
   }
 
   try {
-    console.log("DEBUG: handleEditCase 收到資料:", caseData);
-
     const firmCode = getFirmCodeOrThrow();
     const res = await apiFetch(
       `/api/cases/${caseData.case_id}?firm_code=${encodeURIComponent(firmCode)}`,
@@ -334,32 +313,18 @@ export default function CaseOverview() {
     }
 
     const updatedCase = await res.json();
-    console.log("DEBUG: 後端回傳:", updatedCase);
+    console.log("✅ 後端回傳:", updatedCase);
 
-    // ✅ 更新前端狀態
+    // ✅ 直接覆蓋
     setCases((prev) =>
-      prev.map((c) =>
-        c.id === updatedCase.id
-          ? {
-              ...c,
-              caseNumber: updatedCase.case_number || c.caseNumber,
-              client: updatedCase.client_name || updatedCase.client,
-              caseType: updatedCase.case_type || c.caseType,
-              lawyer: updatedCase.lawyer_name || c.lawyer,
-              legalAffairs: updatedCase.legal_affairs_name || c.legalAffairs,
-              caseReason: updatedCase.case_reason || c.caseReason,
-              opposingParty: updatedCase.opposing_party || c.opposingParty,
-              court: updatedCase.court || c.court,
-              division: updatedCase.division || c.division,
-              progress: updatedCase.progress || c.progress,
-              progressDate: updatedCase.progress_date || c.progressDate,
-            }
-          : c
-      )
+      prev.map((c) => (c.id === updatedCase.id ? updatedCase : c))
+    );
+    setSelectedCase((prev) =>
+      prev && prev.id === updatedCase.id ? updatedCase : prev
     );
 
     // Excel 同步
-    FolderManager.updateCaseInfoExcel(caseData.case_id, {
+    FolderManager.updateCaseInfoExcel(updatedCase.id, {
       caseNumber: updatedCase.case_number,
       client: updatedCase.client_name,
       caseType: updatedCase.case_type,
@@ -373,7 +338,6 @@ export default function CaseOverview() {
       progressDate: updatedCase.progress_date,
     });
 
-    console.log("DEBUG: 案件編輯成功");
     return true;
   } catch (error: any) {
     console.error("編輯案件失敗:", error);
@@ -386,6 +350,7 @@ export default function CaseOverview() {
     return false;
   }
 };
+
 
 
   // ✅ 重新抓某案件的詳細資料

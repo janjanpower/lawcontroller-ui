@@ -247,27 +247,24 @@ export default function FolderTree({
 
   // 從 API 載入真實的資料夾結構
   useEffect(() => {
-    if (isExpanded) {
-      // 檢查登入狀態後再載入
-      if (hasAuthToken()) {
-        loadFolderStructure();
-      } else {
-        console.warn('登入狀態不完整，顯示預設資料夾');
-        // 設定預設資料夾結構
-        setFolderData({
-          id: 'root',
-          name: '案件資料夾',
-          type: 'folder',
-          path: '/',
-          children: [
-            { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
-            { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-            { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
-          ]
-        });
-      }
+    if (hasAuthToken()) {
+      loadFolderStructure();
+    } else {
+      console.warn('登入狀態不完整，顯示預設資料夾');
+      setFolderData({
+        id: 'root',
+        name: '案件資料夾',
+        type: 'folder',
+        path: '/',
+        children: [
+          { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
+          { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
+          { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+        ]
+      });
     }
-  }, [caseId, isExpanded]);
+  }, [caseId]);
+
 
   // 🔔 監聽外部事件：刪除階段後刷新資料夾
   useEffect(() => {
