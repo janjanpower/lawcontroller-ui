@@ -441,7 +441,6 @@ export default function CaseOverview() {
   };
 
   // 新增階段
-  // 新增階段
 const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
   if (!selectedCase) return false;
 
@@ -452,7 +451,7 @@ const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
     const response = await apiFetch(
       `/api/cases/${selectedCase.id}/stages?firm_code=${encodeURIComponent(firmCode)}`,
       {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify({
           stage_name: stageData.stageName,
           stage_date: stageData.date,
@@ -466,10 +465,11 @@ const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.detail || '新增階段失敗');
+      throw new Error(errorData.detail || "新增階段失敗");
     }
 
     const data = await response.json();
+
     const newStage: Stage = {
       id: data.id,
       name: data.stage_name,
@@ -477,7 +477,9 @@ const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
       completed: data.is_completed,
       note: data.note,
       time: data.stage_time,
-      files: [] // ✅ 預設空檔案清單
+      files: [],
+      // ✅ 接收後端回傳的 folder_id
+      folderId: data.folder_id || null,
     };
 
     // 2. 更新本地狀態
@@ -494,25 +496,29 @@ const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
         : prev
     );
 
-    // 3. 🔥 馬上在後端建立對應的資料夾 (直接掛在案件進度下)
-    const folderRes = await apiFetch(
-      `/api/cases/${selectedCase.id}/folders?firm_code=${encodeURIComponent(firmCode)}`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          folder_name: stageData.stageName,
-          folder_type: "stage",
-          parent_type: "progress" // ✅ 指定要掛在「案件進度」資料夾下
-        })
-      }
-    );
+    // 3. 如果後端已處理好資料夾，就不用再打 /folders
+    if (!data.folder_id) {
+      const folderRes = await apiFetch(
+        `/api/cases/${selectedCase.id}/folders?firm_code=${encodeURIComponent(firmCode)}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            folder_name: stageData.stageName,
+            folder_type: "stage",
+            parent_type: "progress",
+          }),
+        }
+      );
 
-    if (!folderRes.ok) {
-      console.warn("階段資料夾建立失敗，但不影響階段本身");
+      if (!folderRes.ok) {
+        console.warn("階段資料夾建立失敗，但不影響階段本身");
+      }
     }
 
     // 4. 通知 FolderTree 即時刷新
-    window.dispatchEvent(new CustomEvent("folders:refresh", { detail: { caseId: selectedCase.id } }));
+    window.dispatchEvent(
+      new CustomEvent("folders:refresh", { detail: { caseId: selectedCase.id } })
+    );
 
     console.log("階段新增成功:", newStage);
     return true;
@@ -527,6 +533,7 @@ const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
     return false;
   }
 };
+
 
 
 // 編輯階段
