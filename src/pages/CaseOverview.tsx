@@ -908,13 +908,8 @@ const handlePreview = async (fileId: string) => {
       setLoading(true);
       const firmCode = getFirmCodeOrThrow();
       for (const caseId of ids) {
-        const response = await apiFetch(`/api/cases/${caseId}?firm_code=${encodeURIComponent(firmCode)}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-          is_closed: true,
-          status: 'closed',
-          closed_at: new Date().toISOString().split('T')[0]
-        })
+        const response = await apiFetch(`/api/cases/${caseId}/close?firm_code=${encodeURIComponent(firmCode)}`, {
+          method: 'POST'
         });
         if (!response.ok) {
           const errorData = await response.json();
@@ -942,6 +937,7 @@ const handlePreview = async (fileId: string) => {
       setLoading(false);
     }
   };
+
 
   // ✅ 修改：轉移邏輯加檢查
   const handleTransferToClosed = async () => {
