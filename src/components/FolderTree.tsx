@@ -556,8 +556,9 @@ export default function FolderTree({
     input.click();
 
    if (onFileUpload) {
-    onFileUpload(opts: { folderId?: string; folderPath: string });
+    onFileUpload({ folderId, folderPath });
   }};
+
 
   const handleFolderCreate = (parentPath: string) => {
     const folderName = prompt('請輸入資料夾名稱:');
