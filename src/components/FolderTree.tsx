@@ -21,7 +21,7 @@ interface FolderTreeProps {
   clientName: string;
   isExpanded: boolean;
   onToggle: () => void;
-  onFileUpload?: (opts: { folderId?: string; folderPath: string }) => void;
+  onFileUpload?: (folderPath: string) => void;
   onFolderCreate?: (parentPath: string) => void;
   onDelete?: (path: string, type: 'folder' | 'file') => void;
   onCaseDetailRefresh?: (caseId: string) => void;
@@ -76,12 +76,12 @@ const FolderTreeNode: React.FC<{
   };
 
   // FolderTreeNode 裡
-const handleUploadClick = (e: React.MouseEvent) => {
-  e.stopPropagation();
-  if (node.type === 'folder' && onFileUpload) {
-    onFileUpload({ folderId: node.id, folderPath: node.path }); // ✅ 傳 id
-  }
-};
+  const handleUploadClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (node.type === 'folder' && onFileUpload) {
+      onFileUpload({ folderId: node.id, folderPath: node.path }); // ✅ 傳 id
+    }
+  };
 
   const handleFolderCreateClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -105,15 +105,14 @@ const handleUploadClick = (e: React.MouseEvent) => {
         }`}
         style={{ paddingLeft: `${level * 20 + 8}px` }}
         onClick={() => {
-        console.log("👉 點擊節點:", node);  // <-- 檢查有沒有進來
-        if (node.type === 'file' && onPreview) {
-          console.log("👉 準備呼叫 onPreview, fileId:", node.id);
-          onPreview(node.id);
-        } else if (node.type === 'folder') {
-          handleToggle();
-        }
-      }}
-
+          console.log("👉 點擊節點:", node);  // <-- 檢查有沒有進來
+          if (node.type === 'file' && onPreview) {
+            console.log("👉 準備呼叫 onPreview, fileId:", node.id);
+            onPreview(node.id);
+          } else if (node.type === 'folder') {
+            handleToggle();
+          }
+        }}
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
       >
@@ -221,50 +220,43 @@ export default function FolderTree({
   const [selectedFiles, setSelectedFiles] = useState<any[]>([]);
 
   const handleOpenPreview = async (fileId: string) => {
-  try {
-    const firmCode = getFirmCodeOrThrow();
-    console.log("👉 handleOpenPreview 被呼叫, fileId:", fileId);
-    const res = await fetch(`/api/files/${fileId}/url?firm_code=${firmCode}`);
-    console.log("👉 API 回應狀態:", res.status);
-
-    if (!res.ok) {
-      const text = await res.text();  // 先讀取原始文字
-      console.error("❌ 取得預覽失敗:", text);
-      throw new Error(`取得預覽失敗: ${res.status} ${text}`);
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      console.log("👉 handleOpenPreview 被呼叫, fileId:", fileId);
+      const res = await fetch(`/api/files/${fileId}/url?firm_code=${firmCode}`);
+      console.log("👉 API 回應狀態:", res.status);
+      const data = await res.json();
+      console.log("👉 API 回應資料:", data);
+      setSelectedFiles([data]);
+      setPreviewOpen(true);
+    } catch (err) {
+      console.error("讀取檔案失敗", err);
     }
-
-    const data = await res.json();
-    console.log("👉 API 回應資料:", data);
-    setSelectedFiles([data]);
-    setPreviewOpen(true);
-
-  } catch (err) {
-    console.error("讀取檔案失敗", err);
-  }
-};
-
-
+  };
 
   // 從 API 載入真實的資料夾結構
   useEffect(() => {
-    if (hasAuthToken()) {
-      loadFolderStructure();
-    } else {
-      console.warn('登入狀態不完整，顯示預設資料夾');
-      setFolderData({
-        id: 'root',
-        name: '案件資料夾',
-        type: 'folder',
-        path: '/',
-        children: [
-          { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
-          { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
-          { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
-        ]
-      });
+    if (isExpanded) {
+      // 檢查登入狀態後再載入
+      if (hasAuthToken()) {
+        loadFolderStructure();
+      } else {
+        console.warn('登入狀態不完整，顯示預設資料夾');
+        // 設定預設資料夾結構
+        setFolderData({
+          id: 'root',
+          name: '案件資料夾',
+          type: 'folder',
+          path: '/',
+          children: [
+            { id: 'pleadings', name: '狀紙', type: 'folder', path: '/狀紙', children: [] },
+            { id: 'info', name: '案件資訊', type: 'folder', path: '/案件資訊', children: [] },
+            { id: 'progress', name: '案件進度', type: 'folder', path: '/案件進度', children: [] }
+          ]
+        });
+      }
     }
-  }, [caseId]);
-
+  }, [caseId, isExpanded]);
 
   // 🔔 監聽外部事件：刪除階段後刷新資料夾
   useEffect(() => {
@@ -276,7 +268,6 @@ export default function FolderTree({
     window.addEventListener('folders:refresh', handler);
     return () => window.removeEventListener('folders:refresh', handler);
   }, [caseId]);
-
 
   const loadFolderStructure = async () => {
     // 再次檢查登入狀態
@@ -435,7 +426,6 @@ export default function FolderTree({
     return rootNode;
   };
 
-
   // 單檔上傳
   const uploadFileToS3 = async (file: File, folderPath: string, folderId?: string) => {
     // 檢查登入狀態
@@ -459,65 +449,76 @@ export default function FolderTree({
       } else {
         folderName = folderPath;
       }
+
+      const mappedType = folderTypeMapping[folderName] || 'progress';
+
       console.log('資料夾路徑對應:', { folderPath, folderName, mappedType });
 
-      // 建立 FormData
-      const formData = new FormData();
-      formData.append("file", file);
+      const finalFolderType = mappedType;
 
-      // ✅ 檢查 folderId，一定要有
-      if (!folderId) {
-        throw new Error("❌ 缺少 folder_id，請先選擇一個資料夾再上傳檔案");
-      }
-      formData.append("folder_id", folderId);
-
-      console.log("👉 準備上傳檔案:", {
-        fileName: file.name,
-        caseId,
-        folderId,
-        folderPath,
-      });
-
-
-    // 直接上傳檔案
-    const uploadResponse = await fetch(
-      `/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
-
-    console.log("上傳回應狀態:", uploadResponse.status, uploadResponse.statusText);
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      console.error("上傳失敗回應:", errorText);
-
-      let errorMessage = "檔案上傳失敗";
       try {
-        const errorData = JSON.parse(errorText);
-        errorMessage = errorData.detail || errorMessage;
-      } catch {
-        errorMessage = `上傳失敗: ${uploadResponse.status} ${errorText.substring(0, 100)}`;
+        // 建立 FormData
+        const formData = new FormData();
+        formData.append("file", file);
+
+        // ✅ 檢查 folderId，一定要有
+        if (!folderId) {
+          console.error("❌ 缺少 folder_id，檔案無法上傳");
+          throw new Error("缺少 folder_id，請先選擇一個資料夾再上傳檔案");
+        }
+
+        formData.append("folder_id", folderId);
+
+        console.log("準備上傳檔案:", {
+          fileName: file.name,
+          caseId,
+          folderId,
+          folderPath,
+        });
+
+        // 直接上傳檔案
+        const uploadResponse = await fetch(
+          `/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        console.log("上傳回應狀態:", uploadResponse.status, uploadResponse.statusText);
+
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error("上傳失敗回應:", errorText);
+
+          let errorMessage = "檔案上傳失敗";
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.detail || errorMessage;
+          } catch {
+            errorMessage = `上傳失敗: ${uploadResponse.status} ${errorText.substring(0, 100)}`;
+          }
+
+          throw new Error(errorMessage);
+        }
+
+        const result = await uploadResponse.json();
+        console.log(`✅ 檔案 ${file.name} 上傳成功:`, result);
+        return result;
+
+      } catch (error: any) {
+        console.error(`檔案 ${file.name} 上傳失敗:`, error);
+        alert(`檔案 ${file.name} 上傳失敗: ${error?.message || error}`);
       }
-
-      throw new Error(errorMessage);
+    } catch (error) {
+      console.error('上傳準備階段失敗:', error);
+      throw error;
     }
-
-    const result = await uploadResponse.json();
-    console.log(`✅ 檔案 ${file.name} 上傳成功:`, result);
-    return result;
-
-  } catch (error: any) {
-    console.error(`檔案 ${file.name} 上傳失敗:`, error);
-    alert(`檔案 ${file.name} 上傳失敗: ${error?.message || error}`);
-  }
-
+  };
 
   // 檔案挑選器（多檔）＋逐一上傳
   const handleFileUpload = (opts: { folderId?: string; folderPath: string }) => {
-   const { folderId, folderPath } = opts;
+    const { folderId, folderPath } = opts;
 
     // 檢查登入狀態
     if (!hasAuthToken()) {
@@ -552,10 +553,10 @@ export default function FolderTree({
     };
     input.click();
 
-   if (onFileUpload) {
-    onFileUpload({ folderId, folderPath });
-  }};
-
+    if (onFileUpload) {
+      onFileUpload(folderPath);
+    }
+  };
 
   const handleFolderCreate = (parentPath: string) => {
     const folderName = prompt('請輸入資料夾名稱:');
@@ -653,6 +654,8 @@ export default function FolderTree({
     }
   };
 
+  if (!isExpanded) return null;
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm w-full">
       <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
@@ -682,4 +685,4 @@ export default function FolderTree({
       />
     </div>
   );
-}}
+}
