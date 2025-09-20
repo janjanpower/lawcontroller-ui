@@ -269,22 +269,22 @@ export default function CaseOverview() {
 
       // ✅ 使用後端回傳的資料更新 state
       const newCase: TableCase = {
-        id: createdCase.id,
-        caseNumber: createdCase.case_number || "未設定",
-        client: createdCase.client_name || createdCase.client?.name || "未知客戶",
-        caseType: createdCase.case_type || "未分類",
-        lawyer: createdCase.lawyer_name || createdCase.lawyer?.full_name || "",
-        legalAffairs: createdCase.legal_affairs_name || createdCase.legal_affairs?.full_name || "",
-        caseReason: createdCase.case_reason || "",
-        opposingParty: createdCase.opposing_party || "",
-        court: createdCase.court || "",
-        division: createdCase.division || "",
-        progress: createdCase.progress || "",
-        progressDate:
-          createdCase.progress_date || new Date().toISOString().split("T")[0],
-        status: createdCase.is_closed ? ("completed" as CaseStatus) : ("active" as CaseStatus),
-        stages: [],
-      };
+      id: caseData.case_id,
+      caseNumber: caseData.case_number || '未設定',
+      client: caseData.client_name || caseData.client?.name || '未知客戶',  // ✅ 修正
+      caseType: caseData.case_type || '未分類',
+      lawyer: caseData.lawyer_name || '',
+      legalAffairs: caseData.legal_affairs_name || '',
+      caseReason: caseData.case_reason || '',
+      opposingParty: caseData.opposing_party || '',
+      court: caseData.court || '',
+      division: caseData.division || '',
+      progress: caseData.progress || '',
+      progressDate: caseData.progress_date || new Date().toISOString().split('T')[0],
+      status: 'active' as CaseStatus,
+      stages: []
+    };
+
 
       setCases((prev) => [newCase, ...prev]);
 
