@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Search, Filter, Trash2, X } from 'lucide-react';
+import { Download, Search, Filter, Trash2, X, RotateCcw } from 'lucide-react'
 import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 
 
@@ -381,8 +381,12 @@ const handleBatchDownload = async () => {
                       </button>
 
                       {/* 還原案件 */}
-                      <button onClick={() => handleReopenCase(row.id)} className="text-gray-400 hover:text-orange-600 text-xs font-medium" title="還原案件">
-                        還原
+                      <button
+                        onClick={() => handleReopenCase(row.id)}
+                        className="text-gray-400 hover:text-orange-600"
+                        title="還原案件"
+                      >
+                        <RotateCcw className="w-4 h-4" />
                       </button>
 
                       {/* 刪除案件 */}
@@ -437,7 +441,8 @@ const handleBatchDownload = async () => {
                   onClick={handleBatchRestore}
                   className="w-full sm:w-auto bg-green-500 text-white px-4 py-3 sm:py-2 rounded-lg text-sm font-medium hover:bg-green-600 flex items-center justify-center space-x-2"
                 >
-                  <span>還原</span>
+                  <RotateCcw className="w-4 h-4" />
+                  <span className="sr-only">還原</span>
                 </button>
 
                 {/* 批量刪除 */}

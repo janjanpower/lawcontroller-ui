@@ -429,91 +429,72 @@ export default function FolderTree({
   // 單檔上傳
   const uploadFileToS3 = async (file: File, folderPath: string, folderId?: string) => {
     // 檢查登入狀態
-    if (!hasAuthToken()) {
-      throw new Error('登入狀態已過期，請重新登入');
+    if (!hasAuthToken()) throw new Error('登入狀態已過期，請重新登入');
+
+    let firmCode: string;
+    try {
+      firmCode = getFirmCodeOrThrow();
+    } catch {
+      throw new Error('找不到事務所代碼，請重新登入');
+    }
+
+    // 從路徑推導資料夾名稱（僅用於 log/除錯）
+    let folderName = '';
+    if (folderPath.includes('/')) {
+      const parts = folderPath.split('/').filter(Boolean);
+      folderName = parts[parts.length - 1] || parts[0] || '';
+    } else {
+      folderName = folderPath;
+    }
+
+    if (!folderId) {
+      console.error('❌ 缺少 folder_id，檔案無法上傳');
+      throw new Error('缺少 folder_id，請先選擇一個資料夾再上傳檔案');
     }
 
     try {
-      let firmCode;
-      try {
-        firmCode = getFirmCodeOrThrow();
-      } catch (error) {
-        throw new Error('找不到事務所代碼，請重新登入');
-      }
+      // 直接 POST 檔案與 folder_id（與 FileUploadDialog 完全一致）
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder_id', folderId);
 
-      // 從資料夾路徑中提取資料夾名稱
-      let folderName = '';
-      if (folderPath.includes('/')) {
-        const parts = folderPath.split('/').filter(Boolean);
-        folderName = parts[parts.length - 1] || parts[0] || '';
-      } else {
-        folderName = folderPath;
-      }
+      const res = await apiFetch(
+        `/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`,
+        { method: 'POST', body: formData }
+      );
 
-      const mappedType = folderTypeMapping[folderName] || 'progress';
-
-      console.log('資料夾路徑對應:', { folderPath, folderName, mappedType });
-
-      const finalFolderType = mappedType;
-
-      try {
-        // 建立 FormData
-        const formData = new FormData();
-        formData.append("file", file);
-
-        // ✅ 檢查 folderId，一定要有
-        if (!folderId) {
-          console.error("❌ 缺少 folder_id，檔案無法上傳");
-          throw new Error("缺少 folder_id，請先選擇一個資料夾再上傳檔案");
+      if (!res.ok) {
+        const text = await res.text();
+        let msg = '檔案上傳失敗';
+        try {
+          const obj = JSON.parse(text);
+          msg = obj.detail || msg;
+        } catch {
+          msg = `${msg}: ${res.status} ${text.slice(0, 100)}`;
         }
-
-        formData.append("folder_id", folderId);
-
-        console.log("準備上傳檔案:", {
-          fileName: file.name,
-          caseId,
-          folderId,
-          folderPath,
-        });
-
-        // 直接上傳檔案
-        const uploadResponse = await fetch(
-          `/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`,
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
-
-        console.log("上傳回應狀態:", uploadResponse.status, uploadResponse.statusText);
-
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error("上傳失敗回應:", errorText);
-
-          let errorMessage = "檔案上傳失敗";
-          try {
-            const errorData = JSON.parse(errorText);
-            errorMessage = errorData.detail || errorMessage;
-          } catch {
-            errorMessage = `上傳失敗: ${uploadResponse.status} ${errorText.substring(0, 100)}`;
-          }
-
-          throw new Error(errorMessage);
-        }
-
-        const result = await uploadResponse.json();
-        console.log(`✅ 檔案 ${file.name} 上傳成功:`, result);
-        return result;
-
-      } catch (error: any) {
-        console.error(`檔案 ${file.name} 上傳失敗:`, error);
-        alert(`檔案 ${file.name} 上傳失敗: ${error?.message || error}`);
+        throw new Error(msg);
       }
-    } catch (error) {
-      console.error('上傳準備階段失敗:', error);
-      throw error;
+
+      const result = await res.json();
+      console.log(`✅ 檔案 ${file.name} 上傳成功:`, result);
+      return result;
+
+    } catch (error: any) {
+      console.error(`檔案 ${file.name} 上傳失敗:`, error);
+      alert(`檔案 ${file.name} 上傳失敗: ${error?.message || error}`);
     }
+  };
+
+  // 由當前樹搜尋 path 對應的節點
+  const findNodeByPath = (root: FolderNode, targetPath: string): FolderNode | null => {
+    if (root.path === targetPath) return root;
+    if (root.children) {
+      for (const c of root.children) {
+        const r = findNodeByPath(c, targetPath);
+        if (r) return r;
+      }
+    }
+    return null;
   };
 
   // 檔案挑選器（多檔）＋逐一上傳
@@ -558,35 +539,96 @@ export default function FolderTree({
     }
   };
 
-  const handleFolderCreate = (parentPath: string) => {
-    const folderName = prompt('請輸入資料夾名稱:');
-    if (folderName) {
-      console.log(`在 ${parentPath} 建立資料夾: ${folderName}`);
-      if (onFolderCreate) {
-        onFolderCreate(parentPath);
-      }
-      // TODO: 實現資料夾建立邏輯
+  const handleFolderCreate = async (parentPath: string) => {
+    const folderName = prompt('請輸入資料夾名稱（可中文）：')?.trim();
+    if (!folderName) return;
+
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const parentNode = findNodeByPath(folderData, parentPath);
+      const parentId = parentNode?.id ?? null;
+
+      const payload: any = {
+        folder_name: folderName,
+        folder_type: 'custom',
+        parent_id: parentId || undefined, // 沒有就不帶
+      };
+
+      const res = await apiFetch(
+        `/api/cases/${caseId}/folders?firm_code=${encodeURIComponent(firmCode)}`,
+        { method: 'POST', body: JSON.stringify(payload) }
+      );
+      if (!res.ok) throw new Error((await res.json()).detail || '建立資料夾失敗');
+
+      // 重新抓樹
+      await loadFolderStructure();
+
+      // 通知右側詳情一起刷新
+      window.dispatchEvent(new CustomEvent('caseDetail:refresh', { detail: { caseId } }));
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || '建立資料夾失敗');
     }
   };
+
 
   const handleDelete = async (path: string, type: 'folder' | 'file') => {
-    const confirmMessage = type === 'folder'
-      ? `確定要刪除資料夾「${path}」及其所有內容嗎？`
-      : `確定要刪除檔案「${path}」嗎？`;
+    const node = findNodeByPath(folderData, path);
 
-    if (confirm(confirmMessage)) {
-      console.log(`刪除 ${type}: ${path}`);
+    if (type === 'file') {
+      if (!confirm(`確定要刪除檔案「${path}」嗎？`)) return;
+      await deleteFile(path);
+      await loadFolderStructure();
+      return;
+    }
 
-      if (type === 'file') {
-        // 實現檔案刪除邏輯
-        await deleteFile(path);
-      }
+    // 僅支援刪除「階段」類型的資料夾（會連動刪階段）
+    if (!node || node.type !== 'folder') return;
+    if (node.folderType !== 'stage') {
+      alert('目前僅支援刪除「階段」資料夾；預設資料夾與自訂資料夾先保留。');
+      return;
+    }
 
-      if (onDelete) {
-        onDelete(path, type);
-      }
+    try {
+      const firmCode = getFirmCodeOrThrow();
+
+      // 1) 先抓案件的所有階段，找名稱對應（FolderTree 的 stage folder_name = stage_name）
+      const stagesResp = await apiFetch(`/api/cases/${caseId}/stages?firm_code=${encodeURIComponent(firmCode)}`);
+      if (!stagesResp.ok) throw new Error('無法取得階段列表');
+      const stages = await stagesResp.json();
+      const target = (stages || []).find((s: any) => s.stage_name === node.name);
+      if (!target?.id) throw new Error('找不到對應的階段（名稱可能不一致）');
+
+      // 2) 檢查該階段資料夾是否有檔案
+      const cntResp = await apiFetch(
+        `/api/cases/${caseId}/stages/${target.id}/files/count?firm_code=${encodeURIComponent(firmCode)}`
+      );
+      const { count } = await cntResp.json();
+
+      // 3) 二次確認
+      const ok = confirm(
+        count > 0
+          ? `階段「${node.name}」底下有 ${count} 個檔案，確定要刪除？（會一併刪除此階段與該資料夾）`
+          : `確定要刪除階段「${node.name}」？（會一併刪除此階段與資料夾）`
+      );
+      if (!ok) return;
+
+      // 4) 刪除階段（後端會連動刪該階段資料夾）
+      const del = await apiFetch(
+        `/api/cases/${caseId}/stages/${target.id}?firm_code=${encodeURIComponent(firmCode)}`,
+        { method: 'DELETE' }
+      );
+      if (!del.ok) throw new Error((await del.json()).detail || '刪除階段失敗');
+
+      await loadFolderStructure();
+      // 一併通知右側詳情刷新
+      window.dispatchEvent(new CustomEvent('caseDetail:refresh', { detail: { caseId } }));
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || '刪除階段失敗');
     }
   };
+
 
   // 刪除檔案的實現
   const deleteFile = async (filePath: string) => {
