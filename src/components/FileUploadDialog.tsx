@@ -26,6 +26,7 @@ export default function FileUploadDialog({
   const [isUploading, setIsUploading] = useState(false);
   const [showCaseWarning, setShowCaseWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const uniqByNamePath = (items: AvFolder[]) =>
     Array.from(new Map(items.map(i => [`${i.name}::${i.path}`, i])).values());
@@ -46,11 +47,7 @@ export default function FileUploadDialog({
       if (!res.ok) throw new Error("讀取資料夾失敗");
       const data = await res.json();
 
-      const FOLDER_TYPE_MAP: Record<string, string> = {
-        '狀紙': 'pleadings',
-        '案件資訊': 'info',
-        '案件進度': 'progress'
-      };
+
 
     const folders = (data.folders || []).map((f: any) => ({
       id: f.id,
@@ -63,12 +60,11 @@ export default function FileUploadDialog({
 
     // ✅ 包含所有子資料夾
     setAvailableFolders(uniqByNamePath(folders));
-
-      setAvailableFolders(uniqByNamePath(folders));
-    } catch (err) {
-      console.error("讀取案件資料夾失敗", err);
-      setAvailableFolders([]);
-    }
+      } catch (err) {
+    console.error("讀取案件資料夾失敗", err);
+    setAvailableFolders([]);
+    setErrorMessage("讀取案件資料夾失敗，請稍後再試");
+  }
   };
 
 
@@ -129,12 +125,12 @@ export default function FileUploadDialog({
     onUploadComplete();
     handleClose();
 
-  } catch (err: any) {
-    console.error('檔案上傳失敗:', err);
-    alert(`上傳失敗：${err?.message || '請稍後再試'}`);
-  } finally {
-    setIsUploading(false);
-  }
+    } catch (err: any) {
+      console.error('檔案上傳失敗:', err);
+      setErrorMessage(err?.message || '上傳失敗，請稍後再試');
+    } finally {
+      setIsUploading(false);
+    }
 };
 
 
@@ -165,6 +161,13 @@ export default function FileUploadDialog({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {errorMessage && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-2 rounded-md text-sm flex items-center">
+            <AlertCircle className="w-4 h-4 mr-2 text-red-600" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {/* 內容 */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">

@@ -446,12 +446,7 @@ export default function FolderTree({
         throw new Error('找不到事務所代碼，請重新登入');
       }
 
-      // 將資料夾路徑轉換為 folder_type
-      const folderTypeMapping: Record<string, string> = {
-        '案件資訊': 'info',
-        '狀紙': 'pleadings',
-        '案件進度': 'progress',
-      };
+
 
       // 從資料夾路徑中提取資料夾名稱
       let folderName = '';
@@ -485,43 +480,61 @@ export default function FolderTree({
         caseId,
         folderId,   // ✅ 只 log 傳進來的
         folderPath
-      });
+      });try {
+  // 建立 FormData
+  const formData = new FormData();
+  formData.append("file", file);
 
+  // ✅ 檢查 folderId，一定要有
+  if (!folderId) {
+    console.error("❌ 缺少 folder_id，檔案無法上傳");
+    throw new Error("缺少 folder_id，請先選擇一個資料夾再上傳檔案");
+  }
 
-      // 直接上傳檔案
-      const uploadResponse = await fetch(
-        `/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+  formData.append("folder_id", folderId);
 
+  console.log("準備上傳檔案:", {
+    fileName: file.name,
+    caseId,
+    folderId,
+    folderPath,
+  });
 
-      console.log('上傳回應狀態:', uploadResponse.status, uploadResponse.statusText);
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('上傳失敗回應:', errorText);
-
-        let errorMessage = '檔案上傳失敗';
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.detail || errorMessage;
-        } catch {
-          errorMessage = `上傳失敗: ${uploadResponse.status} ${errorText.substring(0, 100)}`;
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      const result = await uploadResponse.json();
-      console.log(`檔案 ${file.name} 上傳成功:`, result);
-    } catch (error: any) {
-      console.error(`檔案 ${file.name} 上傳失敗:`, error);
-      alert(`檔案 ${file.name} 上傳失敗: ${error?.message || error}`);
+  // 直接上傳檔案
+  const uploadResponse = await fetch(
+    `/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`,
+    {
+      method: "POST",
+      body: formData,
     }
-  };
+  );
+
+  console.log("上傳回應狀態:", uploadResponse.status, uploadResponse.statusText);
+
+  if (!uploadResponse.ok) {
+    const errorText = await uploadResponse.text();
+    console.error("上傳失敗回應:", errorText);
+
+    let errorMessage = "檔案上傳失敗";
+    try {
+      const errorData = JSON.parse(errorText);
+      errorMessage = errorData.detail || errorMessage;
+    } catch {
+      errorMessage = `上傳失敗: ${uploadResponse.status} ${errorText.substring(0, 100)}`;
+    }
+
+    throw new Error(errorMessage);
+  }
+
+  const result = await uploadResponse.json();
+  console.log(`✅ 檔案 ${file.name} 上傳成功:`, result);
+  return result;
+
+} catch (error: any) {
+  console.error(`檔案 ${file.name} 上傳失敗:`, error);
+  alert(`檔案 ${file.name} 上傳失敗: ${error?.message || error}`);
+}
+
 
   // 檔案挑選器（多檔）＋逐一上傳
   const handleFileUpload = (opts: { folderId?: string; folderPath: string }) => {
