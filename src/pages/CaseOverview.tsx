@@ -496,7 +496,7 @@ const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
         : prev
     );
 
-    // 3. 如果後端已處理好資料夾，就不用再打 /folders
+    // 3. 建立資料夾邏輯 → 只在沒有 folder_id 時才呼叫 /folders
     if (!data.folder_id) {
       const folderRes = await apiFetch(
         `/api/cases/${selectedCase.id}/folders?firm_code=${encodeURIComponent(firmCode)}`,
@@ -509,11 +509,11 @@ const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
           }),
         }
       );
-
       if (!folderRes.ok) {
         console.warn("階段資料夾建立失敗，但不影響階段本身");
       }
     }
+
 
     // 4. 通知 FolderTree 即時刷新
     window.dispatchEvent(
