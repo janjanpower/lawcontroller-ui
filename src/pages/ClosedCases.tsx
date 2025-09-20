@@ -442,7 +442,7 @@ const handleBatchDownload = async () => {
                   className="w-full sm:w-auto bg-green-500 text-white px-4 py-3 sm:py-2 rounded-lg text-sm font-medium hover:bg-green-600 flex items-center justify-center space-x-2"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  <span className="sr-only">還原</span>
+                  <span>還原</span>
                 </button>
 
                 {/* 批量刪除 */}
