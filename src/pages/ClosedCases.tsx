@@ -115,6 +115,92 @@ export default function ClosedCases() {
 
   useEffect(() => { loadClosedCases(); }, [loadClosedCases]);
 
+
+  // 匯出所有案件的報價單
+  const handleExportQuoteAll = () => {
+    if (filteredCases.length === 0) {
+      alert("目前沒有案件可匯出報價單");
+      return;
+    }
+    setDialogMessage(`確定要匯出 ${filteredCases.length} 筆結案案件的報價單嗎？`);
+    setShowConfirmDialog(true);
+  };
+
+  // 還原案件
+  const handleReopenCase = async (caseId: string) => {
+    if (!confirm('確定要還原此案件嗎？')) return;
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const res = await apiFetch(`/api/cases/${caseId}/restore?firm_code=${encodeURIComponent(firmCode)}`, { method: 'POST' });
+      if (res.ok) {
+        setCases(prev => prev.filter(c => c.id !== caseId));
+        alert('案件已還原到案件總覽');
+      } else {
+        const err = await res.json();
+        alert(err?.detail || '還原失敗');
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert('還原發生錯誤: ' + (e.message || '未知錯誤'));
+    }
+  };
+
+  // 批量下載
+const handleBatchDownload = async () => {
+  if (selectedCaseIds.length === 0) return;
+  const firmCode = getFirmCodeOrThrow();
+
+  try {
+    const res = await fetch(`/api/cases/batch-download?firm_code=${encodeURIComponent(firmCode)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(selectedCaseIds),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err?.detail || "下載失敗");
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "cases.zip";
+    a.click();
+    window.URL.revokeObjectURL(url);
+  } catch (e: any) {
+    alert("下載發生錯誤: " + (e.message || "未知錯誤"));
+  }
+};
+
+
+  // 批量還原
+  const handleBatchRestore = async () => {
+    if (selectedCaseIds.length === 0) return;
+    if (!confirm(`確定要還原 ${selectedCaseIds.length} 筆案件嗎？`)) return;
+
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      let successCount = 0;
+      for (const caseId of selectedCaseIds) {
+        const res = await apiFetch(`/api/cases/${caseId}/restore?firm_code=${encodeURIComponent(firmCode)}`, {
+          method: 'POST'
+        });
+        if (res.ok) successCount++;
+      }
+      alert(`成功還原 ${successCount} 筆案件`);
+      // ✅ 還原後重新載入列表
+      await loadClosedCases();
+      setSelectedCaseIds([]);
+    } catch (err) {
+      console.error(err);
+      alert('批量還原失敗');
+    }
+  };
+
+
   // 搜尋
   useEffect(() => {
     if (!searchTerm.trim()) { setFilteredCases(cases); return; }
@@ -234,6 +320,14 @@ export default function ClosedCases() {
       <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            {/* 匯出報價單（放左邊） */}
+            <button
+              onClick={() => handleExportQuoteAll()}
+              className="px-4 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] text-sm font-medium"
+            >
+              匯出報價單
+            </button>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
@@ -244,6 +338,8 @@ export default function ClosedCases() {
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none text-sm w-full sm:w-64"
               />
             </div>
+
+            {/* 篩選按鈕 */}
             <button onClick={() => setShowFilters(!showFilters)} className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md">
               <Filter className="w-4 h-4" />
             </button>
@@ -279,10 +375,18 @@ export default function ClosedCases() {
                   <td className="px-6 py-4 text-sm">{row.closedDate}</td>
                   <td className="px-6 py-4 text-sm">
                     <div className="flex items-center space-x-2">
-                      <button onClick={() => handleExportData(row)} className="text-gray-400 hover:text-green-600">
+                      {/* 下載案件 */}
+                      <button onClick={() => handleExportData(row)} className="text-gray-400 hover:text-green-600" title="下載案件">
                         <Download className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDeleteCase(row.id)} className="text-red-500 hover:text-red-700">
+
+                      {/* 還原案件 */}
+                      <button onClick={() => handleReopenCase(row.id)} className="text-gray-400 hover:text-orange-600 text-xs font-medium" title="還原案件">
+                        還原
+                      </button>
+
+                      {/* 刪除案件 */}
+                      <button onClick={() => handleDeleteCase(row.id)} className="text-red-500 hover:text-red-700" title="刪除案件">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -318,9 +422,33 @@ export default function ClosedCases() {
                   </button>
                 </div>
                 <div className="hidden sm:block w-px h-5 bg-gray-300"></div>
-                <button onClick={handleBatchDelete} className="w-full sm:w-auto bg-red-500 text-white px-4 py-3 sm:py-2 rounded-lg text-sm font-medium hover:bg-red-600 flex items-center justify-center space-x-2">
-                  <Trash2 className="w-4 h-4" /><span>刪除</span>
+                {/* 批量下載 */}
+                <button
+                  onClick={handleBatchDownload}
+                  className="w-full sm:w-auto bg-blue-500 text-white px-4 py-3 sm:py-2 rounded-lg text-sm font-medium hover:bg-blue-600 flex items-center justify-center space-x-2"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>下載</span>
                 </button>
+
+
+                {/* 批量還原 */}
+                <button
+                  onClick={handleBatchRestore}
+                  className="w-full sm:w-auto bg-green-500 text-white px-4 py-3 sm:py-2 rounded-lg text-sm font-medium hover:bg-green-600 flex items-center justify-center space-x-2"
+                >
+                  <span>還原</span>
+                </button>
+
+                {/* 批量刪除 */}
+                <button
+                  onClick={handleBatchDelete}
+                  className="w-full sm:w-auto bg-red-500 text-white px-4 py-3 sm:py-2 rounded-lg text-sm font-medium hover:bg-red-600 flex items-center justify-center space-x-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>刪除</span>
+                </button>
+
               </div>
             </div>
           </div>

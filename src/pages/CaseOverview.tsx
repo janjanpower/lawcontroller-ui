@@ -899,17 +899,14 @@ const handlePreview = async (fileId: string) => {
     }
   };
 
-
-
-
   // ✅ 抽出共用轉移邏輯
   const doTransferToClosed = async (ids: string[]) => {
     try {
       setLoading(true);
       const firmCode = getFirmCodeOrThrow();
       for (const caseId of ids) {
-        const response = await apiFetch(`/api/cases/${caseId}?firm_code=${encodeURIComponent(firmCode)}`, {
-          method: 'PATCH',
+        const response = await apiFetch(`/api/cases/${caseId}/close?firm_code=${encodeURIComponent(firmCode)}`, {
+          method: 'POST',
           body: JSON.stringify({
           is_closed: true,
           status: 'closed',
