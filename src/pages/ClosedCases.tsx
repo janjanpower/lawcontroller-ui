@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, Search, Filter, Trash2, X, RotateCcw } from 'lucide-react'
 import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 import FolderTree from '../components/FolderTree';
-
-import QuoteComposer from '../components/QuoteComposer';
-
+import QuoteComposerDialog from '../components/QuoteComposerDialog';
 
 // 自訂確認對話框組件
 interface CustomConfirmDialogProps {
@@ -538,7 +536,7 @@ const handleBatchDownload = async () => {
 
 
       {showQuote && selectedCaseId && (
-      <QuoteComposer
+      <QuoteComposerDialog
         isOpen={showQuote}
         onClose={() => setShowQuote(false)}
         caseId={selectedCaseId}
