@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import  { useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, X, Download, Plus, Trash2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -64,6 +64,7 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
   const previewRef = useRef<HTMLDivElement>(null);
   const [ctx, setCtx] = useState<Dict>({});
   const [items, setItems] = useState<Dict[]>([]);
+  const [tagList, setTagList] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [designMode, setDesignMode] = useState(false);
@@ -73,7 +74,7 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
     name: '律師費用報價單（預設）',
     style: { primary: '#334d6d', fontFamily: 'Noto Sans TC, sans-serif' },
     sections: [
-      { type: 'header', html: '<h1 style="font-weight:700;margin:0">律師費用報價單</h1><div>{{ firm.name }}</div>' },
+      { type: 'header', html: '<h1 style="font-weight:700;margin:0">律師費用報價單</h1><div>{{ firm.firm_name }}</div>' },
       { type: 'text', markdown: '委任人 {{ case.client_name }} 於 {{ case.court }} 第 {{ case.case_number }} 號案件，委任律師 {{ case.lawyer_name }}。' },
       { type: 'divider' },
       {
@@ -97,7 +98,7 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
 
   const tpl = template || fallbackTemplate;
 
-  // 載入上下文資料
+  // 載入上下文資料 + tagList
   useEffect(() => {
     if (!isOpen) return;
     (async () => {
@@ -109,6 +110,7 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
         base.quote = { items: [], payment: '匯款 / 現金', valid_until: new Date().toISOString() };
         setCtx(base);
         setItems(base.quote.items);
+        setTagList(data?.tagList ?? []);
       } catch (e) {
         console.error('load context failed', e);
         try {
@@ -218,7 +220,27 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
     }
     if (s.type === 'text') {
       const html = s.html ?? (s.markdown ? renderString(s.markdown, ctx).replace(/\n/g,'<br/>') : '');
-      return <div key={i} className="mb-4" dangerouslySetInnerHTML={{ __html: html }} />;
+      return (
+        <div key={i} className="mb-4">
+          <div dangerouslySetInnerHTML={{ __html: html }} />
+          {designMode && (
+            <select
+              className="mt-2 border rounded px-2 py-1 text-sm"
+              onChange={(e) => {
+                if (e.target.value) {
+                  alert(`插入標籤：{{ ${e.target.value} }}`);
+                  e.target.value = '';
+                }
+              }}
+            >
+              <option value="">插入標籤...</option>
+              {tagList.map(tag => (
+                <option key={tag} value={tag}>{tag}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      );
     }
     if (s.type === 'divider') return <hr key={i} className="my-4" />;
     if (s.type === 'spacer') return <div key={i} style={{ height: s.size ?? 12 }} />;
@@ -300,7 +322,7 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
         <div className="px-6 py-3 border-t bg-gray-50 flex items-center gap-3 justify-end">
           <label className="mr-auto flex items-center gap-2 text-sm">
             <input type="checkbox" checked={designMode} onChange={e=>setDesignMode(e.target.checked)} />
-            設計模式（可編輯區塊與欄寬）
+            設計模式（可插入標籤）
           </label>
 
           <input
@@ -319,8 +341,8 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
           <button disabled={exporting} onClick={handleExportPDF} className="px-4 py-2 rounded bg-[#334d6d] text-white hover:bg-[#3f5a7d] inline-flex items-center gap-2">
             <Download className="w-4 h-4"/>{exporting ? '匯出中…' : '匯出 PDF'}
           </button>
+        </div>
       </div>
     </div>
-  </div>
   );
 }
