@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { useEffect, useState, lazy, Suspense, PropsWithChildren } from 'react';
 import LoginPage from './pages/LoginPage';
 import { initializeAppState, tryGetFirmCode, hasAuthToken } from './utils/api';
+<Route path="/quote-preview" element={<QuotePreviewPage />} />
 
 // 👉 受保護頁面用 lazy，避免在守衛放行前就執行到模組頂層
 const MainLayout     = lazy(() => import('./components/MainLayout'));

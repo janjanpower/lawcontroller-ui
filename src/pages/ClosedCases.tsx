@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Download, Search, Filter, Trash2, X, RotateCcw } from 'lucide-react'
 import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 import FolderTree from '../components/FolderTree';
+import QuoteBuilder from '../components/QuoteBuilder';
+
 
 
 // 自訂確認對話框組件
@@ -76,6 +78,10 @@ export default function ClosedCases() {
   const [dialogMessage, setDialogMessage] = useState('');
   const [selectedCaseForExport, setSelectedCaseForExport] = useState<any | null>(null);
 
+
+  const [showQuoteBuilder, setShowQuoteBuilder] = useState(false);
+  const [quoteCases, setQuoteCases] = useState<any[]>([]);
+
   // 載入結案案件
   const loadClosedCases = React.useCallback(async () => {
     setLoading(true);
@@ -115,50 +121,6 @@ export default function ClosedCases() {
   }, []);
 
   useEffect(() => { loadClosedCases(); }, [loadClosedCases]);
-
-
-  // 匯出所有案件的報價單
-  const handleExportQuoteAll = () => {
-    if (filteredCases.length === 0) {
-      alert("目前沒有案件可匯出報價單");
-      return;
-    }
-    setDialogMessage(`確定要匯出 ${filteredCases.length} 筆結案案件的報價單嗎？`);
-    setShowConfirmDialog(true);
-  };
-
-  // 還原案件
-  const handleReopenCase = async (caseId: string) => {
-    if (!confirm('確定要還原此案件嗎？')) return;
-    try {
-      const firmCode = getFirmCodeOrThrow();
-      const res = await apiFetch(
-        `/api/cases/${caseId}/restore?firm_code=${encodeURIComponent(firmCode)}`,
-        { method: 'POST' }
-      );
-
-      if (res.ok) {
-        // ✅ 重新載入結案案件列表
-        await loadClosedCases();
-
-        // ✅ 移除選取中的案件
-        setSelectedCaseIds(prev => prev.filter(id => id !== caseId));
-
-        // ✅ 如果正在看詳情，且是同一個案件 → 清掉
-        setSelectedCase(prev => (prev?.id === caseId ? null : prev));
-
-        // ✅ 顯示成功訊息（用 CustomSuccessDialog）
-        setDialogMessage('案件已還原到案件總覽');
-        setShowSuccessDialog(true);
-      } else {
-        const err = await res.json();
-        alert(err?.detail || '還原失敗');
-      }
-    } catch (e: any) {
-      console.error(e);
-      alert('還原發生錯誤: ' + (e.message || '未知錯誤'));
-    }
-  };
 
 
   // 批量下載
@@ -349,12 +311,21 @@ const handleBatchDownload = async () => {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             {/* 匯出報價單（放左邊） */}
             <button
-              onClick={() => handleExportQuoteAll()}
-              className="px-4 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] text-sm font-medium"
+              onClick={() => {
+                if (selectedCaseIds.length === 0) return;
+                const selected = filteredCases.filter(c => selectedCaseIds.includes(c.id));
+                setQuoteCases(selected);
+                setShowQuoteBuilder(true);
+              }}
+              disabled={selectedCaseIds.length === 0}
+              className={`px-4 py-2 rounded-md text-sm font-medium ${
+                selectedCaseIds.length === 0
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-purple-600 text-white hover:bg-purple-700"
+              }`}
             >
-              匯出報價單
+              建立報價單
             </button>
-
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
@@ -538,6 +509,19 @@ const handleBatchDownload = async () => {
       {/* 對話框 */}
       <CustomConfirmDialog isOpen={showConfirmDialog} title="確認匯出" message={dialogMessage} onConfirm={confirmExport} onCancel={cancelExport} />
       <CustomSuccessDialog isOpen={showSuccessDialog} title="匯出成功" message={dialogMessage} onClose={() => setShowSuccessDialog(false)} />
+
+      {showQuoteBuilder && quoteCases.length > 0 && (
+          <QuoteBuilder
+            caseData={quoteCases[0]} // 先取第一筆
+            firmInfo={{
+              name: "你的事務所名稱",
+              address: "你的地址",
+              phone: "你的電話"
+            }}
+            items={[]} // 預設空
+            onClose={() => setShowQuoteBuilder(false)}
+          />
+        )}
     </div>
   );
 }
