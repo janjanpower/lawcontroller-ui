@@ -1,4 +1,3 @@
-// src/components/QuoteComposer.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, X, Download, Plus, Trash2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
@@ -9,12 +8,12 @@ import { renderString, computeRow, evalExpr } from '../utils/templateEngine';
 type Dict = Record<string, any>;
 
 type Column = {
-  key: string;            // e.g. item, qty, unit_price, subtotal, note
-  header: string;         // 顯示欄名
-  width?: string;         // '20%', '100px'...
+  key: string;
+  header: string;
+  width?: string;
   align?: 'left'|'center'|'right';
   type?: 'text'|'number'|'currency'|'date'|'formula';
-  formula?: string;       // 像 "qty * unit_price"
+  formula?: string;
 };
 
 type Section =
@@ -26,9 +25,9 @@ type Section =
       type: 'table';
       title?: string;
       columns: Column[];
-      items_path?: string;          // 預設 "quote.items"
+      items_path?: string;
       show_total?: boolean;
-      total_formula?: string;       // 像 "sum(subtotal)"
+      total_formula?: string;
     };
 
 type QuoteTemplate = {
@@ -42,7 +41,7 @@ interface QuoteComposerProps {
   isOpen: boolean;
   onClose: () => void;
   caseId: string;
-  template?: QuoteTemplate; // 若不傳就用預設樣板
+  template?: QuoteTemplate;
 }
 
 function formatCell(v: any, type?: Column['type']) {
@@ -67,13 +66,14 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
   const [items, setItems] = useState<Dict[]>([]);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [designMode, setDesignMode] = useState(false);
+  const [tplName, setTplName] = useState(template?.name || "自訂報價單模板");
 
-  // 預設模板（可從後端載入多個再選），示範可直接用
   const fallbackTemplate: QuoteTemplate = {
     name: '律師費用報價單（預設）',
     style: { primary: '#334d6d', fontFamily: 'Noto Sans TC, sans-serif' },
     sections: [
-      { type: 'header', html: '<h1 style="font-weight:700;margin:0">律師費用報價單</h1><div>{{ firm.firm_name }}</div>' },
+      { type: 'header', html: '<h1 style="font-weight:700;margin:0">律師費用報價單</h1><div>{{ firm.name }}</div>' },
       { type: 'text', markdown: '委任人 {{ case.client_name }} 於 {{ case.court }} 第 {{ case.case_number }} 號案件，委任律師 {{ case.lawyer_name }}。' },
       { type: 'divider' },
       {
@@ -97,7 +97,7 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
 
   const tpl = template || fallbackTemplate;
 
-  // 載入可用資料上下文（案件/客戶/律師/事務所），也可先用基本版（只打 /api/cases/:id）
+  // 載入上下文資料
   useEffect(() => {
     if (!isOpen) return;
     (async () => {
@@ -105,15 +105,12 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
       try {
         const res = await apiFetch(`/api/quote-context/${caseId}`);
         const data = await res.json();
-        // data: { context: {...}, tagList: [...] }
         const base = data?.context ?? {};
-        // 預設 quote 範圍（可被表單改）
         base.quote = { items: [], payment: '匯款 / 現金', valid_until: new Date().toISOString() };
         setCtx(base);
         setItems(base.quote.items);
       } catch (e) {
         console.error('load context failed', e);
-        // 退而求其次：至少有 case 資料
         try {
           const res = await apiFetch(`/api/cases/${caseId}`);
           const caseData = await res.json();
@@ -135,11 +132,9 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
     const table = tpl.sections.find(s => s.type === 'table') as Extract<Section,{type:'table'}> | undefined;
     if (!table || !table.total_formula) return 0;
     if (!/sum\(/.test(table.total_formula)) {
-      // 支援一般表達式：total = evalExpr('x+y', { ...aggregate })
       const scope: Dict = {};
       return evalExpr(table.total_formula, scope);
     }
-    // sum(subtotal)
     const m = /sum\((\w+)\)/.exec(table.total_formula);
     const key = m?.[1] ?? 'subtotal';
     return computedItems.reduce((s, r) => s + (Number(r[key])||0), 0);
@@ -166,15 +161,39 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
     }
   };
 
+  const handleSaveTemplate = async () => {
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const payload = {
+        name: tplName || "自訂報價單模板",
+        description: "",
+        content_json: tpl,
+        is_default: false,
+      };
+      const res = await apiFetch(`/api/quote-templates?firm_code=${encodeURIComponent(firmCode)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({detail:""}));
+        alert(`儲存失敗：${err.detail || res.statusText}`);
+        return;
+      }
+      alert("模板已儲存！");
+    } catch (e:any) {
+      alert("儲存模板發生錯誤：" + (e.message || "未知錯誤"));
+    }
+  };
+
   const handleSaveToCase = async () => {
     if (!previewRef.current) return;
-    // 匯出成 Blob 後打你現有的 /cases/:id/files 上傳 API
     const canvas = await html2canvas(previewRef.current, { scale: 2 });
     const blob = await new Promise<Blob>(resolve => canvas.toBlob(b => resolve(b || new Blob()), 'image/png', 1));
     const file = new File([blob], `quote-${Date.now()}.png`, { type: 'image/png' });
     const form = new FormData();
     form.append('file', file);
-    form.append('folder_type', 'progress'); // 或者用你 UI 的資料夾選擇
+    form.append('folder_type', 'progress');
     const firmCode = getFirmCodeOrThrow();
     await fetch(`/api/cases/${caseId}/files?firm_code=${encodeURIComponent(firmCode)}`, {
       method: 'POST',
@@ -279,12 +298,29 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
         </div>
 
         <div className="px-6 py-3 border-t bg-gray-50 flex items-center gap-3 justify-end">
+          <label className="mr-auto flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={designMode} onChange={e=>setDesignMode(e.target.checked)} />
+            設計模式（可編輯區塊與欄寬）
+          </label>
+
+          <input
+            value={tplName}
+            onChange={e=>setTplName(e.target.value)}
+            placeholder="模板名稱"
+            className="px-3 py-2 border rounded"
+            style={{ minWidth: 200 }}
+          />
+
+          <button onClick={handleSaveTemplate} className="px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700">
+            儲存為模板
+          </button>
+
           <button onClick={handleSaveToCase} className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">儲存到案件</button>
           <button disabled={exporting} onClick={handleExportPDF} className="px-4 py-2 rounded bg-[#334d6d] text-white hover:bg-[#3f5a7d] inline-flex items-center gap-2">
             <Download className="w-4 h-4"/>{exporting ? '匯出中…' : '匯出 PDF'}
           </button>
-        </div>
       </div>
     </div>
+  </div>
   );
 }

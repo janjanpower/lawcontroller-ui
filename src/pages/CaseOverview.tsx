@@ -1277,7 +1277,7 @@ const handlePreview = async (fileId: string) => {
         </div>
 
         {/* 批量操作工具列 */}
-        {selectedCaseIds.length > 0 && (
+        {selectedCaseIds.length > 1 && (
           <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 px-4">
             <div className="animate-slide-up">
               <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-xl p-4">
