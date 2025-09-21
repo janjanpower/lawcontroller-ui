@@ -1568,7 +1568,6 @@ const handlePreview = async (fileId: string) => {
                               <FolderTree
                                 caseId={row.id}
                                 clientName={row.client}
-                                readOnly
                                 isExpanded={true}
                                 onToggle={() => setExpandedCaseId(null)} // 可以收合
                                 onCaseDetailRefresh={(id) => {

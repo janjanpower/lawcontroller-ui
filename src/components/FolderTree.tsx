@@ -654,14 +654,21 @@ export default function FolderTree({
       }
 
       const firmCode = getFirmCodeOrThrow();
-      const response = await apiFetch(`/api/files/${fileId}?firm_code=${encodeURIComponent(firmCode)}`, {
-        method: 'DELETE'
-      });
+      const response = await apiFetch(
+        `/api/files/${fileId}?firm_code=${encodeURIComponent(firmCode)}`,
+        { method: 'DELETE' }
+      );
 
       if (response.ok) {
         alert('檔案刪除成功');
-        // 重新載入資料夾結構
+        // ✅ 左邊資料夾樹刷新
         await loadFolderStructure();
+
+        // ✅ 右邊案件詳情同步刷新
+        window.dispatchEvent(
+          new CustomEvent("caseDetail:refresh", { detail: { caseId } })
+        );
+        onCaseDetailRefresh?.(caseId);
       } else {
         const errorText = await response.text();
         console.error('刪除檔案失敗:', errorText);
@@ -672,6 +679,7 @@ export default function FolderTree({
       alert('刪除檔案時發生錯誤');
     }
   };
+
 
   // 根據檔案路徑找到檔案 ID
   const findFileIdByPath = async (filePath: string, folderId?: string): Promise<string | null> => {

@@ -411,7 +411,46 @@ const handleBatchDownload = async () => {
                     <td className="px-6 py-4 text-sm">{row.caseType}</td>
                     <td className="px-6 py-4 text-sm">{row.lawyer}</td>
                     <td className="px-6 py-4 text-sm">{row.closedDate}</td>
-                    <td className="px-6 py-4 text-sm"> ... 操作按鈕 ... </td>
+                    <td className="px-6 py-4 text-sm">
+                    <div className="flex items-center space-x-2">
+                      {/* 下載案件 */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleExportData(row);
+                        }}
+                        className="text-gray-400 hover:text-blue-600"
+                        title="下載"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+
+                      {/* 還原案件 */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReopenCase(row.id);
+                        }}
+                        className="text-gray-400 hover:text-green-600"
+                        title="還原"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+
+                      {/* 刪除案件 */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCase(row.id);
+                        }}
+                        className="text-gray-400 hover:text-red-600"
+                        title="刪除"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+
                   </tr>
 
                   {/* ✅ 展開列 (放在主列後面) */}
