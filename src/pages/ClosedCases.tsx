@@ -462,6 +462,11 @@ const handleBatchDownload = async () => {
                           clientName={row.client}
                           isExpanded={true}
                           onToggle={() => setExpandedCaseId(null)}
+                          onCaseDetailRefresh={(id) => {
+                            window.dispatchEvent(
+                              new CustomEvent("caseDetail:refresh", { detail: { caseId: id } })
+                            );
+                          }}
                           readOnly
                         />
                       </td>
