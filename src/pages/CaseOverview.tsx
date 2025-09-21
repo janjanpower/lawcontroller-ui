@@ -1562,11 +1562,12 @@ const handlePreview = async (fileId: string) => {
                           <td colSpan={10} className="px-0 py-0">
                             <div className="px-6 py-4">
                               <FolderTree
-                                caseId={row.id}
-                                clientName={row.client}
+                                caseId={selectedCase.id}
+                                clientName={selectedCase.client}
+                                readOnly
                                 isExpanded={true}
                                 onToggle={() => {}}
-                                onCaseDetailRefresh={refreshCaseDetail}
+                                onCaseDetailRefresh={() => {}}
                                 s3Config={{
                                   endpoint: process.env.VITE_SPACES_ENDPOINT || 'https://sgp1.digitaloceanspaces.com',
                                   accessKey: process.env.VITE_SPACES_ACCESS_KEY || '',

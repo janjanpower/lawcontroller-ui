@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import FilePreviewDialog from './FilePreviewDialog';  // ✅ 新增 import
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Plus, Trash2 } from 'lucide-react';
 import { getFirmCodeOrThrow, hasAuthToken, clearLoginAndRedirect, apiFetch } from '../utils/api';
-import { FolderManager } from '../utils/folderManager';
+
 
 interface FolderNode {
   id: string;
@@ -18,6 +18,7 @@ interface FolderNode {
 
 interface FolderTreeProps {
   caseId: string;
+  readOnly?: boolean;
   clientName: string;
   isExpanded: boolean;
   onToggle: () => void;
@@ -50,13 +51,15 @@ const FolderTreeNode: React.FC<{
   onFolderCreate?: (parentPath: string) => void;
   onDelete?: (path: string, type: 'folder' | 'file') => void;
   onPreview?: (fileId: string) => void;
+  readOnly?: boolean;
 }> = ({
   node,
   level,
   onFileUpload,
   onFolderCreate,
   onDelete,
-  onPreview   // ✅ 這裡要補上
+  onPreview,
+  readOnly = false
 }) => {
   const [isExpanded, setIsExpanded] = useState(level < 2);
   const [showActions, setShowActions] = useState(false);
@@ -154,7 +157,7 @@ const FolderTreeNode: React.FC<{
         )}
 
         {/* 操作按鈕 */}
-        {showActions && (
+        {showActions && !readOnly && (
           <div className="flex items-center space-x-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
             {node.type === 'folder' && (
               <>
@@ -183,6 +186,7 @@ const FolderTreeNode: React.FC<{
             </button>
           </div>
         )}
+
       </div>
 
       {/* 子節點 */}
@@ -197,6 +201,7 @@ const FolderTreeNode: React.FC<{
               onFolderCreate={onFolderCreate}
               onDelete={onDelete}
               onPreview={onPreview}
+              readOnly={readOnly}   // ✅ 傳下去
             />
           ))}
         </div>
@@ -213,8 +218,9 @@ export default function FolderTree({
   onFileUpload,
   onFolderCreate,
   onDelete,
-  s3Config
-}: FolderTreeProps) {
+  s3Config,
+  readOnly = false   // ✅ 新增，預設 false
+}: FolderTreeProps ){
   const [folderData, setFolderData] = useState<FolderNode>(defaultFolderStructure);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<any[]>([]);
@@ -717,6 +723,7 @@ export default function FolderTree({
           onFolderCreate={handleFolderCreate}
           onDelete={handleDelete}
           onPreview={handleOpenPreview}
+          readOnly={readOnly}   // ✅ 傳給子節點
         />
       </div>
 

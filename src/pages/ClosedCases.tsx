@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Search, Filter, Trash2, X, RotateCcw } from 'lucide-react'
 import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
+import FolderTree from '../components/FolderTree';
 
 
 // 自訂確認對話框組件
@@ -131,10 +132,24 @@ export default function ClosedCases() {
     if (!confirm('確定要還原此案件嗎？')) return;
     try {
       const firmCode = getFirmCodeOrThrow();
-      const res = await apiFetch(`/api/cases/${caseId}/restore?firm_code=${encodeURIComponent(firmCode)}`, { method: 'POST' });
+      const res = await apiFetch(
+        `/api/cases/${caseId}/restore?firm_code=${encodeURIComponent(firmCode)}`,
+        { method: 'POST' }
+      );
+
       if (res.ok) {
-        setCases(prev => prev.filter(c => c.id !== caseId));
-        alert('案件已還原到案件總覽');
+        // ✅ 重新載入結案案件列表
+        await loadClosedCases();
+
+        // ✅ 移除選取中的案件
+        setSelectedCaseIds(prev => prev.filter(id => id !== caseId));
+
+        // ✅ 如果正在看詳情，且是同一個案件 → 清掉
+        setSelectedCase(prev => (prev?.id === caseId ? null : prev));
+
+        // ✅ 顯示成功訊息（用 CustomSuccessDialog）
+        setDialogMessage('案件已還原到案件總覽');
+        setShowSuccessDialog(true);
       } else {
         const err = await res.json();
         alert(err?.detail || '還原失敗');
@@ -144,6 +159,7 @@ export default function ClosedCases() {
       alert('還原發生錯誤: ' + (e.message || '未知錯誤'));
     }
   };
+
 
   // 批量下載
 const handleBatchDownload = async () => {
@@ -184,21 +200,32 @@ const handleBatchDownload = async () => {
     try {
       const firmCode = getFirmCodeOrThrow();
       let successCount = 0;
+
       for (const caseId of selectedCaseIds) {
-        const res = await apiFetch(`/api/cases/${caseId}/restore?firm_code=${encodeURIComponent(firmCode)}`, {
-          method: 'POST'
-        });
+        const res = await apiFetch(
+          `/api/cases/${caseId}/restore?firm_code=${encodeURIComponent(firmCode)}`,
+          { method: 'POST' }
+        );
         if (res.ok) successCount++;
       }
-      alert(`成功還原 ${successCount} 筆案件`);
-      // ✅ 還原後重新載入列表
+
+      // ✅ 統一刷新
       await loadClosedCases();
+
+      // ✅ 清除選取
       setSelectedCaseIds([]);
-    } catch (err) {
+      setSelectedCase(null);
+
+      // ✅ 用 CustomSuccessDialog 顯示結果
+      setDialogMessage(`成功還原 ${successCount} 筆案件到案件總覽`);
+      setShowSuccessDialog(true);
+
+    } catch (err: any) {
       console.error(err);
-      alert('批量還原失敗');
+      alert('批量還原失敗: ' + (err.message || '未知錯誤'));
     }
   };
+
 
 
   // 搜尋
@@ -364,7 +391,12 @@ const handleBatchDownload = async () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCases.map((row, index) => (
-                <tr key={row.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-50`}>
+                <tr
+                    key={row.id}
+                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 cursor-pointer`}
+                    onClick={() => setSelectedCase(row)}
+                  >
+
                   <td className="px-6 py-4">
                     <input type="checkbox" checked={selectedCaseIds.includes(row.id)} onChange={() => toggleSelectCase(row.id)} />
                   </td>
@@ -459,6 +491,18 @@ const handleBatchDownload = async () => {
           </div>
         </div>
       )}
+
+       {/* 案件詳情區塊（含資料夾樹，唯讀模式） */}
+              {selectedCase && (
+                <div className="border-t border-gray-200 bg-gray-50 p-4 min-h-[400px] h-auto">
+                  <h3 className="text-md font-semibold text-gray-700 mb-2">
+                    {selectedCase.client} - {selectedCase.caseNumber}
+                  </h3>
+                  <div className="min-h-[340px] h-auto overflow-auto bg-white rounded-md border">
+                    <FolderTree caseId={selectedCase.id} readOnly />
+                  </div>
+                </div>
+              )}
 
       {/* 對話框 */}
       <CustomConfirmDialog isOpen={showConfirmDialog} title="確認匯出" message={dialogMessage} onConfirm={confirmExport} onCancel={cancelExport} />
