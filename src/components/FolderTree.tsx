@@ -218,9 +218,11 @@ export default function FolderTree({
   onFileUpload,
   onFolderCreate,
   onDelete,
+  onCaseDetailRefresh,   // ✅ 加這行
   s3Config,
-  readOnly = false   // ✅ 新增，預設 false
-}: FolderTreeProps ){
+  readOnly = false
+}: FolderTreeProps) {
+{
   const [folderData, setFolderData] = useState<FolderNode>(defaultFolderStructure);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<any[]>([]);
