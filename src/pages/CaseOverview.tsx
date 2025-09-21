@@ -492,6 +492,7 @@ const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
     }
 
     // 重新載入資料夾樹
+    window.dispatchEvent(new CustomEvent("folders:refresh", { detail: { caseId: selectedCase.id } }));
     window.dispatchEvent(new CustomEvent("caseDetail:refresh", { detail: { caseId: selectedCase.id } }));
     return true;
   } catch (e: any) {
@@ -552,6 +553,7 @@ const handleEditStage = async (stageData: StageFormData): Promise<boolean> => {
     );
 
     // 🔔 通知資料夾樹同步
+    window.dispatchEvent(new CustomEvent("folders:refresh", { detail: { caseId: selectedCase.id } }));
     window.dispatchEvent(new CustomEvent("caseDetail:refresh", { detail: { caseId: selectedCase.id } }));
 
     console.log('階段編輯成功:', updatedStage);
@@ -646,7 +648,7 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
       type: 'success',
     });
     setShowUnifiedDialog(true);
-
+    window.dispatchEvent(new CustomEvent("folders:refresh", { detail: { caseId: selectedCase.id } }));
     window.dispatchEvent(new CustomEvent("caseDetail:refresh", { detail: { caseId: selectedCase.id } }));
 
   } catch (err: any) {
@@ -787,6 +789,8 @@ const handlePreview = async (fileId: string) => {
 
     // ▶ 實際送後端
     updateStageStatus();
+    window.dispatchEvent(new CustomEvent("caseDetail:refresh", { detail: { caseId: selectedCase.id } }));
+
   };
 
 
@@ -1408,9 +1412,8 @@ const handlePreview = async (fileId: string) => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredCases.map((row, index) => (
-                    <>
+                     <React.Fragment key={row.id}>
                       <tr
-                        key={row.id}
                         className={`cursor-pointer transition-colors ${
                           index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                         } hover:bg-gray-100 ${
@@ -1559,7 +1562,7 @@ const handlePreview = async (fileId: string) => {
 
                       {/* 資料夾樹展開區域 - 緊接在對應案件下方 */}
                       {expandedCaseId === row.id && (
-                        <tr key={`folder-${row.id}`} className="bg-gray-50">
+                        <tr className="bg-gray-50">
                           <td colSpan={10} className="px-0 py-0">
                             <div className="px-6 py-4">
                               <FolderTree
@@ -1567,21 +1570,26 @@ const handlePreview = async (fileId: string) => {
                                 clientName={row.client}
                                 readOnly
                                 isExpanded={true}
-                                onToggle={() => {}}
-                                onCaseDetailRefresh={() => {}}
+                                onToggle={() => setExpandedCaseId(null)} // 可以收合
+                                onCaseDetailRefresh={(id) => {
+                                  window.dispatchEvent(
+                                    new CustomEvent("caseDetail:refresh", { detail: { caseId: id } })
+                                  );
+                                }}
                                 s3Config={{
-                                  endpoint: process.env.VITE_SPACES_ENDPOINT || 'https://sgp1.digitaloceanspaces.com',
-                                  accessKey: process.env.VITE_SPACES_ACCESS_KEY || '',
-                                  secretKey: process.env.VITE_SPACES_SECRET_KEY || '',
-                                  bucket: process.env.VITE_SPACES_BUCKET || '',
-                                  region: process.env.VITE_SPACES_REGION || 'sgp1'
+                                  endpoint: import.meta.env.VITE_SPACES_ENDPOINT || 'https://sgp1.digitaloceanspaces.com',
+                                  accessKey: import.meta.env.VITE_SPACES_ACCESS_KEY || '',
+                                  secretKey: import.meta.env.VITE_SPACES_SECRET_KEY || '',
+                                  bucket: import.meta.env.VITE_SPACES_BUCKET || '',
+                                  region: import.meta.env.VITE_SPACES_REGION || 'sgp1',
                                 }}
                               />
+
                             </div>
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -1895,9 +1903,10 @@ const handlePreview = async (fileId: string) => {
         onUploadComplete={async () => {
           setShowFileUpload(false);
           if (selectedCase) {
+            window.dispatchEvent(new CustomEvent("folders:refresh", { detail: { caseId: selectedCase.id } }));
             window.dispatchEvent(new CustomEvent("caseDetail:refresh", { detail: { caseId: selectedCase.id } }));
           }
-          await loadCases(); // ✅ 刷新案件列表
+
         }}
         selectedCaseIds={selectedCaseIds}
         cases={cases.map(c => ({
@@ -1906,6 +1915,7 @@ const handlePreview = async (fileId: string) => {
           caseNumber: c.caseNumber
         }))}
       />
+
 
 
       <ClosedTransferDialog
