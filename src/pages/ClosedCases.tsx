@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Download, Search, Filter, Trash2, X, RotateCcw } from 'lucide-react'
 import { apiFetch, getFirmCodeOrThrow } from '../utils/api';
 import FolderTree from '../components/FolderTree';
-import QuoteBuilder from '../components/QuoteBuilder';
 
+import QuoteComposer from '../components/QuoteComposer';
 
 
 // 自訂確認對話框組件
@@ -78,9 +78,8 @@ export default function ClosedCases() {
   const [dialogMessage, setDialogMessage] = useState('');
   const [selectedCaseForExport, setSelectedCaseForExport] = useState<any | null>(null);
 
-
-  const [showQuoteBuilder, setShowQuoteBuilder] = useState(false);
-  const [quoteCases, setQuoteCases] = useState<any[]>([]);
+  const [showQuote, setShowQuote] = useState(false);
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
 
   // 載入結案案件
   const loadClosedCases = React.useCallback(async () => {
@@ -218,6 +217,27 @@ const handleBatchDownload = async () => {
   };
   const cancelExport = () => { setShowConfirmDialog(false); setSelectedCaseForExport(null); };
 
+  // 單筆還原
+  const handleReopenCase = async (caseId: string) => {
+    if (!confirm("確定要還原此案件嗎？")) return;
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const res = await apiFetch(
+        `/api/cases/${caseId}/restore?firm_code=${encodeURIComponent(firmCode)}`,
+        { method: "POST" }
+      );
+      if (res.ok) {
+        await loadClosedCases();
+        alert("案件已成功還原");
+      } else {
+        const err = await res.json();
+        alert(err?.detail || "還原失敗");
+      }
+    } catch (err: any) {
+      alert("還原發生錯誤: " + (err.message || "未知錯誤"));
+    }
+  };
+
   // 單筆刪除 ✅ 修正路徑
   const handleDeleteCase = async (caseId: string) => {
     if (!confirm('確定要刪除此案件嗎？')) return;
@@ -313,9 +333,12 @@ const handleBatchDownload = async () => {
             <button
               onClick={() => {
                 if (selectedCaseIds.length === 0) return;
-                const selected = filteredCases.filter(c => selectedCaseIds.includes(c.id));
-                setQuoteCases(selected);
-                setShowQuoteBuilder(true);
+                // 先取第一筆選中的案件
+                const first = filteredCases.find(c => c.id === selectedCaseIds[0]);
+                if (first) {
+                  setSelectedCaseId(first.id);
+                  setShowQuote(true);
+                }
               }}
               disabled={selectedCaseIds.length === 0}
               className={`px-4 py-2 rounded-md text-sm font-medium ${
@@ -326,6 +349,7 @@ const handleBatchDownload = async () => {
             >
               建立報價單
             </button>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
@@ -510,18 +534,16 @@ const handleBatchDownload = async () => {
       <CustomConfirmDialog isOpen={showConfirmDialog} title="確認匯出" message={dialogMessage} onConfirm={confirmExport} onCancel={cancelExport} />
       <CustomSuccessDialog isOpen={showSuccessDialog} title="匯出成功" message={dialogMessage} onClose={() => setShowSuccessDialog(false)} />
 
-      {showQuoteBuilder && quoteCases.length > 0 && (
-          <QuoteBuilder
-            caseData={quoteCases[0]} // 先取第一筆
-            firmInfo={{
-              name: "你的事務所名稱",
-              address: "你的地址",
-              phone: "你的電話"
-            }}
-            items={[]} // 預設空
-            onClose={() => setShowQuoteBuilder(false)}
-          />
-        )}
+
+
+
+      {showQuote && selectedCaseId && (
+      <QuoteComposer
+        isOpen={showQuote}
+        onClose={() => setShowQuote(false)}
+        caseId={selectedCaseId}
+      />
+    )}
     </div>
   );
 }
