@@ -492,7 +492,7 @@ const handleAddStage = async (stageData: StageFormData): Promise<boolean> => {
     }
 
     // 重新載入資料夾樹
-    window.dispatchEvent(new CustomEvent("folders:refresh", { detail: { caseId: selectedCase.id } }));
+    window.dispatchEvent(new CustomEvent("caseDetail:refresh", { detail: { caseId: selectedCase.id } }));
     return true;
   } catch (e: any) {
     setDialogConfig({ title: "新增階段失敗", message: e.message || "新增階段失敗", type: "error" });
@@ -552,7 +552,7 @@ const handleEditStage = async (stageData: StageFormData): Promise<boolean> => {
     );
 
     // 🔔 通知資料夾樹同步
-    window.dispatchEvent(new CustomEvent('folders:refresh', { detail: { caseId: selectedCase.id } }));
+    window.dispatchEvent(new CustomEvent("caseDetail:refresh", { detail: { caseId: selectedCase.id } }));
 
     console.log('階段編輯成功:', updatedStage);
     return true;
@@ -647,7 +647,8 @@ const actuallyDeleteStage = async (stageId: string, stageName: string, stageInde
     });
     setShowUnifiedDialog(true);
 
-    window.dispatchEvent(new CustomEvent('folders:refresh', { detail: { caseId: selectedCase.id } }));
+    window.dispatchEvent(new CustomEvent("caseDetail:refresh", { detail: { caseId: selectedCase.id } }));
+
   } catch (err: any) {
     setDialogConfig({
       title: '刪除失敗',
@@ -1562,8 +1563,8 @@ const handlePreview = async (fileId: string) => {
                           <td colSpan={10} className="px-0 py-0">
                             <div className="px-6 py-4">
                               <FolderTree
-                                caseId={selectedCase.id}
-                                clientName={selectedCase.client}
+                                caseId={row.id}
+                                clientName={row.client}
                                 readOnly
                                 isExpanded={true}
                                 onToggle={() => {}}
@@ -1894,7 +1895,7 @@ const handlePreview = async (fileId: string) => {
         onUploadComplete={async () => {
           setShowFileUpload(false);
           if (selectedCase) {
-            await refreshCaseDetail(selectedCase.id); // ✅ 上傳後刷新右側
+            window.dispatchEvent(new CustomEvent("caseDetail:refresh", { detail: { caseId: selectedCase.id } }));
           }
           await loadCases(); // ✅ 刷新案件列表
         }}

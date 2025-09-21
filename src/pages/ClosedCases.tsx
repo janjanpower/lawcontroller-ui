@@ -67,7 +67,7 @@ export default function ClosedCases() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
-
+  const [expandedCaseId, setExpandedCaseId] = useState<string | null>(null);
   const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
   const allSelected = filteredCases.length > 0 && selectedCaseIds.length === filteredCases.length;
 
@@ -391,48 +391,47 @@ const handleBatchDownload = async () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCases.map((row, index) => (
-                <tr
-                    key={row.id}
+                <React.Fragment key={row.id}>
+                  {/* 案件主列 */}
+                  <tr
                     className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 cursor-pointer`}
-                    onClick={() => setSelectedCase(row)}
+                    onClick={() =>
+                      setExpandedCaseId(expandedCaseId === row.id ? null : row.id)
+                    }
                   >
+                    <td className="px-6 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedCaseIds.includes(row.id)}
+                        onChange={() => toggleSelectCase(row.id)}
+                      />
+                    </td>
+                    <td className="px-6 py-4 text-sm">{row.caseNumber}</td>
+                    <td className="px-6 py-4 text-sm">{row.client}</td>
+                    <td className="px-6 py-4 text-sm">{row.caseType}</td>
+                    <td className="px-6 py-4 text-sm">{row.lawyer}</td>
+                    <td className="px-6 py-4 text-sm">{row.closedDate}</td>
+                    <td className="px-6 py-4 text-sm"> ... 操作按鈕 ... </td>
+                  </tr>
 
-                  <td className="px-6 py-4">
-                    <input type="checkbox" checked={selectedCaseIds.includes(row.id)} onChange={() => toggleSelectCase(row.id)} />
-                  </td>
-                  <td className="px-6 py-4 text-sm">{row.caseNumber}</td>
-                  <td className="px-6 py-4 text-sm">{row.client}</td>
-                  <td className="px-6 py-4 text-sm">{row.caseType}</td>
-                  <td className="px-6 py-4 text-sm">{row.lawyer}</td>
-                  <td className="px-6 py-4 text-sm">{row.closedDate}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <div className="flex items-center space-x-2">
-                      {/* 下載案件 */}
-                      <button onClick={() => handleExportData(row)} className="text-gray-400 hover:text-green-600" title="下載案件">
-                        <Download className="w-4 h-4" />
-                      </button>
-
-                      {/* 還原案件 */}
-                      <button
-                        onClick={() => handleReopenCase(row.id)}
-                        className="text-gray-400 hover:text-orange-600"
-                        title="還原案件"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
-
-                      {/* 刪除案件 */}
-                      <button onClick={() => handleDeleteCase(row.id)} className="text-red-500 hover:text-red-700" title="刪除案件">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                  {/* ✅ 展開列 (放在主列後面) */}
+                  {expandedCaseId === row.id && (
+                    <tr>
+                      <td colSpan={7} className="bg-gray-50 px-6 py-3">
+                        <FolderTree
+                          caseId={row.id}
+                          clientName={row.client}
+                          isExpanded={true}
+                          onToggle={() => setExpandedCaseId(null)}
+                          readOnly
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
-              {filteredCases.length === 0 && (
-                <tr><td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500">無符合條件的結案案件</td></tr>
-              )}
             </tbody>
+
           </table>
         </div>
       </div>
@@ -491,18 +490,6 @@ const handleBatchDownload = async () => {
           </div>
         </div>
       )}
-
-       {/* 案件詳情區塊（含資料夾樹，唯讀模式） */}
-              {selectedCase && (
-                <div className="border-t border-gray-200 bg-gray-50 p-4 min-h-[400px] h-auto">
-                  <h3 className="text-md font-semibold text-gray-700 mb-2">
-                    {selectedCase.client} - {selectedCase.caseNumber}
-                  </h3>
-                  <div className="min-h-[340px] h-auto overflow-auto bg-white rounded-md border">
-                    <FolderTree caseId={selectedCase.id} readOnly />
-                  </div>
-                </div>
-              )}
 
       {/* 對話框 */}
       <CustomConfirmDialog isOpen={showConfirmDialog} title="確認匯出" message={dialogMessage} onConfirm={confirmExport} onCancel={cancelExport} />
