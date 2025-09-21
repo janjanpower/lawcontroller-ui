@@ -188,18 +188,18 @@ export default function CaseOverview() {
           caseNumber: apiCase.case_number || '未設定',
           client: apiCase.client_name || apiCase.client?.name || '未知客戶',
           caseType: apiCase.case_type || '未分類',
-          lawyer: apiCase.lawyer_name || apiCase.lawyer?.name || '',
-          legalAffairs: apiCase.legal_affairs_name || apiCase.legal_affairs?.name || '',
+          lawyer: apiCase.lawyer_name || '',
+          legalAffairs: apiCase.legal_affairs_name || '',
           caseReason: apiCase.case_reason || '',
           opposingParty: apiCase.opposing_party || '',
           court: apiCase.court || '',
           division: apiCase.division || '',
           progress: apiCase.progress || '',
-          progressDate:
-            apiCase.progress_date || new Date().toISOString().split('T')[0],
+          progressDate: apiCase.progress_date || new Date().toISOString().split('T')[0],
           status: 'active' as CaseStatus,
           stages: stages,
         };
+
       })
     );
 
@@ -261,8 +261,8 @@ export default function CaseOverview() {
         caseNumber: caseData.case_number || '未設定',
         client: caseData.client || '未知客戶',
         caseType: caseData.case_type || '未分類',
-        lawyer: caseData.lawyer_name || caseData.lawyer || '',
-        legalAffairs: caseData.legal_affairs_name || caseData.legal_affairs || '',
+        lawyer: caseData.lawyer_name || '',
+        legalAffairs: caseData.legal_affairs_name || '',
         caseReason: caseData.case_reason || '',
         opposingParty: caseData.opposing_party || '',
         court: caseData.court || '',
@@ -310,8 +310,8 @@ export default function CaseOverview() {
           caseNumber: caseData.case_number || c.caseNumber,
           client: caseData.client || c.client,
           caseType: caseData.case_type || c.caseType,
-          lawyer: caseData.lawyer_name || caseData.lawyer || c.lawyer,
-          legalAffairs: caseData.legal_affairs_name || caseData.legal_affairs || c.legalAffairs,
+          lawyer: caseData.lawyer_name || c.lawyer,
+          legalAffairs: caseData.legal_affairs_name || c.legalAffairs,
           caseReason: caseData.case_reason || c.caseReason,
           opposingParty: caseData.opposing_party || c.opposingParty,
           court: caseData.court || c.court,
@@ -320,6 +320,7 @@ export default function CaseOverview() {
           progressDate: caseData.progress_date || c.progressDate
         } : c
       ));
+
 
       // 更新 Excel 檔案
       FolderManager.updateCaseInfoExcel(caseData.case_id, {
