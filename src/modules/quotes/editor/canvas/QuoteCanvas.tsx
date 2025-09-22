@@ -396,22 +396,6 @@ export default function QuoteCanvas({
           </div>
         )}
 
-        {/* 區塊屬性 */}
-        {selectedBlock && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-3 text-gray-700">區塊屬性</h3>
-            {selectedBlock.type === "table" && (
-              <div className="text-xs text-gray-600">
-                表格區塊 - 拖拽欄位邊界調整寬度
-              </div>
-            )}
-            {selectedBlock.type === "text" && (
-              <div className="text-xs text-gray-600">
-                文字區塊 - 使用上方工具列編輯格式
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* 右側畫布區域 */}
@@ -540,7 +524,7 @@ export default function QuoteCanvas({
                             max="72"
                             value={(block as TextBlock).fontSize || 14}
                             onChange={(e) => updateBlock(block.id, { fontSize: parseInt(e.target.value) })}
-                            className="w-8 px-1 py-0.5 text-xs border rounded focus:ring-1 focus:ring-[#334d6d] outline-none"
+                            className="w-14 px-1 py-0.5 text-xs border rounded focus:ring-1 focus:ring-[#334d6d] outline-none"
                             title="字體大小"
                             onClick={(e) => e.stopPropagation()}
                           />
