@@ -3,10 +3,10 @@ import { Rnd } from "react-rnd";
 import { QuoteCanvasSchema, CanvasBlock, TextBlock, TableBlock } from "./schema";
 import { nanoid } from "nanoid";
 import { type VariableDef } from "./variables";
-import { 
-  Type, Table, Bold, Italic, Underline, 
-  AlignLeft, AlignCenter, AlignRight, Plus, Minus, Trash2, 
-  Eye, EyeOff, Copy
+import {
+  Type, Table, Bold, Italic, Underline,
+  AlignLeft, AlignCenter, AlignRight, Plus, Minus, Trash2,
+  Eye, EyeOff, Copy, Columns, Rows, Merge, Split
 } from "lucide-react";
 import { apiFetch, getFirmCodeOrThrow } from "../../../../utils/api";
 
@@ -33,6 +33,7 @@ export default function QuoteCanvas({
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [previewMode, setPreviewMode] = useState(false);
   const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const gridSize = value.gridSize || 10;
@@ -56,7 +57,7 @@ export default function QuoteCanvas({
   // 載入案件變數（包含階段）
   useEffect(() => {
     if (!caseId) return;
-    
+
     (async () => {
       try {
         const firmCode = getFirmCodeOrThrow();
@@ -96,15 +97,15 @@ export default function QuoteCanvas({
 
   // 新增區塊
   const addBlock = (type: CanvasBlock["type"]) => {
-    const base = { 
-      id: nanoid(), 
-      x: snapToGridHelper(40), 
-      y: snapToGridHelper(40), 
-      w: 360, 
+    const base = {
+      id: nanoid(),
+      x: snapToGridHelper(40),
+      y: snapToGridHelper(40),
+      w: 360,
       z: Date.now(),
       locked: false
     } as const;
-    
+
     let block: CanvasBlock;
     switch (type) {
       case "text":
@@ -131,12 +132,14 @@ export default function QuoteCanvas({
           h: 120,
           headerStyle: { bold: true, backgroundColor: "#f3f4f6" },
           cellStyle: { padding: 8, textAlign: "left" },
+          columnWidths: [25, 15, 25, 25], // 預設欄寬百分比
+          mergedCells: [], // 合併儲存格資訊
         } as TableBlock;
         break;
       default:
         return;
     }
-    
+
     onChange({ ...value, blocks: [...value.blocks, block] });
     setSelectedBlockId(block.id);
   };
@@ -161,7 +164,7 @@ export default function QuoteCanvas({
   const duplicateBlock = (id: string) => {
     const block = value.blocks.find(b => b.id === id);
     if (!block) return;
-    
+
     const newBlock = {
       ...block,
       id: nanoid(),
@@ -169,7 +172,7 @@ export default function QuoteCanvas({
       y: block.y + 20,
       z: Date.now(),
     };
-    
+
     onChange({ ...value, blocks: [...value.blocks, newBlock] });
     setSelectedBlockId(newBlock.id);
   };
@@ -177,15 +180,17 @@ export default function QuoteCanvas({
   // 插入變數到區塊
   const insertVariableToBlock = (blockId: string, varKey: string) => {
     const block = value.blocks.find(b => b.id === blockId);
-    
+
     if (block?.type === "text") {
       const textBlock = block as TextBlock;
       updateBlock(blockId, { text: textBlock.text + `{{${varKey}}}` });
-    } else if (block?.type === "table") {
+    } else if (block?.type === "table" && selectedCellId) {
       const tableBlock = block as TableBlock;
-      if (tableBlock.rows.length > 0 && tableBlock.rows[0].length > 0) {
+      const [rowIndex, colIndex] = selectedCellId.split('-').map(Number);
+
+      if (tableBlock.rows[rowIndex] && tableBlock.rows[rowIndex][colIndex] !== undefined) {
         const newRows = [...tableBlock.rows];
-        newRows[0][0] += `{{${varKey}}}`;
+        newRows[rowIndex][colIndex] += `{{${varKey}}}`;
         updateBlock(blockId, { rows: newRows });
       }
     }
@@ -196,6 +201,82 @@ export default function QuoteCanvas({
     if (tpl?.content_json) {
       onChange(tpl.content_json);
       setSelectedBlockId(null);
+    }
+  };
+
+  // 表格操作函數
+  const addTableRow = (blockId: string) => {
+    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
+    if (!block || block.type !== "table") return;
+
+    const newRow = new Array(block.headers.length).fill("");
+    updateBlock(blockId, { rows: [...block.rows, newRow] });
+  };
+
+  const removeTableRow = (blockId: string) => {
+    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
+    if (!block || block.type !== "table" || block.rows.length <= 1) return;
+
+    const newRows = block.rows.slice(0, -1);
+    updateBlock(blockId, { rows: newRows });
+  };
+
+  const addTableColumn = (blockId: string) => {
+    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
+    if (!block || block.type !== "table") return;
+
+    const newHeaders = [...block.headers, "新欄位"];
+    const newRows = block.rows.map(row => [...row, ""]);
+    const newWidths = [...(block.columnWidths || []), 15];
+
+    updateBlock(blockId, {
+      headers: newHeaders,
+      rows: newRows,
+      columnWidths: newWidths
+    });
+  };
+
+  const removeTableColumn = (blockId: string) => {
+    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
+    if (!block || block.type !== "table" || block.headers.length <= 1) return;
+
+    const newHeaders = block.headers.slice(0, -1);
+    const newRows = block.rows.map(row => row.slice(0, -1));
+    const newWidths = (block.columnWidths || []).slice(0, -1);
+
+    updateBlock(blockId, {
+      headers: newHeaders,
+      rows: newRows,
+      columnWidths: newWidths
+    });
+  };
+
+  // 合併/解除合併儲存格
+  const toggleCellMerge = (blockId: string, rowIndex: number, colIndex: number) => {
+    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
+    if (!block || block.type !== "table") return;
+
+    const mergedCells = block.mergedCells || [];
+    const cellKey = `${rowIndex}-${colIndex}`;
+
+    // 檢查是否已合併
+    const existingMerge = mergedCells.find(m => m.startRow === rowIndex && m.startCol === colIndex);
+
+    if (existingMerge) {
+      // 解除合併
+      const newMergedCells = mergedCells.filter(m => m !== existingMerge);
+      updateBlock(blockId, { mergedCells: newMergedCells });
+    } else {
+      // 合併（預設合併右邊一格）
+      if (colIndex < block.headers.length - 1) {
+        const newMerge = {
+          startRow: rowIndex,
+          startCol: colIndex,
+          endRow: rowIndex,
+          endCol: colIndex + 1
+        };
+        updateBlock(blockId, { mergedCells: [...mergedCells, newMerge] });
+      }
     }
   };
 
@@ -251,10 +332,39 @@ export default function QuoteCanvas({
           </div>
         </div>
 
+        {/* 套用模板 */}
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold mb-3 text-gray-700">套用模板</h3>
+          <select
+            onChange={(e) => {
+              const tpl = templates.find((t) => t.id === e.target.value);
+              if (tpl) applyTemplate(tpl);
+            }}
+            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+          >
+            <option value="">選擇現有模板</option>
+            {templates.map((tpl) => (
+              <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* 預覽模式 */}
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold mb-3 text-gray-700">檢視模式</h3>
+          <button
+            onClick={() => setPreviewMode(!previewMode)}
+            className="w-full flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm transition-colors"
+          >
+            {previewMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {previewMode ? "編輯模式" : "預覽模式"}
+          </button>
+        </div>
+
         {/* 可用變數 */}
         {vars.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-3 text-gray-700">可用變數</h3>
+            <h3 className="text-sm font-semibold mb-3 text-gray-700">插入變數</h3>
             <div className="space-y-1 max-h-48 overflow-y-auto">
               {vars.map((v) => (
                 <button
@@ -262,8 +372,8 @@ export default function QuoteCanvas({
                   onClick={() => selectedBlockId && insertVariableToBlock(selectedBlockId, v.key)}
                   disabled={!selectedBlockId}
                   className={`w-full text-left px-2 py-1 text-xs rounded transition-colors ${
-                    selectedBlockId 
-                      ? 'bg-blue-50 hover:bg-blue-100 cursor-pointer' 
+                    selectedBlockId
+                      ? 'bg-blue-50 hover:bg-blue-100 cursor-pointer'
                       : 'bg-gray-100 cursor-not-allowed opacity-50'
                   }`}
                 >
@@ -275,43 +385,99 @@ export default function QuoteCanvas({
             {!selectedBlockId && (
               <p className="text-xs text-gray-500 mt-2">請先選擇一個區塊來插入變數</p>
             )}
+            {selectedBlock?.type === "table" && (
+              <p className="text-xs text-blue-600 mt-2">表格模式：點擊儲存格後再插入變數</p>
+            )}
+          </div>
+        )}
+
+        {/* 區塊屬性 */}
+        {selectedBlock && (
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-3 text-gray-700">區塊屬性</h3>
+
+            {/* 文字區塊屬性 */}
+            {selectedBlock.type === "text" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">字體大小</label>
+                  <input
+                    type="number"
+                    min="8"
+                    max="72"
+                    value={(selectedBlock as TextBlock).fontSize || 14}
+                    onChange={(e) => updateBlock(selectedBlock.id, { fontSize: Number(e.target.value) })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">文字顏色</label>
+                  <input
+                    type="color"
+                    value={(selectedBlock as TextBlock).color || "#000000"}
+                    onChange={(e) => updateBlock(selectedBlock.id, { color: e.target.value })}
+                    className="w-full h-8 border border-gray-300 rounded"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">背景顏色</label>
+                  <input
+                    type="color"
+                    value={(selectedBlock as TextBlock).backgroundColor || "#ffffff"}
+                    onChange={(e) => updateBlock(selectedBlock.id, { backgroundColor: e.target.value })}
+                    className="w-full h-8 border border-gray-300 rounded"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 表格區塊屬性 */}
+            {selectedBlock.type === "table" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">欄寬設定 (%)</label>
+                  <div className="space-y-1">
+                    {(selectedBlock as TableBlock).headers.map((header, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-xs w-12 truncate">{header}</span>
+                        <input
+                          type="number"
+                          min="5"
+                          max="80"
+                          value={(selectedBlock as TableBlock).columnWidths?.[i] || 25}
+                          onChange={(e) => {
+                            const tableBlock = selectedBlock as TableBlock;
+                            const newWidths = [...(tableBlock.columnWidths || [])];
+                            newWidths[i] = Number(e.target.value);
+                            updateBlock(selectedBlock.id, { columnWidths: newWidths });
+                          }}
+                          className="flex-1 px-1 py-0.5 border border-gray-300 rounded text-xs"
+                        />
+                        <span className="text-xs text-gray-500">%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={(selectedBlock as TableBlock).showBorders !== false}
+                      onChange={(e) => updateBlock(selectedBlock.id, { showBorders: e.target.checked })}
+                      className="rounded"
+                    />
+                    顯示邊框
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {/* 右側畫布區域 */}
       <div className="flex-1 flex flex-col">
-        {/* 頂部工具列 */}
-        <div className="flex items-center justify-between gap-4 px-4 py-3 border-b bg-white">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">套用模板：</span>
-              <select
-                onChange={(e) => {
-                  const tpl = templates.find((t) => t.id === e.target.value);
-                  if (tpl) applyTemplate(tpl);
-                }}
-                className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-              >
-                <option value="">選擇現有模板</option>
-                {templates.map((tpl) => (
-                  <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPreviewMode(!previewMode)}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm transition-colors"
-            >
-              {previewMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              {previewMode ? "編輯模式" : "預覽模式"}
-            </button>
-          </div>
-        </div>
-
         {/* 畫布容器 */}
         <div className="flex-1 overflow-auto bg-gray-100 p-4">
           <div
@@ -321,12 +487,15 @@ export default function QuoteCanvas({
               width: value.page.width,
               height: value.page.height,
               backgroundImage: showGrid
-                ? `linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px), 
+                ? `linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
                    linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px)`
                 : undefined,
               backgroundSize: showGrid ? `${gridSize}px ${gridSize}px` : undefined,
             }}
-            onClick={() => setSelectedBlockId(null)}
+            onClick={() => {
+              setSelectedBlockId(null);
+              setSelectedCellId(null);
+            }}
           >
             {/* 中心線輔助 */}
             {showGrid && (
@@ -392,8 +561,8 @@ export default function QuoteCanvas({
               >
                 <div
                   className={`w-full h-full ${
-                    previewMode 
-                      ? 'border-none' 
+                    previewMode
+                      ? ''
                       : 'border border-dashed border-gray-300 hover:border-gray-400 bg-white'
                   } rounded p-2 cursor-pointer`}
                   style={{
@@ -406,12 +575,14 @@ export default function QuoteCanvas({
                     }
                   }}
                 >
-                  <BlockRenderer 
-                    block={block} 
+                  <BlockRenderer
+                    block={block}
                     previewMode={previewMode}
+                    selectedCellId={selectedCellId}
                     onUpdate={(patch) => updateBlock(block.id, patch)}
+                    onCellSelect={(cellId) => setSelectedCellId(cellId)}
                   />
-                  
+
                   {/* 區塊控制按鈕 */}
                   {!previewMode && selectedBlockId === block.id && (
                     <div className="absolute -top-8 left-0 flex gap-1 bg-white border rounded shadow-sm p-1">
@@ -475,23 +646,17 @@ export default function QuoteCanvas({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              const tableBlock = block as TableBlock;
-                              const newRows = [...tableBlock.rows, new Array(tableBlock.headers.length).fill("")];
-                              updateBlock(block.id, { rows: newRows });
+                              addTableRow(block.id);
                             }}
                             className="p-1 hover:bg-gray-100 rounded"
                             title="新增列"
                           >
-                            <Plus className="w-3 h-3 text-green-600" />
+                            <Rows className="w-3 h-3 text-green-600" />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              const tableBlock = block as TableBlock;
-                              if (tableBlock.rows.length > 1) {
-                                const newRows = tableBlock.rows.slice(0, -1);
-                                updateBlock(block.id, { rows: newRows });
-                              }
+                              removeTableRow(block.id);
                             }}
                             className="p-1 hover:bg-gray-100 rounded"
                             title="刪除列"
@@ -502,25 +667,17 @@ export default function QuoteCanvas({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              const tableBlock = block as TableBlock;
-                              const newHeaders = [...tableBlock.headers, "新欄位"];
-                              const newRows = tableBlock.rows.map(row => [...row, ""]);
-                              updateBlock(block.id, { headers: newHeaders, rows: newRows });
+                              addTableColumn(block.id);
                             }}
                             className="p-1 hover:bg-gray-100 rounded"
                             title="新增欄"
                           >
-                            <Plus className="w-3 h-3 text-blue-600" />
+                            <Columns className="w-3 h-3 text-blue-600" />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              const tableBlock = block as TableBlock;
-                              if (tableBlock.headers.length > 1) {
-                                const newHeaders = tableBlock.headers.slice(0, -1);
-                                const newRows = tableBlock.rows.map(row => row.slice(0, -1));
-                                updateBlock(block.id, { headers: newHeaders, rows: newRows });
-                              }
+                              removeTableColumn(block.id);
                             }}
                             className="p-1 hover:bg-gray-100 rounded"
                             title="刪除欄"
@@ -528,6 +685,19 @@ export default function QuoteCanvas({
                           >
                             <Minus className="w-3 h-3 text-orange-600" />
                           </button>
+                          {selectedCellId && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const [rowIndex, colIndex] = selectedCellId.split('-').map(Number);
+                                toggleCellMerge(block.id, rowIndex, colIndex);
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="合併/解除合併儲存格"
+                            >
+                              <Merge className="w-3 h-3 text-purple-600" />
+                            </button>
+                          )}
                         </>
                       )}
 
@@ -565,18 +735,22 @@ export default function QuoteCanvas({
 }
 
 // 區塊渲染器
-function BlockRenderer({ 
-  block, 
-  previewMode, 
-  onUpdate 
-}: { 
-  block: CanvasBlock; 
+function BlockRenderer({
+  block,
+  previewMode,
+  selectedCellId,
+  onUpdate,
+  onCellSelect
+}: {
+  block: CanvasBlock;
   previewMode: boolean;
+  selectedCellId: string | null;
   onUpdate: (patch: Partial<CanvasBlock>) => void;
+  onCellSelect: (cellId: string | null) => void;
 }) {
   if (block.type === "text") {
     const textBlock = block as TextBlock;
-    
+
     if (previewMode) {
       return (
         <div
@@ -587,7 +761,7 @@ function BlockRenderer({
             textDecoration: textBlock.underline ? "underline" : "none",
             textAlign: textBlock.align || "left",
             color: textBlock.color || "#000000",
-            backgroundColor: "transparent",
+            backgroundColor: textBlock.backgroundColor || "transparent",
             width: "100%",
             height: "100%",
             padding: "4px",
@@ -627,18 +801,48 @@ function BlockRenderer({
 
   if (block.type === "table") {
     const tableBlock = block as TableBlock;
+    const columnWidths = tableBlock.columnWidths || [];
+    const mergedCells = tableBlock.mergedCells || [];
+
+    // 檢查儲存格是否被合併
+    const isCellMerged = (rowIndex: number, colIndex: number) => {
+      return mergedCells.some(merge =>
+        rowIndex >= merge.startRow && rowIndex <= merge.endRow &&
+        colIndex >= merge.startCol && colIndex <= merge.endCol &&
+        !(rowIndex === merge.startRow && colIndex === merge.startCol)
+      );
+    };
+
+    // 取得合併儲存格的 span
+    const getCellSpan = (rowIndex: number, colIndex: number) => {
+      const merge = mergedCells.find(m =>
+        m.startRow === rowIndex && m.startCol === colIndex
+      );
+      return merge ? {
+        rowSpan: merge.endRow - merge.startRow + 1,
+        colSpan: merge.endCol - merge.startCol + 1
+      } : { rowSpan: 1, colSpan: 1 };
+    };
+
     return (
-      <table className="w-full h-full text-xs" style={{ borderCollapse: "collapse" }}>
+      <table
+        className="w-full h-full text-xs"
+        style={{
+          borderCollapse: "collapse",
+          border: tableBlock.showBorders !== false ? "1px solid #d1d5db" : "none"
+        }}
+      >
         <thead>
           <tr>
             {tableBlock.headers.map((header, i) => (
               <th
                 key={i}
-                className="border border-gray-300 p-1"
+                className={tableBlock.showBorders !== false ? "border border-gray-300 p-1" : "p-1"}
                 style={{
                   fontWeight: tableBlock.headerStyle?.bold ? "bold" : "normal",
                   backgroundColor: tableBlock.headerStyle?.backgroundColor || "#f3f4f6",
                   textAlign: tableBlock.headerStyle?.textAlign || "left",
+                  width: columnWidths[i] ? `${columnWidths[i]}%` : "auto",
                 }}
               >
                 {previewMode ? (
@@ -662,31 +866,53 @@ function BlockRenderer({
         <tbody>
           {tableBlock.rows.map((row, rowIndex) => (
             <tr key={rowIndex}>
-              {row.map((cell, colIndex) => (
-                <td
-                  key={colIndex}
-                  className="border border-gray-300 p-1"
-                  style={{
-                    textAlign: tableBlock.cellStyle?.textAlign || "left",
-                    padding: tableBlock.cellStyle?.padding || 4,
-                  }}
-                >
-                  {previewMode ? (
-                    cell
-                  ) : (
-                    <input
-                      value={cell}
-                      onChange={(e) => {
-                        const newRows = [...tableBlock.rows];
-                        newRows[rowIndex][colIndex] = e.target.value;
-                        onUpdate({ rows: newRows });
-                      }}
-                      className="w-full bg-transparent text-center border-none outline-none"
-                      placeholder="內容"
-                    />
-                  )}
-                </td>
-              ))}
+              {row.map((cell, colIndex) => {
+                if (isCellMerged(rowIndex, colIndex)) {
+                  return null; // 被合併的儲存格不渲染
+                }
+
+                const span = getCellSpan(rowIndex, colIndex);
+                const cellId = `${rowIndex}-${colIndex}`;
+                const isSelected = selectedCellId === cellId;
+
+                return (
+                  <td
+                    key={colIndex}
+                    className={`${tableBlock.showBorders !== false ? "border border-gray-300" : ""} p-1 ${
+                      isSelected ? 'bg-blue-100' : ''
+                    }`}
+                    style={{
+                      textAlign: tableBlock.cellStyle?.textAlign || "left",
+                      padding: tableBlock.cellStyle?.padding || 4,
+                      width: columnWidths[colIndex] ? `${columnWidths[colIndex]}%` : "auto",
+                    }}
+                    rowSpan={span.rowSpan}
+                    colSpan={span.colSpan}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!previewMode) {
+                        onCellSelect(cellId);
+                      }
+                    }}
+                  >
+                    {previewMode ? (
+                      cell
+                    ) : (
+                      <input
+                        value={cell}
+                        onChange={(e) => {
+                          const newRows = [...tableBlock.rows];
+                          newRows[rowIndex][colIndex] = e.target.value;
+                          onUpdate({ rows: newRows });
+                        }}
+                        className="w-full bg-transparent text-center border-none outline-none"
+                        placeholder="內容"
+                        onFocus={() => onCellSelect(cellId)}
+                      />
+                    )}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>

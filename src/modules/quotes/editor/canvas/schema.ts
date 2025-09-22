@@ -25,12 +25,22 @@ export interface TextBlock extends CanvasBlockBase {
   backgroundColor?: string;
 }
 
+// 合併儲存格資訊
+export interface MergedCell {
+  startRow: number;
+  startCol: number;
+  endRow: number;
+  endCol: number;
+}
+
 // 表格區塊（增強版）
 export interface TableBlock extends CanvasBlockBase {
   type: "table";
   headers: string[];
   rows: string[][];
   showBorders?: boolean;
+  columnWidths?: number[]; // 欄寬百分比
+  mergedCells?: MergedCell[]; // 合併儲存格
   headerStyle?: {
     bold?: boolean;
     backgroundColor?: string;

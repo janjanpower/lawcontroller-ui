@@ -121,18 +121,18 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
       }
 
       alert("模板已移除！");
-      
+
       // 重新載入模板列表
       const reload = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
       if (reload.ok) {
         const data = await reload.json();
         setTemplates(data || []);
       }
-      
+
       // 清空當前模板並使用預設模板
       setCurrentTemplateId(null);
       setSchema({ page: A4PX, blocks: [], gridSize: 10, showGrid: true });
-      
+
     } catch (e: any) {
       alert("發生錯誤：" + (e.message || "未知錯誤"));
     } finally {
@@ -191,8 +191,8 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
             <Save className="w-5 h-5" />
             建立報價單
           </h2>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="text-white hover:text-gray-300 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -200,34 +200,13 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
         </div>
 
         {/* 工具列 */}
-        <div className="flex items-center justify-between gap-4 px-6 py-3 border-b bg-gray-50">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">套用模板：</span>
-              <select
-                onChange={(e) => {
-                  const tpl = templates.find((t) => t.id === e.target.value);
-                  if (tpl) applyTemplate(tpl);
-                }}
-                className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-                disabled={loading}
-              >
-                <option value="">選擇現有模板</option>
-                {templates.map((tpl) => (
-                  <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
-                ))}
-              </select>
+        <div className="px-6 py-3 border-b bg-gray-50">
+          {loading && (
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#334d6d]"></div>
+              處理中...
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {loading && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#334d6d]"></div>
-                處理中...
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {/* 編輯器 */}
@@ -244,33 +223,33 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
 
         {/* 底部操作列 */}
         <div className="px-6 py-4 border-t bg-gray-50 flex justify-between items-center">
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors"
             disabled={loading}
           >
             取消
           </button>
-          
+
           <div className="flex gap-3">
-            <button 
-              onClick={handleSaveAsTemplate} 
+            <button
+              onClick={handleSaveAsTemplate}
               className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors flex items-center gap-2"
               disabled={loading}
             >
               <Save className="w-4 h-4" />
               儲存模板
             </button>
-            <button 
-              onClick={handleRemoveTemplate} 
+            <button
+              onClick={handleRemoveTemplate}
               className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors flex items-center gap-2"
               disabled={loading}
             >
               <Trash2 className="w-4 h-4" />
-              使用新模板
+              移除模板
             </button>
-            <button 
-              onClick={() => handleExport(schema)} 
+            <button
+              onClick={() => handleExport(schema)}
               className="px-6 py-2 bg-[#334d6d] hover:bg-[#3f5a7d] text-white rounded-md transition-colors flex items-center gap-2 font-medium"
               disabled={loading}
             >
