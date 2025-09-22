@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
-import QuoteComposer, { CardData } from "../modules/quotes/editor/QuoteComposer";
+import QuoteCanvas from "@/modules/quotes/editor/canvas/QuoteCanvas";
+import type { QuoteCanvasSchema } from "@/modules/quotes/editor/canvas/schema";
 import { getFirmCodeOrThrow } from "../utils/api";
+
+const A4PX = { width: 794, height: 1123, margin: 40 }; // 96dpi A4 約略尺寸
 
 interface Props {
   isOpen: boolean;
@@ -9,7 +12,10 @@ interface Props {
 }
 
 export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) {
-  const [schema, setSchema] = useState<CardData[]>([]);
+  const [schema, setSchema] = useState<QuoteCanvasSchema>({
+    page: A4PX,
+    blocks: [],
+  });
   const [templates, setTemplates] = useState<any[]>([]);
 
   if (!isOpen) return null;
@@ -33,8 +39,8 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
 
   /** 套用模板 */
   const applyTemplate = (tpl: any) => {
-    if (tpl?.content_json?.sections) {
-      setSchema(tpl.content_json.sections);
+    if (tpl?.content_json) {
+      setSchema(tpl.content_json);
     }
   };
 
@@ -50,7 +56,7 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          content_json: { sections: schema },
+          content_json: schema,
         }),
       });
 
@@ -61,7 +67,6 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
       }
 
       alert("模板已儲存！");
-      // 重新載入模板清單
       const reload = await fetch(`/api/quote-templates?firm_code=${firmCode}`);
       if (reload.ok) {
         const data = await reload.json();
@@ -81,7 +86,7 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           case_id: caseId,
-          schema_json: { sections: schema },
+          schema_json: schema, // ✅ 直接傳整個 schema
         }),
       });
 
@@ -93,14 +98,8 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
 
       const data = await res.json();
       alert("PDF 匯出成功！");
-      console.log("PDF 位置:", data.pdf_url);
-
-      // 自動開啟 PDF 頁面
       window.open(data.pdf_url, "_blank");
-
-      // 通知案件檔案刷新
       window.dispatchEvent(new CustomEvent("caseDetail:refresh", { detail: { caseId } }));
-
       onClose();
     } catch (e: any) {
       alert("發生錯誤：" + (e.message || "未知錯誤"));
@@ -135,7 +134,7 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
 
         {/* 編輯器 */}
         <div className="flex-1 overflow-y-auto p-4">
-          <QuoteComposer value={schema} onChange={setSchema} />
+          <QuoteCanvas value={schema} onChange={setSchema} />
         </div>
 
         {/* 底部操作 */}
