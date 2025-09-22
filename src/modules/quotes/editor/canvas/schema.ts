@@ -1,4 +1,4 @@
-export type BlockType = "text" | "table" | "image";
+export type BlockType = "text" | "table";
 
 export interface CanvasBlockBase {
   id: string;
@@ -42,15 +42,7 @@ export interface TableBlock extends CanvasBlockBase {
   };
 }
 
-// 圖片區塊
-export interface ImageBlock extends CanvasBlockBase {
-  type: "image";
-  url: string;
-  fit?: "cover" | "contain";
-  alt?: string;
-}
-
-export type CanvasBlock = TextBlock | TableBlock | ImageBlock;
+export type CanvasBlock = TextBlock | TableBlock;
 
 export interface QuoteCanvasSchema {
   page: { width: number; height: number; margin: number };
