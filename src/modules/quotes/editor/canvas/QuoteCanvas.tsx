@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Rnd } from "react-rnd";
-import { QuoteCanvasSchema, CanvasBlock, TextBlock, TableBlock, ImageBlock } from "./schema";
+import { QuoteCanvasSchema, CanvasBlock, TextBlock, TableBlock } from "./schema";
 import { nanoid } from "nanoid";
-import { BASE_VARS, type VariableDef } from "./variables";
+import { type VariableDef } from "./variables";
 import {
-  Type, Table, Image, Lock, Unlock, Bold, Italic, Underline,
+  Type, Table, Bold, Italic, Underline,
   AlignLeft, AlignCenter, AlignRight, Plus, Minus, Trash2,
-  Grid, Eye, EyeOff
+  Eye, EyeOff, Copy, Columns, Rows, Merge, Split
 } from "lucide-react";
+import { apiFetch, getFirmCodeOrThrow } from "../../../../utils/api";
 
 type Props = {
   value: QuoteCanvasSchema;
@@ -27,13 +28,31 @@ export default function QuoteCanvas({
   caseId,
 }: Props) {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [vars, setVars] = useState<VariableDef[]>(BASE_VARS);
+  const [vars, setVars] = useState<VariableDef[]>([]);
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [previewMode, setPreviewMode] = useState(false);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const gridSize = value.gridSize || 10;
+
+  // 載入模板列表
+  useEffect(() => {
+    (async () => {
+      try {
+        const firmCode = getFirmCodeOrThrow();
+        const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
+        if (res.ok) {
+          const data = await res.json();
+          setTemplates(data || []);
+        }
+      } catch (err) {
+        console.error("載入模板失敗", err);
+      }
+    })();
+  }, []);
 
   // 載入案件變數（包含階段）
   useEffect(() => {
@@ -41,11 +60,28 @@ export default function QuoteCanvas({
 
     (async () => {
       try {
-        const firmCode = localStorage.getItem('firm_code') || '';
-        const res = await fetch(`/api/cases/${caseId}/variables?firm_code=${firmCode}`);
+        const firmCode = getFirmCodeOrThrow();
+        const res = await apiFetch(`/api/cases/${caseId}/variables?firm_code=${firmCode}`);
         if (res.ok) {
           const caseVars = await res.json();
-          setVars([...BASE_VARS, ...caseVars]);
+          setVars(caseVars);
+        } else {
+          // 如果 API 不存在，使用基本案件資料
+          const caseRes = await apiFetch(`/api/cases/${caseId}?firm_code=${firmCode}`);
+          if (caseRes.ok) {
+            const caseData = await caseRes.json();
+            const basicVars: VariableDef[] = [
+              { key: "case.client_name", label: "客戶姓名", value: caseData.client_name },
+              { key: "case.case_number", label: "案件編號", value: caseData.case_number },
+              { key: "case.court", label: "法院", value: caseData.court },
+              { key: "case.lawyer_name", label: "律師姓名", value: caseData.lawyer_name },
+              { key: "case.case_type", label: "案件類型", value: caseData.case_type },
+              { key: "case.case_reason", label: "案由", value: caseData.case_reason },
+              { key: "firm.name", label: "事務所名稱", value: localStorage.getItem('law_firm_name') || '' },
+              { key: "sys.now", label: "今天日期", value: new Date().toISOString().split('T')[0] },
+            ];
+            setVars(basicVars);
+          }
         }
       } catch (err) {
         console.error("載入案件變數失敗", err);
@@ -96,17 +132,9 @@ export default function QuoteCanvas({
           h: 120,
           headerStyle: { bold: true, backgroundColor: "#f3f4f6" },
           cellStyle: { padding: 8, textAlign: "left" },
+          columnWidths: [25, 15, 25, 25], // 預設欄寬百分比
+          mergedCells: [], // 合併儲存格資訊
         } as TableBlock;
-        break;
-      case "image":
-        block = {
-          ...base,
-          type,
-          url: "https://via.placeholder.com/200x150?text=圖片",
-          fit: "contain",
-          alt: "圖片",
-          h: 150,
-        } as ImageBlock;
         break;
       default:
         return;
@@ -132,22 +160,122 @@ export default function QuoteCanvas({
     }
   };
 
-  // 插入變數到文字區塊
-  const insertVariableToText = (blockId: string, varKey: string) => {
-    const block = value.blocks.find(b => b.id === blockId) as TextBlock;
-    if (block && block.type === "text") {
-      updateBlock(blockId, { text: block.text + `{{${varKey}}}` });
+  // 複製區塊
+  const duplicateBlock = (id: string) => {
+    const block = value.blocks.find(b => b.id === id);
+    if (!block) return;
+
+    const newBlock = {
+      ...block,
+      id: nanoid(),
+      x: block.x + 20,
+      y: block.y + 20,
+      z: Date.now(),
+    };
+
+    onChange({ ...value, blocks: [...value.blocks, newBlock] });
+    setSelectedBlockId(newBlock.id);
+  };
+
+  // 插入變數到區塊
+  const insertVariableToBlock = (blockId: string, varKey: string) => {
+    const block = value.blocks.find(b => b.id === blockId);
+
+    if (block?.type === "text") {
+      const textBlock = block as TextBlock;
+      updateBlock(blockId, { text: textBlock.text + `{{${varKey}}}` });
+    } else if (block?.type === "table" && selectedCellId) {
+      const tableBlock = block as TableBlock;
+      const [rowIndex, colIndex] = selectedCellId.split('-').map(Number);
+
+      if (tableBlock.rows[rowIndex] && tableBlock.rows[rowIndex][colIndex] !== undefined) {
+        const newRows = [...tableBlock.rows];
+        newRows[rowIndex][colIndex] += `{{${varKey}}}`;
+        updateBlock(blockId, { rows: newRows });
+      }
     }
   };
 
-  // 插入變數到表格（需要知道具體的行列位置）
-  const insertVariableToTable = (blockId: string, varKey: string, rowIndex: number, colIndex: number) => {
+  // 套用模板
+  const applyTemplate = (tpl: any) => {
+    if (tpl?.content_json) {
+      onChange(tpl.content_json);
+      setSelectedBlockId(null);
+    }
+  };
+
+  // 表格操作函數
+  const addTableRow = (blockId: string) => {
     const block = value.blocks.find(b => b.id === blockId) as TableBlock;
-    if (block && block.type === "table") {
-      const newRows = [...block.rows];
-      if (newRows[rowIndex] && newRows[rowIndex][colIndex] !== undefined) {
-        newRows[rowIndex][colIndex] += `{{${varKey}}}`;
-        updateBlock(blockId, { rows: newRows });
+    if (!block || block.type !== "table") return;
+
+    const newRow = new Array(block.headers.length).fill("");
+    updateBlock(blockId, { rows: [...block.rows, newRow] });
+  };
+
+  const removeTableRow = (blockId: string) => {
+    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
+    if (!block || block.type !== "table" || block.rows.length <= 1) return;
+
+    const newRows = block.rows.slice(0, -1);
+    updateBlock(blockId, { rows: newRows });
+  };
+
+  const addTableColumn = (blockId: string) => {
+    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
+    if (!block || block.type !== "table") return;
+
+    const newHeaders = [...block.headers, "新欄位"];
+    const newRows = block.rows.map(row => [...row, ""]);
+    const newWidths = [...(block.columnWidths || []), 15];
+
+    updateBlock(blockId, {
+      headers: newHeaders,
+      rows: newRows,
+      columnWidths: newWidths
+    });
+  };
+
+  const removeTableColumn = (blockId: string) => {
+    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
+    if (!block || block.type !== "table" || block.headers.length <= 1) return;
+
+    const newHeaders = block.headers.slice(0, -1);
+    const newRows = block.rows.map(row => row.slice(0, -1));
+    const newWidths = (block.columnWidths || []).slice(0, -1);
+
+    updateBlock(blockId, {
+      headers: newHeaders,
+      rows: newRows,
+      columnWidths: newWidths
+    });
+  };
+
+  // 合併/解除合併儲存格
+  const toggleCellMerge = (blockId: string, rowIndex: number, colIndex: number) => {
+    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
+    if (!block || block.type !== "table") return;
+
+    const mergedCells = block.mergedCells || [];
+    const cellKey = `${rowIndex}-${colIndex}`;
+
+    // 檢查是否已合併
+    const existingMerge = mergedCells.find(m => m.startRow === rowIndex && m.startCol === colIndex);
+
+    if (existingMerge) {
+      // 解除合併
+      const newMergedCells = mergedCells.filter(m => m !== existingMerge);
+      updateBlock(blockId, { mergedCells: newMergedCells });
+    } else {
+      // 合併（預設合併右邊一格）
+      if (colIndex < block.headers.length - 1) {
+        const newMerge = {
+          startRow: rowIndex,
+          startCol: colIndex,
+          endRow: rowIndex,
+          endCol: colIndex + 1
+        };
+        updateBlock(blockId, { mergedCells: [...mergedCells, newMerge] });
       }
     }
   };
@@ -158,35 +286,37 @@ export default function QuoteCanvas({
     <div className="flex gap-4 h-full">
       {/* 左側工具面板 */}
       <div className="w-64 bg-gray-50 p-4 rounded-lg overflow-y-auto">
-        {/* 新增區塊工具 */}
+
+       {/* 套用模板 */}
         <div className="mb-6">
-          <h3 className="text-sm font-semibold mb-3 text-gray-700">新增元素</h3>
-          <div className="space-y-2">
-            <button
-              onClick={() => addBlock("text")}
-              className="w-full flex items-center gap-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 rounded-md text-sm transition-colors"
-            >
-              <Type className="w-4 h-4" />
-              文字
-            </button>
-            <button
-              onClick={() => addBlock("table")}
-              className="w-full flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 rounded-md text-sm transition-colors"
-            >
-              <Table className="w-4 h-4" />
-              表格
-            </button>
-            <button
-              onClick={() => addBlock("image")}
-              className="w-full flex items-center gap-2 px-3 py-2 bg-purple-100 hover:bg-purple-200 rounded-md text-sm transition-colors"
-            >
-              <Image className="w-4 h-4" />
-              圖片
-            </button>
-          </div>
+          <h3 className="text-sm font-semibold mb-3 text-gray-700">套用模板</h3>
+          <select
+            onChange={(e) => {
+              const tpl = templates.find((t) => t.id === e.target.value);
+              if (tpl) applyTemplate(tpl);
+            }}
+            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+          >
+            <option value="">選擇現有模板</option>
+            {templates.map((tpl) => (
+              <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+            ))}
+          </select>
         </div>
 
-        {/* 畫布設定 */}
+        {/* 預覽模式 */}
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold mb-3 text-gray-700">檢視模式</h3>
+          <button
+            onClick={() => setPreviewMode(!previewMode)}
+            className="w-full flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm transition-colors"
+          >
+            {previewMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {previewMode ? "編輯模式" : "預覽模式"}
+          </button>
+        </div>
+
+         {/* 畫布設定 */}
         <div className="mb-6">
           <h3 className="text-sm font-semibold mb-3 text-gray-700">畫布設定</h3>
           <div className="space-y-2">
@@ -208,55 +338,70 @@ export default function QuoteCanvas({
               />
               對齊格線
             </label>
+          </div>
+        </div>
+
+
+        {/* 新增區塊工具 */}
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold mb-3 text-gray-700">新增元素</h3>
+          <div className="space-y-2">
             <button
-              onClick={() => setPreviewMode(!previewMode)}
-              className="w-full flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm transition-colors"
+              onClick={() => addBlock("text")}
+              className="w-full flex items-center gap-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 rounded-md text-sm transition-colors"
             >
-              {previewMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              {previewMode ? "編輯模式" : "預覽模式"}
+              <Type className="w-4 h-4" />
+              文字
+            </button>
+            <button
+              onClick={() => addBlock("table")}
+              className="w-full flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 rounded-md text-sm transition-colors"
+            >
+              <Table className="w-4 h-4" />
+              表格
             </button>
           </div>
         </div>
 
-        {/* 選中區塊的屬性面板 */}
-        {selectedBlock && (
+        {/* 可用變數 */}
+        {vars.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-3 text-gray-700">區塊屬性</h3>
-            <BlockPropertiesPanel
-              block={selectedBlock}
-              vars={vars}
-              onUpdate={(patch) => updateBlock(selectedBlock.id, patch)}
-              onDelete={() => removeBlock(selectedBlock.id)}
-              onInsertVariable={(varKey) => {
-                if (selectedBlock.type === "text") {
-                  insertVariableToText(selectedBlock.id, varKey);
-                }
-              }}
-            />
+            <h3 className="text-sm font-semibold mb-3 text-gray-700">插入變數</h3>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {vars.map((v) => (
+                <button
+                  key={v.key}
+                  onClick={() => selectedBlockId && insertVariableToBlock(selectedBlockId, v.key)}
+                  disabled={!selectedBlockId}
+                  className={`w-full text-left px-2 py-1 text-xs rounded transition-colors ${
+                    selectedBlockId
+                      ? 'bg-blue-50 hover:bg-blue-100 cursor-pointer'
+                      : 'bg-gray-100 cursor-not-allowed opacity-50'
+                  }`}
+                >
+                  <div className="font-mono text-blue-600">{`{{${v.key}}}`}</div>
+                  <div className="text-gray-600">{v.label}</div>
+                </button>
+              ))}
+            </div>
+            {!selectedBlockId && (
+              <p className="text-xs text-gray-500 mt-2">請先選擇一個區塊來插入變數</p>
+            )}
+            {selectedBlock?.type === "table" && (
+              <p className="text-xs text-blue-600 mt-2">表格模式：點擊儲存格後再插入變數</p>
+            )}
           </div>
         )}
 
-        {/* 變數列表 */}
-        <div>
-          <h3 className="text-sm font-semibold mb-3 text-gray-700">可用變數</h3>
-          <div className="space-y-1 max-h-64 overflow-y-auto">
-            {vars.map((v) => (
-              <button
-                key={v.key}
-                onClick={() => {
-                  if (selectedBlock?.type === "text") {
-                    insertVariableToText(selectedBlock.id, v.key);
-                  }
-                }}
-                className="w-full text-left px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                title={`插入 {{${v.key}}}`}
-              >
-                <div className="font-mono text-blue-600">{`{{${v.key}}}`}</div>
-                <div className="text-gray-600">{v.label}</div>
-              </button>
-            ))}
+        {/* 區塊屬性 */}
+        {selectedBlock && (
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-3 text-gray-700">區塊屬性</h3>
+
+            {/* 區塊屬性現在移到元素上方，這裡保留為空 */}
+            <p className="text-xs text-gray-500">所有區塊屬性已移至元素上方進行直接編輯</p>
           </div>
-        </div>
+        )}
       </div>
 
       {/* 右側畫布區域 */}
@@ -275,7 +420,10 @@ export default function QuoteCanvas({
                 : undefined,
               backgroundSize: showGrid ? `${gridSize}px ${gridSize}px` : undefined,
             }}
-            onClick={() => setSelectedBlockId(null)}
+            onClick={() => {
+              setSelectedBlockId(null);
+              setSelectedCellId(null);
+            }}
           >
             {/* 中心線輔助 */}
             {showGrid && (
@@ -342,9 +490,12 @@ export default function QuoteCanvas({
                 <div
                   className={`w-full h-full ${
                     previewMode
-                      ? 'border-none'
-                      : 'border border-dashed border-gray-300 hover:border-gray-400'
-                  } bg-white rounded p-2 cursor-pointer`}
+                      ? ''
+                      : 'border border-dashed border-gray-300 hover:border-gray-400 bg-white'
+                  } rounded p-2 cursor-pointer`}
+                  style={{
+                    backgroundColor: previewMode ? 'transparent' : 'white'
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (!previewMode) {
@@ -352,24 +503,188 @@ export default function QuoteCanvas({
                     }
                   }}
                 >
-                  <BlockRenderer block={block} previewMode={previewMode} />
+                  <BlockRenderer
+                    block={block}
+                    previewMode={previewMode}
+                    selectedCellId={selectedCellId}
+                    onUpdate={(patch) => updateBlock(block.id, patch)}
+                    onCellSelect={(cellId) => setSelectedCellId(cellId)}
+                  />
 
                   {/* 區塊控制按鈕 */}
                   {!previewMode && selectedBlockId === block.id && (
-                    <div className="absolute -top-8 left-0 flex gap-1 bg-white border rounded shadow-sm p-1">
+                    <div className="absolute -top-12 left-0 flex flex-wrap gap-1 bg-white border rounded shadow-sm p-1 max-w-md">
+                      {/* 文字區塊的格式控制 */}
+                      {block.type === "text" && (
+                        <>
+                          {/* 字體大小 */}
+                          <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 rounded">
+                            <span className="text-xs text-gray-600">字體</span>
+                            <input
+                              type="number"
+                              min="8"
+                              max="72"
+                              value={(block as TextBlock).fontSize || 14}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                updateBlock(block.id, { fontSize: Number(e.target.value) });
+                              }}
+                              className="w-12 px-1 py-0.5 border border-gray-300 rounded text-xs text-center"
+                            />
+                          </div>
+
+                          {/* 文字顏色 */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-gray-600">色彩</span>
+                            <input
+                              type="color"
+                              value={(block as TextBlock).color || "#000000"}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                updateBlock(block.id, { color: e.target.value });
+                              }}
+                              className="w-6 h-6 border border-gray-300 rounded cursor-pointer"
+                              title="文字顏色"
+                            />
+                          </div>
+
+                          {/* 背景顏色 */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-gray-600">背景</span>
+                            <input
+                              type="color"
+                              value={(block as TextBlock).backgroundColor || "#ffffff"}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                updateBlock(block.id, { backgroundColor: e.target.value });
+                              }}
+                              className="w-6 h-6 border border-gray-300 rounded cursor-pointer"
+                              title="背景顏色"
+                            />
+                          </div>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const textBlock = block as TextBlock;
+                              updateBlock(block.id, { bold: !textBlock.bold });
+                            }}
+                            className={`p-1 rounded ${(block as TextBlock).bold ? 'bg-blue-200' : 'bg-gray-100'} hover:bg-blue-200`}
+                            title="粗體"
+                          >
+                            <Bold className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const textBlock = block as TextBlock;
+                              updateBlock(block.id, { italic: !textBlock.italic });
+                            }}
+                            className={`p-1 rounded ${(block as TextBlock).italic ? 'bg-blue-200' : 'bg-gray-100'} hover:bg-blue-200`}
+                            title="斜體"
+                          >
+                            <Italic className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const textBlock = block as TextBlock;
+                              updateBlock(block.id, { underline: !textBlock.underline });
+                            }}
+                            className={`p-1 rounded ${(block as TextBlock).underline ? 'bg-blue-200' : 'bg-gray-100'} hover:bg-blue-200`}
+                            title="底線"
+                          >
+                            <Underline className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const textBlock = block as TextBlock;
+                              const currentAlign = textBlock.align || "left";
+                              const nextAlign = currentAlign === "left" ? "center" : currentAlign === "center" ? "right" : "left";
+                              updateBlock(block.id, { align: nextAlign });
+                            }}
+                            className="p-1 rounded bg-gray-100 hover:bg-blue-200"
+                            title="對齊方式"
+                          >
+                            {(block as TextBlock).align === "center" ? <AlignCenter className="w-3 h-3" /> :
+                             (block as TextBlock).align === "right" ? <AlignRight className="w-3 h-3" /> :
+                             <AlignLeft className="w-3 h-3" />}
+                          </button>
+                        </>
+                      )}
+
+                      {/* 表格區塊的操作 */}
+                      {block.type === "table" && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addTableColumn(block.id);
+                            }}
+                            className="p-1 hover:bg-blue-100 rounded"
+                            title="新增欄"
+                          >
+                            <Plus className="w-3 h-3 text-blue-600" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeTableColumn(block.id);
+                            }}
+                            className="p-1 hover:bg-orange-100 rounded"
+                            title="刪除欄"
+                            disabled={(block as TableBlock).headers.length <= 1}
+                          >
+                            <Columns className="w-3 h-3 text-orange-600" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addTableRow(block.id);
+                            }}
+                            className="p-1 hover:bg-green-100 rounded"
+                            title="新增列"
+                          >
+                            <Plus className="w-3 h-3 text-green-600" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeTableRow(block.id);
+                            }}
+                            className="p-1 hover:bg-red-100 rounded"
+                            title="刪除列"
+                            disabled={(block as TableBlock).rows.length <= 1}
+                          >
+                            <Rows className="w-3 h-3 text-red-600" />
+                          </button>
+                          {selectedCellId && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const [rowIndex, colIndex] = selectedCellId.split('-').map(Number);
+                                toggleCellMerge(block.id, rowIndex, colIndex);
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="合併/解除合併儲存格"
+                            >
+                              <Merge className="w-3 h-3 text-purple-600" />
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      {/* 通用操作 */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          updateBlock(block.id, { locked: !block.locked });
+                          duplicateBlock(block.id);
                         }}
                         className="p-1 hover:bg-gray-100 rounded"
-                        title={block.locked ? "解除鎖定" : "鎖定位置"}
+                        title="複製區塊"
                       >
-                        {block.locked ? (
-                          <Unlock className="w-3 h-3 text-orange-600" />
-                        ) : (
-                          <Lock className="w-3 h-3 text-gray-600" />
-                        )}
+                        <Copy className="w-3 h-3 text-purple-600" />
                       </button>
                       <button
                         onClick={(e) => {
@@ -394,14 +709,48 @@ export default function QuoteCanvas({
 }
 
 // 區塊渲染器
-function BlockRenderer({ block, previewMode }: { block: CanvasBlock; previewMode: boolean }) {
+function BlockRenderer({
+  block,
+  previewMode,
+  selectedCellId,
+  onUpdate,
+  onCellSelect
+}: {
+  block: CanvasBlock;
+  previewMode: boolean;
+  selectedCellId: string | null;
+  onUpdate: (patch: Partial<CanvasBlock>) => void;
+  onCellSelect: (cellId: string | null) => void;
+}) {
   if (block.type === "text") {
     const textBlock = block as TextBlock;
+
+    if (previewMode) {
+      return (
+        <div
+          style={{
+            display: "inline-block",   // ✅ 讓底色只包住文字，不是整個方塊
+            padding: "2px 6px",        // ✅ 比文字大一點點
+            fontSize: textBlock.fontSize || 14,
+            fontWeight: textBlock.bold ? "bold" : "normal",
+            fontStyle: textBlock.italic ? "italic" : "normal",
+            textDecoration: textBlock.underline ? "underline" : "none",
+            textAlign: textBlock.align || "left",
+            color: textBlock.color || "#000000",
+            backgroundColor: textBlock.backgroundColor || "transparent",
+            borderRadius: "4px",       // ✅ 加點圓角（可選）
+          }}
+        >
+          {textBlock.text}
+        </div>
+      );
+    }
+
     return (
-      <div
+      <textarea
+        value={textBlock.text}
+        onChange={(e) => onUpdate({ text: e.target.value })}
         style={{
-          display: "inline-block",   // ✅ 讓底色只包住文字，不是整個方塊
-          padding: "2px 6px",        // ✅ 比文字大一點點
           fontSize: textBlock.fontSize || 14,
           fontWeight: textBlock.bold ? "bold" : "normal",
           fontStyle: textBlock.italic ? "italic" : "normal",
@@ -409,298 +758,163 @@ function BlockRenderer({ block, previewMode }: { block: CanvasBlock; previewMode
           textAlign: textBlock.align || "left",
           color: textBlock.color || "#000000",
           backgroundColor: textBlock.backgroundColor || "transparent",
-          borderRadius: "4px",       // ✅ 加點圓角（可選）
+          width: "100%",
+          height: "100%",
+          padding: "4px",
+          border: "none",
+          outline: "none",
+          resize: "none",
+          overflow: "hidden",
         }}
-      >
-        {textBlock.text}
-      </div>
-    );
-  }
-
-  if (block.type === "table") {
-    const tableBlock = block as TableBlock;
-    return (
-      <table className="w-full h-full text-xs" style={{ borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            {tableBlock.headers.map((header, i) => (
-              <th
-                key={i}
-                className="border border-gray-300 p-1"
-                style={{
-                  fontWeight: tableBlock.headerStyle?.bold ? "bold" : "normal",
-                  backgroundColor: tableBlock.headerStyle?.backgroundColor || "#f3f4f6",
-                  textAlign: tableBlock.headerStyle?.textAlign || "left",
-                }}
-              >
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {tableBlock.rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {row.map((cell, colIndex) => (
-                <td
-                  key={colIndex}
-                  className="border border-gray-300 p-1"
-                  style={{
-                    textAlign: tableBlock.cellStyle?.textAlign || "left",
-                    padding: tableBlock.cellStyle?.padding || 4,
-                  }}
-                >
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
-  }
-
-  if (block.type === "image") {
-    const imageBlock = block as ImageBlock;
-    return (
-      <img
-        src={imageBlock.url}
-        alt={imageBlock.alt || "圖片"}
-        className="w-full h-full object-contain"
-        style={{ objectFit: imageBlock.fit || "contain" }}
+        placeholder="輸入文字內容..."
       />
     );
   }
 
-  return null;
-}
-
-// 區塊屬性面板
-function BlockPropertiesPanel({
-  block,
-  vars,
-  onUpdate,
-  onDelete,
-  onInsertVariable,
-}: {
-  block: CanvasBlock;
-  vars: VariableDef[];
-  onUpdate: (patch: Partial<CanvasBlock>) => void;
-  onDelete: () => void;
-  onInsertVariable: (varKey: string) => void;
-}) {
-  if (block.type === "text") {
-    const textBlock = block as TextBlock;
-    return (
-      <div className="space-y-3">
-        {/* 文字內容 */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">文字內容</label>
-          <textarea
-            value={textBlock.text}
-            onChange={(e) => onUpdate({ text: e.target.value })}
-            className="w-full px-2 py-1 border border-gray-300 rounded text-xs resize-none"
-            rows={3}
-            placeholder="輸入文字內容..."
-          />
-        </div>
-
-        {/* 文字格式工具 */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-2">格式設定</label>
-          <div className="flex flex-wrap gap-1 mb-2">
-            <button
-              onClick={() => onUpdate({ bold: !textBlock.bold })}
-              className={`p-1 rounded ${textBlock.bold ? 'bg-blue-200' : 'bg-gray-100'} hover:bg-blue-200`}
-              title="粗體"
-            >
-              <Bold className="w-3 h-3" />
-            </button>
-            <button
-              onClick={() => onUpdate({ italic: !textBlock.italic })}
-              className={`p-1 rounded ${textBlock.italic ? 'bg-blue-200' : 'bg-gray-100'} hover:bg-blue-200`}
-              title="斜體"
-            >
-              <Italic className="w-3 h-3" />
-            </button>
-            <button
-              onClick={() => onUpdate({ underline: !textBlock.underline })}
-              className={`p-1 rounded ${textBlock.underline ? 'bg-blue-200' : 'bg-gray-100'} hover:bg-blue-200`}
-              title="底線"
-            >
-              <Underline className="w-3 h-3" />
-            </button>
-          </div>
-
-          {/* 對齊方式 */}
-          <div className="flex gap-1 mb-2">
-            <button
-              onClick={() => onUpdate({ align: "left" })}
-              className={`p-1 rounded ${textBlock.align === "left" ? 'bg-blue-200' : 'bg-gray-100'} hover:bg-blue-200`}
-              title="靠左對齊"
-            >
-              <AlignLeft className="w-3 h-3" />
-            </button>
-            <button
-              onClick={() => onUpdate({ align: "center" })}
-              className={`p-1 rounded ${textBlock.align === "center" ? 'bg-blue-200' : 'bg-gray-100'} hover:bg-blue-200`}
-              title="置中對齊"
-            >
-              <AlignCenter className="w-3 h-3" />
-            </button>
-            <button
-              onClick={() => onUpdate({ align: "right" })}
-              className={`p-1 rounded ${textBlock.align === "right" ? 'bg-blue-200' : 'bg-gray-100'} hover:bg-blue-200`}
-              title="靠右對齊"
-            >
-              <AlignRight className="w-3 h-3" />
-            </button>
-          </div>
-
-          {/* 字體大小 */}
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-600">字體大小:</label>
-            <input
-              type="number"
-              value={textBlock.fontSize || 14}
-              onChange={(e) => onUpdate({ fontSize: parseInt(e.target.value) || 14 })}
-              className="w-16 px-1 py-1 border border-gray-300 rounded text-xs"
-              min="8"
-              max="72"
-            />
-          </div>
-        </div>
-
-        {/* 變數插入 */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-2">插入變數</label>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {vars.slice(0, 8).map((v) => (
-              <button
-                key={v.key}
-                onClick={() => onInsertVariable(v.key)}
-                className="w-full text-left px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 rounded transition-colors"
-              >
-                {v.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 區塊控制 */}
-        <div className="pt-3 border-t border-gray-200">
-          <div className="flex gap-2">
-            <button
-              onClick={() => onUpdate({ locked: !block.locked })}
-              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded text-xs ${
-                block.locked ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-700'
-              }`}
-            >
-              {block.locked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-              {block.locked ? "解鎖" : "鎖定"}
-            </button>
-            <button
-              onClick={onDelete}
-              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
-            >
-              <Trash2 className="w-3 h-3" />
-              刪除
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (block.type === "table") {
     const tableBlock = block as TableBlock;
-    return (
-      <div className="space-y-3">
-        {/* 表格操作 */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-2">表格操作</label>
-          <div className="flex gap-1 mb-2">
-            <button
-              onClick={() => {
-                const newRows = [...tableBlock.rows, new Array(tableBlock.headers.length).fill("")];
-                onUpdate({ rows: newRows });
-              }}
-              className="flex items-center gap-1 px-2 py-1 bg-green-100 hover:bg-green-200 rounded text-xs"
-            >
-              <Plus className="w-3 h-3" />
-              新增列
-            </button>
-            <button
-              onClick={() => {
-                if (tableBlock.rows.length > 1) {
-                  const newRows = tableBlock.rows.slice(0, -1);
-                  onUpdate({ rows: newRows });
-                }
-              }}
-              className="flex items-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 rounded text-xs"
-              disabled={tableBlock.rows.length <= 1}
-            >
-              <Minus className="w-3 h-3" />
-              刪除列
-            </button>
-          </div>
-          <div className="flex gap-1">
-            <button
-              onClick={() => {
-                const newHeaders = [...tableBlock.headers, "新欄位"];
-                const newRows = tableBlock.rows.map(row => [...row, ""]);
-                onUpdate({ headers: newHeaders, rows: newRows });
-              }}
-              className="flex items-center gap-1 px-2 py-1 bg-blue-100 hover:bg-blue-200 rounded text-xs"
-            >
-              <Plus className="w-3 h-3" />
-              新增欄
-            </button>
-            <button
-              onClick={() => {
-                if (tableBlock.headers.length > 1) {
-                  const newHeaders = tableBlock.headers.slice(0, -1);
-                  const newRows = tableBlock.rows.map(row => row.slice(0, -1));
-                  onUpdate({ headers: newHeaders, rows: newRows });
-                }
-              }}
-              className="flex items-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 rounded text-xs"
-              disabled={tableBlock.headers.length <= 1}
-            >
-              <Minus className="w-3 h-3" />
-              刪除欄
-            </button>
-          </div>
-        </div>
+    const columnWidths = tableBlock.columnWidths || [];
+    const mergedCells = tableBlock.mergedCells || [];
 
-        {/* 表格內容編輯 */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-2">表格內容</label>
-          <div className="border border-gray-300 rounded overflow-hidden">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-gray-50">
-                  {tableBlock.headers.map((header, i) => (
-                    <th key={i} className="border-r border-gray-300 p-1">
-                      <input
-                        value={header}
-                        onChange={(e) => {
-                          const newHeaders = [...tableBlock.headers];
-                          newHeaders[i] = e.target.value;
-                          onUpdate({ headers: newHeaders });
-                        }}
-                        className="w-full bg-transparent text-center font-semibold"
-                        placeholder={`欄位 ${i + 1}`}
-                      />
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {tableBlock.rows.map((row, rowIndex) => (
-                  <tr key={rowIndex}>
-                    {row.map((cell, colIndex) => (
-                      <td key={colIndex} className="border-r border-gray-300 p-1">
+    // 檢查儲存格是否被合併
+    const isCellMerged = (rowIndex: number, colIndex: number) => {
+      return mergedCells.some(merge =>
+        rowIndex >= merge.startRow && rowIndex <= merge.endRow &&
+        colIndex >= merge.startCol && colIndex <= merge.endCol &&
+        !(rowIndex === merge.startRow && colIndex === merge.startCol)
+      );
+    };
+
+    // 取得合併儲存格的 span
+    const getCellSpan = (rowIndex: number, colIndex: number) => {
+      const merge = mergedCells.find(m =>
+        m.startRow === rowIndex && m.startCol === colIndex
+      );
+      return merge ? {
+        rowSpan: merge.endRow - merge.startRow + 1,
+        colSpan: merge.endCol - merge.startCol + 1
+      } : { rowSpan: 1, colSpan: 1 };
+    };
+
+    return (
+      <div className="w-full h-full">
+        {/* 表格控制面板 - 只在非預覽模式顯示 */}
+        {!previewMode && (
+          <div className="mb-2 p-2 bg-gray-50 border rounded text-xs space-y-2">
+            {/* 欄寬調整 */}
+            <div>
+              <span className="text-gray-600 font-medium">欄寬設定 (%)：</span>
+              <div className="flex gap-1 mt-1 flex-wrap">
+                {tableBlock.headers.map((header, i) => (
+                  <div key={i} className="flex items-center gap-1 bg-white rounded px-1 py-0.5">
+                    <span className="text-xs w-8 truncate">{header}</span>
+                    <input
+                      type="number"
+                      min="5"
+                      max="80"
+                      value={columnWidths[i] || 25}
+                      onChange={(e) => {
+                        const newWidths = [...columnWidths];
+                        while (newWidths.length <= i) newWidths.push(25);
+                        newWidths[i] = Number(e.target.value);
+                        onUpdate({ columnWidths: newWidths });
+                      }}
+                      className="w-10 px-1 text-center border border-gray-300 rounded text-xs"
+                    />
+                    <span className="text-xs text-gray-500">%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 表格選項 */}
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-1 text-xs">
+                <input
+                  type="checkbox"
+                  checked={tableBlock.showBorders !== false}
+                  onChange={(e) => onUpdate({ showBorders: e.target.checked })}
+                  className="rounded"
+                />
+                顯示邊框
+              </label>
+            </div>
+          </div>
+        )}
+
+        <table
+          className="w-full h-full text-xs"
+          style={{
+            borderCollapse: "collapse",
+            border: tableBlock.showBorders !== false ? "1px solid #d1d5db" : "none"
+          }}
+        >
+          <thead>
+            <tr>
+              {tableBlock.headers.map((header, i) => (
+                <th
+                  key={i}
+                  className={tableBlock.showBorders !== false ? "border border-gray-300 p-1" : "p-1"}
+                  style={{
+                    fontWeight: tableBlock.headerStyle?.bold ? "bold" : "normal",
+                    backgroundColor: tableBlock.headerStyle?.backgroundColor || "#f3f4f6",
+                    textAlign: tableBlock.headerStyle?.textAlign || "left",
+                    width: columnWidths[i] ? `${columnWidths[i]}%` : "auto",
+                  }}
+                >
+                  {previewMode ? (
+                    header
+                  ) : (
+                    <input
+                      value={header}
+                      onChange={(e) => {
+                        const newHeaders = [...tableBlock.headers];
+                        newHeaders[i] = e.target.value;
+                        onUpdate({ headers: newHeaders });
+                      }}
+                      className="w-full bg-transparent text-center font-semibold border-none outline-none"
+                      placeholder={`欄位 ${i + 1}`}
+                    />
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tableBlock.rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {row.map((cell, colIndex) => {
+                  if (isCellMerged(rowIndex, colIndex)) {
+                    return null; // 被合併的儲存格不渲染
+                  }
+
+                  const span = getCellSpan(rowIndex, colIndex);
+                  const cellId = `${rowIndex}-${colIndex}`;
+                  const isSelected = selectedCellId === cellId;
+
+                  return (
+                    <td
+                      key={colIndex}
+                      className={`${tableBlock.showBorders !== false ? "border border-gray-300" : ""} p-1 ${
+                        isSelected ? 'bg-blue-100' : ''
+                      }`}
+                      style={{
+                        textAlign: tableBlock.cellStyle?.textAlign || "left",
+                        padding: tableBlock.cellStyle?.padding || 4,
+                        width: columnWidths[colIndex] ? `${columnWidths[colIndex]}%` : "auto",
+                      }}
+                      rowSpan={span.rowSpan}
+                      colSpan={span.colSpan}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!previewMode) {
+                          onCellSelect(cellId);
+                        }
+                      }}
+                    >
+                      {previewMode ? (
+                        cell
+                      ) : (
                         <input
                           value={cell}
                           onChange={(e) => {
@@ -708,130 +922,18 @@ function BlockPropertiesPanel({
                             newRows[rowIndex][colIndex] = e.target.value;
                             onUpdate({ rows: newRows });
                           }}
-                          className="w-full bg-transparent text-center"
+                          className="w-full bg-transparent text-center border-none outline-none"
                           placeholder="內容"
+                          onFocus={() => onCellSelect(cellId)}
                         />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* 變數插入到表格 */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-2">插入變數到選中儲存格</label>
-          <div className="text-xs text-gray-500 mb-1">點擊上方表格儲存格後，再點擊下方變數</div>
-          <div className="space-y-1 max-h-24 overflow-y-auto">
-            {vars.slice(0, 6).map((v) => (
-              <button
-                key={v.key}
-                onClick={() => {
-                  // 這裡需要更複雜的邏輯來確定當前選中的儲存格
-                  // 暫時插入到第一個儲存格
-                  if (tableBlock.rows.length > 0 && tableBlock.rows[0].length > 0) {
-                    const newRows = [...tableBlock.rows];
-                    newRows[0][0] += `{{${v.key}}}`;
-                    onUpdate({ rows: newRows });
-                  }
-                }}
-                className="w-full text-left px-2 py-1 text-xs bg-green-50 hover:bg-green-100 rounded transition-colors"
-              >
-                {v.label}
-              </button>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
             ))}
-          </div>
-        </div>
-
-        {/* 區塊控制 */}
-        <div className="pt-3 border-t border-gray-200">
-          <div className="flex gap-2">
-            <button
-              onClick={() => onUpdate({ locked: !block.locked })}
-              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded text-xs ${
-                block.locked ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-700'
-              }`}
-            >
-              {block.locked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-              {block.locked ? "解鎖" : "鎖定"}
-            </button>
-            <button
-              onClick={onDelete}
-              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
-            >
-              <Trash2 className="w-3 h-3" />
-              刪除
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (block.type === "image") {
-    const imageBlock = block as ImageBlock;
-    return (
-      <div className="space-y-3">
-        {/* 圖片URL */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">圖片網址</label>
-          <input
-            type="url"
-            value={imageBlock.url}
-            onChange={(e) => onUpdate({ url: e.target.value })}
-            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-            placeholder="https://example.com/image.jpg"
-          />
-        </div>
-
-        {/* 圖片適應方式 */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">適應方式</label>
-          <select
-            value={imageBlock.fit || "contain"}
-            onChange={(e) => onUpdate({ fit: e.target.value as "cover" | "contain" })}
-            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-          >
-            <option value="contain">完整顯示</option>
-            <option value="cover">填滿容器</option>
-          </select>
-        </div>
-
-        {/* 替代文字 */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">替代文字</label>
-          <input
-            type="text"
-            value={imageBlock.alt || ""}
-            onChange={(e) => onUpdate({ alt: e.target.value })}
-            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-            placeholder="圖片描述"
-          />
-        </div>
-
-        {/* 區塊控制 */}
-        <div className="pt-3 border-t border-gray-200">
-          <div className="flex gap-2">
-            <button
-              onClick={() => onUpdate({ locked: !block.locked })}
-              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded text-xs ${
-                block.locked ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-700'
-              }`}
-            >
-              {block.locked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-              {block.locked ? "解鎖" : "鎖定"}
-            </button>
-            <button
-              onClick={onDelete}
-              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
-            >
-              <Trash2 className="w-3 h-3" />
-              刪除
-            </button>
-          </div>
-        </div>
+          </tbody>
+        </table>
       </div>
     );
   }
