@@ -1,5 +1,4 @@
-import React from "react";
-import { ALL_VARS } from "../canvas/variables"; // 確認路徑
+import type { VariableDef } from "../canvas/variables";
 
 interface Props {
   onInsert: (value: string) => void;

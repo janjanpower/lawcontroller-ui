@@ -5,7 +5,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-
+import VariableInserter from "../canvas/VariableInserter"; // 🆕
 import CardWrapper from "./CardWrapper";
 import HeaderCard from "./HeaderCard";
 import TextCard from "./TextCard";
@@ -22,8 +22,10 @@ export interface CardData {
 }
 
 interface Props {
-  value?: CardData[];                     // 父層傳入的初始 Schema
-  onChange?: (cards: CardData[]) => void; // 每次更新時通知父層
+  value?: CardData[];
+  onChange?: (cards: CardData[]) => void;
+  caseId: string;     // 🆕 新增
+  firmCode: string;   // 🆕 新增
 }
 
 export default function QuoteComposer({ value, onChange }: Props) {
@@ -85,17 +87,40 @@ export default function QuoteComposer({ value, onChange }: Props) {
                 />
               )}
               {card.type === "text" && (
-                <TextCard
-                  content={card.content}
-                  onChange={(c) => updateCard(card.id, c)}
-                />
+                <>
+                  <TextCard
+                    content={card.content}
+                    onChange={(c) => updateCard(card.id, c)}
+                  />
+                  <VariableInserter
+                    caseId={caseId}
+                    firmCode={firmCode}
+                    onInsert={(v) =>
+                      updateCard(card.id, { ...card.content, text: (card.content.text || "") + v })
+                    }
+                  />
+                </>
               )}
               {card.type === "table" && (
-                <TableCard
-                  content={card.content}
-                  onChange={(c) => updateCard(card.id, c)}
-                />
+                <>
+                  <TableCard
+                    content={card.content}
+                    onChange={(c) => updateCard(card.id, c)}
+                  />
+                  <VariableInserter
+                    caseId={caseId}
+                    firmCode={firmCode}
+                    onInsert={(v) => {
+                      const rows = card.content.rows?.length
+                        ? [...card.content.rows]
+                        : [[""]];
+                      rows[0][0] = (rows[0][0] || "") + v;
+                      updateCard(card.id, { ...card.content, rows });
+                    }}
+                  />
+                </>
               )}
+
               {card.type === "divider" && <DividerCard />}
               {card.type === "footer" && (
                 <FooterCard
