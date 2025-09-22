@@ -395,14 +395,14 @@ export default function QuoteCanvas({
         {selectedBlock && (
           <div className="mb-6">
             <h3 className="text-sm font-semibold mb-3 text-gray-700">區塊屬性</h3>
-            {selectedBlock.type === "text" && (
-              <div className="text-xs text-gray-600">
-                文字區塊 - 使用上方工具列編輯格式
-              </div>
-            )}
             {selectedBlock.type === "table" && (
               <div className="text-xs text-gray-600">
                 表格區塊 - 拖拽欄位邊界調整寬度
+              </div>
+            )}
+            {selectedBlock.type === "text" && (
+              <div className="text-xs text-gray-600">
+                文字區塊 - 使用上方工具列編輯格式
               </div>
             )}
           </div>
@@ -520,22 +520,10 @@ export default function QuoteCanvas({
 
                   {/* 區塊控制按鈕 */}
                   {!previewMode && selectedBlockId === block.id && (
-                    <div className="absolute -top-8 left-0 flex gap-1 bg-white border rounded shadow-sm p-1">
+                    <div className="absolute -top-10 left-0 right-0 flex justify-between items-center bg-white border rounded shadow-sm p-1">
+                      {/* 左側：功能控制項 */}
+                      <div className="flex gap-1">
                       {/* 鎖定/解鎖按鈕 */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateBlock(block.id, { locked: !block.locked });
-                        }}
-                        className="p-1 hover:bg-gray-100 rounded"
-                        title={block.locked ? "解除鎖定" : "鎖定元素"}
-                      >
-                        {block.locked ? (
-                          <Lock className="w-3 h-3 text-red-600" />
-                        ) : (
-                          <Unlock className="w-3 h-3 text-gray-600" />
-                        )}
-                      </button>
 
                       {/* 文字區塊的格式工具 */}
                       {block.type === "text" && (
@@ -547,7 +535,7 @@ export default function QuoteCanvas({
                             max="72"
                             value={(block as TextBlock).fontSize || 14}
                             onChange={(e) => updateBlock(block.id, { fontSize: parseInt(e.target.value) })}
-                            className="w-12 px-1 py-0.5 text-xs border rounded"
+                            className="w-10 px-1 py-0.5 text-xs border rounded"
                             title="字體大小"
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -558,7 +546,7 @@ export default function QuoteCanvas({
                               e.stopPropagation();
                               updateBlock(block.id, { bold: !(block as TextBlock).bold });
                             }}
-                            className={`p-1 hover:bg-gray-100 rounded font-bold ${
+                            className={`p-1 hover:bg-gray-100 rounded font-bold text-xs ${
                               (block as TextBlock).bold ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
                             }`}
                             title="粗體"
@@ -572,7 +560,7 @@ export default function QuoteCanvas({
                               e.stopPropagation();
                               updateBlock(block.id, { italic: !(block as TextBlock).italic });
                             }}
-                            className={`p-1 hover:bg-gray-100 rounded italic ${
+                            className={`p-1 hover:bg-gray-100 rounded italic text-xs ${
                               (block as TextBlock).italic ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
                             }`}
                             title="斜體"
@@ -586,7 +574,7 @@ export default function QuoteCanvas({
                               e.stopPropagation();
                               updateBlock(block.id, { underline: !(block as TextBlock).underline });
                             }}
-                            className={`p-1 hover:bg-gray-100 rounded underline ${
+                            className={`p-1 hover:bg-gray-100 rounded underline text-xs ${
                               (block as TextBlock).underline ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
                             }`}
                             title="底線"
@@ -594,25 +582,32 @@ export default function QuoteCanvas({
                             U
                           </button>
 
-                          {/* 文字對齊 */}
-                          <select
-                            value={(block as TextBlock).align || "left"}
-                            onChange={(e) => updateBlock(block.id, { align: e.target.value })}
-                            className="px-1 py-0.5 text-xs border rounded"
-                            title="文字對齊"
-                            onClick={(e) => e.stopPropagation()}
+                          {/* 文字對齊 - 改為 icon 按鈕 */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const currentAlign = (block as TextBlock).align || "left";
+                              const nextAlign = currentAlign === "left" ? "center" : currentAlign === "center" ? "right" : "left";
+                              updateBlock(block.id, { align: nextAlign });
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded"
+                            title={`文字對齊: ${(block as TextBlock).align === "center" ? "置中" : (block as TextBlock).align === "right" ? "靠右" : "靠左"}`}
                           >
-                            <option value="left">靠左</option>
-                            <option value="center">置中</option>
-                            <option value="right">靠右</option>
-                          </select>
+                            {(block as TextBlock).align === "center" ? (
+                              <span className="text-xs font-bold text-gray-600">⫸</span>
+                            ) : (block as TextBlock).align === "right" ? (
+                              <span className="text-xs font-bold text-gray-600">⫷</span>
+                            ) : (
+                              <span className="text-xs font-bold text-gray-600">⫸</span>
+                            )}
+                          </button>
 
                           {/* 文字顏色 */}
                           <input
                             type="color"
                             value={(block as TextBlock).color || "#000000"}
                             onChange={(e) => updateBlock(block.id, { color: e.target.value })}
-                            className="w-6 h-6 border rounded cursor-pointer"
+                            className="w-5 h-5 border rounded cursor-pointer"
                             title="文字顏色"
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -622,7 +617,7 @@ export default function QuoteCanvas({
                             type="color"
                             value={(block as TextBlock).backgroundColor || "#ffffff"}
                             onChange={(e) => updateBlock(block.id, { backgroundColor: e.target.value })}
-                            className="w-6 h-6 border rounded cursor-pointer"
+                            className="w-5 h-5 border rounded cursor-pointer"
                             title="背景顏色"
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -632,6 +627,7 @@ export default function QuoteCanvas({
                       {/* 表格區塊的操作 */}
                       {block.type === "table" && (
                         <>
+                          {/* 顯示邊框切換 */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -643,6 +639,7 @@ export default function QuoteCanvas({
                           >
                             <Table className={`w-3 h-3 ${(block as TableBlock).showBorders !== false ? 'text-blue-600' : 'text-gray-400'}`} />
                           </button>
+
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -700,8 +697,10 @@ export default function QuoteCanvas({
                           )}
                         </>
                       )}
+                      </div>
 
-                      {/* 通用操作 */}
+                      {/* 右側：通用操作（複製、鎖定、刪除） */}
+                      <div className="flex gap-1">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -712,6 +711,23 @@ export default function QuoteCanvas({
                       >
                         <Copy className="w-3 h-3 text-purple-600" />
                       </button>
+
+                      {/* 鎖定/解鎖按鈕 */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateBlock(block.id, { locked: !block.locked });
+                        }}
+                        className="p-1 hover:bg-gray-100 rounded"
+                        title={block.locked ? "解除鎖定" : "鎖定元素"}
+                      >
+                        {block.locked ? (
+                          <Lock className="w-3 h-3 text-red-600" />
+                        ) : (
+                          <Unlock className="w-3 h-3 text-gray-600" />
+                        )}
+                      </button>
+
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -722,6 +738,7 @@ export default function QuoteCanvas({
                       >
                         <Trash2 className="w-3 h-3 text-red-600" />
                       </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -866,43 +883,48 @@ function TableRenderer({
   const tableRef = useRef<HTMLTableElement>(null);
   const [resizing, setResizing] = useState<{ colIndex: number; startX: number; startWidth: number } | null>(null);
 
-  // 處理欄位調整
-  const handleMouseDown = useCallback((e: React.MouseEvent, colIndex: number) => {
+  // 處理欄位寬度調整
+  const handleMouseDown = (e: React.MouseEvent, colIndex: number) => {
+    console.log('handleMouseDown triggered for column', colIndex);
     e.preventDefault();
     e.stopPropagation();
 
     if (!tableRef.current) return;
 
-    const th = tableRef.current.querySelector(`th:nth-child(${colIndex + 1})`) as HTMLElement;
-    if (!th) return;
+    const table = tableRef.current;
+    const startX = e.clientX;
 
-    setResizing({
-      colIndex,
-      startX: e.clientX,
-      startWidth: th.offsetWidth
-    });
+    // 取得當前欄寬
+    const th = table.querySelector(`th:nth-child(${colIndex + 1})`) as HTMLElement;
+    if (!th) return;
+    const startWidth = th.offsetWidth;
 
     document.body.style.cursor = 'col-resize';
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!resizing || !tableRef.current) return;
+      if (!table) return;
 
-      const deltaX = e.clientX - resizing.startX;
-      const newWidth = Math.max(50, resizing.startWidth + deltaX);
+      const deltaX = e.clientX - startX;
+      const newWidth = Math.max(50, startWidth + deltaX);
 
-      const th = tableRef.current.querySelector(`th:nth-child(${resizing.colIndex + 1})`) as HTMLElement;
+      // 更新表頭寬度
+      const th = table.querySelector(`th:nth-child(${colIndex + 1})`) as HTMLElement;
       if (th) {
         th.style.width = `${newWidth}px`;
+        th.style.minWidth = `${newWidth}px`;
+        th.style.maxWidth = `${newWidth}px`;
       }
 
-      const cells = tableRef.current.querySelectorAll(`td:nth-child(${resizing.colIndex + 1})`);
+      // 更新該欄所有儲存格寬度
+      const cells = table.querySelectorAll(`td:nth-child(${colIndex + 1})`);
       cells.forEach((cell) => {
         (cell as HTMLElement).style.width = `${newWidth}px`;
+        (cell as HTMLElement).style.minWidth = `${newWidth}px`;
+        (cell as HTMLElement).style.maxWidth = `${newWidth}px`;
       });
     };
 
     const handleMouseUp = () => {
-      setResizing(null);
       document.body.style.cursor = '';
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -910,7 +932,7 @@ function TableRenderer({
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  }, []);
+  };
 
 
   return (
@@ -954,11 +976,18 @@ function TableRenderer({
               {/* 欄位調整控制項 */}
               {!previewMode && i < tableBlock.headers.length - 1 && (
                 <div
-                  className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400 transition-colors z-10 group-hover:bg-blue-200"
+                  className="absolute top-0 right-0 w-2 h-full cursor-col-resize bg-transparent hover:bg-blue-400 transition-colors z-10"
                   onMouseDown={(e) => handleMouseDown(e, i)}
                   title="拖拽調整欄寬"
                   style={{
-                    transform: 'translateX(50%)'
+                    transform: 'translateX(50%)',
+                    borderRight: '1px solid transparent'
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.target as HTMLElement).style.borderRight = '2px solid #3b82f6';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.target as HTMLElement).style.borderRight = '1px solid transparent';
                   }}
                 />
               )}
