@@ -5,7 +5,7 @@ import { nanoid } from "nanoid";
 import { type VariableDef } from "./variables";
 import {
   Type, Table, Plus, Minus, Trash2,
-  Eye, EyeOff, Copy, Columns, Rows, Merge, Split
+  Eye, EyeOff, Copy, Columns, Rows, Merge, Split, Lock, Unlock
 } from "lucide-react";
 import { apiFetch, getFirmCodeOrThrow } from "../../../../utils/api";
 
@@ -395,9 +395,9 @@ export default function QuoteCanvas({
         {selectedBlock && (
           <div className="mb-6">
             <h3 className="text-sm font-semibold mb-3 text-gray-700">區塊屬性</h3>
-
-            <div className="text-xs text-gray-500">
-              選中區塊：{selectedBlock.type === "text" ? "文字" : "表格"}
+            <div className="text-xs text-gray-600">
+              {selectedBlock.type === "text" && "文字區塊"}
+              {selectedBlock.type === "table" && "表格區塊"}
             </div>
           </div>
         )}
@@ -515,6 +515,22 @@ export default function QuoteCanvas({
                   {/* 區塊控制按鈕 */}
                   {!previewMode && selectedBlockId === block.id && (
                     <div className="absolute -top-8 left-0 flex gap-1 bg-white border rounded shadow-sm p-1">
+                      {/* 鎖定/解鎖按鈕 */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateBlock(block.id, { locked: !block.locked });
+                        }}
+                        className="p-1 hover:bg-gray-100 rounded"
+                        title={block.locked ? "解除鎖定" : "鎖定元素"}
+                      >
+                        {block.locked ? (
+                          <Lock className="w-3 h-3 text-red-600" />
+                        ) : (
+                          <Unlock className="w-3 h-3 text-gray-600" />
+                        )}
+                      </button>
+
                       {/* 表格區塊的操作 */}
                       {block.type === "table" && (
                         <>
@@ -524,14 +540,10 @@ export default function QuoteCanvas({
                               const tableBlock = block as TableBlock;
                               updateBlock(block.id, { showBorders: !tableBlock.showBorders });
                             }}
-                            className={`p-1 hover:bg-gray-100 rounded ${
-                              (block as TableBlock).showBorders !== false
-                                ? 'bg-blue-100 text-blue-600'
-                                : 'text-gray-400'
-                            }`}
+                            className="p-1 hover:bg-gray-100 rounded"
                             title="切換邊框顯示"
                           >
-                            <Table className="w-3 h-3" />
+                            <Table className={`w-3 h-3 ${(block as TableBlock).showBorders !== false ? 'text-blue-600' : 'text-gray-400'}`} />
                           </button>
                           <button
                             onClick={(e) => {
@@ -757,7 +769,7 @@ function TableRenderer({
   const [resizing, setResizing] = useState<{ colIndex: number; startX: number; startWidth: number } | null>(null);
 
   // 處理欄位調整
-  const handleMouseDown = (e: React.MouseEvent, colIndex: number) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent, colIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -775,7 +787,7 @@ function TableRenderer({
     document.body.style.cursor = 'col-resize';
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  };
+  }, []);
 
   const handleMouseMove = (e: MouseEvent) => {
     if (!resizing || !tableRef.current) return;
@@ -796,6 +808,11 @@ function TableRenderer({
   };
 
   const handleMouseUp = () => {
+    if (resizing) {
+      // 這裡可以選擇是否要將新寬度保存到 state
+      // 目前保持視覺效果，不強制同步到 columnWidths
+    }
+
     setResizing(null);
     document.body.style.cursor = '';
     document.removeEventListener('mousemove', handleMouseMove);
@@ -816,7 +833,7 @@ function TableRenderer({
           {tableBlock.headers.map((header, i) => (
             <th
               key={i}
-              className={`${tableBlock.showBorders !== false ? "border border-gray-300" : ""} p-1 relative group`}
+              className={`${tableBlock.showBorders !== false ? "border border-gray-300" : ""} p-1 relative group bg-gray-50`}
               style={{
                 fontWeight: tableBlock.headerStyle?.bold ? "bold" : "normal",
                 backgroundColor: tableBlock.headerStyle?.backgroundColor || "#f3f4f6",
@@ -840,7 +857,7 @@ function TableRenderer({
                 />
               )}
 
-              {/* 欄位調整控制項 - 像 Excel 一樣 */}
+              {/* 欄位調整控制項 */}
               {!previewMode && i < tableBlock.headers.length - 1 && (
                 <div
                   className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400 transition-colors z-10 group-hover:bg-blue-200"
@@ -849,8 +866,7 @@ function TableRenderer({
                   style={{
                     transform: 'translateX(50%)'
                   }}
-                >
-                </div>
+                />
               )}
             </th>
           ))}
