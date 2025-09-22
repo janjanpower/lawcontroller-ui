@@ -71,13 +71,6 @@ export default function QuoteCanvas({ value, onChange, onExport, onSaveTemplate,
 
   return (
     <div className="flex flex-col gap-2 w-full">
-      {/* 上方操作列 */}
-      <div className="flex justify-end gap-2 mb-2">
-        <button className="btn" onClick={() => setPreviewOpen(true)}>👁 預覽</button>
-        <button className="btn" onClick={() => onSaveTemplate(value)}>💾 儲存模板</button>
-        <button className="btn" onClick={onRemoveTemplate}>🗑 移除模板</button>
-        <button className="btn" onClick={() => onExport(value)}>📄 匯出</button>
-      </div>
 
       {/* 主體：左側工具列 + 畫布 */}
       <div className="flex gap-3">
@@ -244,8 +237,10 @@ function BlockEditor({
       <div
         contentEditable
         suppressContentEditableWarning
-        className="leading-6 whitespace-pre-wrap border rounded p-1 min-h-[2em]"
-        onInput={(e) => onChange({ text: (e.target as HTMLElement).innerText })}
+        onInput={(e) => {
+          const text = (e.target as HTMLElement).innerText;
+          requestAnimationFrame(() => onChange({ text })); // ✅ 保持游標
+        }}
       >
         {b.text}
       </div>
@@ -276,7 +271,7 @@ function BlockEditor({
         </div>
       </div>
 
-      <table className="w-full border border-gray-300">
+      <table className="w-full border border-gray-300 table-fixed">
         <thead>
           <tr>
             {b.headers.map((h, i) => (
@@ -403,42 +398,63 @@ function BlockEditor({
 }
 
 /* 預覽渲染器 */
+/* 預覽渲染器 */
 function PreviewRenderer({ schema }: { schema: QuoteCanvasSchema }) {
   return (
     <div
       style={{
+        position: "relative",   // 🆕 讓子元素能用 absolute 定位
         width: schema.page.width,
         height: schema.page.height,
         background: "#fff",
         margin: "0 auto",
-        padding: schema.page.margin,
       }}
     >
       {schema.blocks.map((b) => {
+        const commonStyle: React.CSSProperties = {
+          position: "absolute",
+          left: b.x,
+          top: b.y,
+          width: b.w,
+          height: b.h ?? "auto",
+        };
+
         if (b.type === "text") {
           return (
             <div
               key={b.id}
               style={{
+                ...commonStyle,
                 fontSize: b.fontSize ?? 14,
                 fontWeight: b.bold ? "bold" : "normal",
                 fontStyle: b.italic ? "italic" : "normal",
                 textDecoration: b.underline ? "underline" : "none",
                 textAlign: b.align ?? "left",
-                marginBottom: "0.5em",
               }}
             >
               {b.text}
             </div>
           );
         }
+
         if (b.type === "table") {
           return (
-            <table key={b.id} style={{ width: "100%", borderCollapse: "collapse", marginBottom: "1em" }}>
+            <table
+              key={b.id}
+              style={{
+                ...commonStyle,
+                borderCollapse: "collapse",
+              }}
+            >
               <thead>
                 <tr>
                   {b.headers.map((h, i) => (
-                    <th key={i} style={{ border: "1px solid #ccc", padding: "4px" }}>{h}</th>
+                    <th
+                      key={i}
+                      style={{ border: "1px solid #ccc", padding: "4px" }}
+                    >
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -446,7 +462,12 @@ function PreviewRenderer({ schema }: { schema: QuoteCanvasSchema }) {
                 {b.rows.map((row, ri) => (
                   <tr key={ri}>
                     {row.map((cell, ci) => (
-                      <td key={ci} style={{ border: "1px solid #ccc", padding: "4px" }}>{cell}</td>
+                      <td
+                        key={ci}
+                        style={{ border: "1px solid #ccc", padding: "4px" }}
+                      >
+                        {cell}
+                      </td>
                     ))}
                   </tr>
                 ))}
@@ -454,9 +475,21 @@ function PreviewRenderer({ schema }: { schema: QuoteCanvasSchema }) {
             </table>
           );
         }
+
         if (b.type === "image") {
-          return <img key={b.id} src={b.url} alt="" style={{ maxWidth: "100%", marginBottom: "1em" }} />;
+          return (
+            <img
+              key={b.id}
+              src={b.url}
+              alt=""
+              style={{
+                ...commonStyle,
+                objectFit: b.fit ?? "contain",
+              }}
+            />
+          );
         }
+
         return null;
       })}
     </div>

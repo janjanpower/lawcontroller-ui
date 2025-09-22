@@ -17,6 +17,7 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
     blocks: [],
   });
   const [templates, setTemplates] = useState<any[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   if (!isOpen) return null;
 
@@ -77,6 +78,35 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
     }
   };
 
+  /** 移除模板 */
+  const handleRemoveTemplate = async () => {
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const tplId = prompt("請輸入要移除的模板 ID：");
+      if (!tplId) return;
+
+      const res = await fetch(`/api/quote-templates/${tplId}?firm_code=${firmCode}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err?.detail || "移除模板失敗");
+        return;
+      }
+
+      alert("模板已移除！");
+      // ✅ 重新載入模板清單
+      const reload = await fetch(`/api/quote-templates?firm_code=${firmCode}`);
+      if (reload.ok) {
+        const data = await reload.json();
+        setTemplates(data || []);
+      }
+    } catch (e: any) {
+      alert("發生錯誤：" + (e.message || "未知錯誤"));
+    }
+  };
+
   /** 匯出 PDF → 直接下載 */
   const handleExport = async (current: QuoteCanvasSchema) => {
     try {
@@ -86,7 +116,7 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           case_id: caseId,
-          schema_json: current, // ✅ 傳整個 schema
+          schema_json: current,
         }),
       });
 
@@ -96,8 +126,13 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
         return;
       }
 
-      // 後端若回傳 PDF bytes
+      // 後端回傳 PDF bytes
       const blob = await res.blob();
+      if (blob.type !== "application/pdf") {
+        const text = await blob.text();
+        alert("匯出失敗：" + text);
+        return;
+      }
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -143,23 +178,122 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
           <QuoteCanvas
             value={schema}
             onChange={setSchema}
-            onExport={handleExport}   // ✅ 傳入
+            onExport={handleExport}
             onSaveTemplate={handleSaveAsTemplate}
-            onRemoveTemplate={() => {}} // TODO: 之後加移除模板
+            onRemoveTemplate={handleRemoveTemplate}
           />
         </div>
 
-        {/* 底部操作 */}
+        {/* 底部操作列 */}
         <div className="px-4 py-3 border-t flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200">取消</button>
+          <button onClick={() => setPreviewOpen(true)} className="px-4 py-2 rounded bg-gray-500 text-white">
+            👁 預覽
+          </button>
           <button onClick={handleSaveAsTemplate} className="px-4 py-2 rounded bg-purple-600 text-white">
-            儲存模板
+            💾 儲存模板
+          </button>
+          <button onClick={handleRemoveTemplate} className="px-4 py-2 rounded bg-red-600 text-white">
+            🗑 移除模板
           </button>
           <button onClick={() => handleExport(schema)} className="px-4 py-2 rounded bg-blue-600 text-white">
-            匯出
+            📄 匯出
           </button>
         </div>
       </div>
+
+      {/* 預覽 Modal */}
+      {previewOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-white rounded shadow-xl p-4 max-w-4xl max-h-[90vh] overflow-auto">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-lg font-bold">樣式預覽</h2>
+              <button className="icon-btn" onClick={() => setPreviewOpen(false)}>✖</button>
+            </div>
+            <PreviewRenderer schema={schema} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 簡單的預覽渲染器：根據 block 的位置還原畫面 */
+function PreviewRenderer({ schema }: { schema: QuoteCanvasSchema }) {
+  return (
+    <div
+      style={{
+        width: schema.page.width,
+        height: schema.page.height,
+        background: "#fff",
+        margin: "0 auto",
+        padding: schema.page.margin,
+        position: "relative",
+      }}
+    >
+      {schema.blocks.map((b) => {
+        const style: React.CSSProperties = {
+          position: "absolute",
+          left: b.x,
+          top: b.y,
+          width: b.w,
+          height: b.h ?? "auto",
+        };
+
+        if (b.type === "text") {
+          const tb = b as any;
+          return (
+            <div
+              key={b.id}
+              style={{
+                ...style,
+                fontSize: tb.fontSize ?? 14,
+                fontWeight: tb.bold ? "bold" : "normal",
+                fontStyle: tb.italic ? "italic" : "normal",
+                textDecoration: tb.underline ? "underline" : "none",
+                textAlign: tb.align ?? "left",
+              }}
+            >
+              {tb.text}
+            </div>
+          );
+        }
+        if (b.type === "table") {
+          const tb = b as any;
+          return (
+            <table
+              key={b.id}
+              style={{
+                ...style,
+                borderCollapse: "collapse",
+                background: "#fff",
+              }}
+            >
+              <thead>
+                <tr>
+                  {tb.headers.map((h: string, i: number) => (
+                    <th key={i} style={{ border: "1px solid #ccc", padding: "4px" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tb.rows.map((row: string[], ri: number) => (
+                  <tr key={ri}>
+                    {row.map((cell: string, ci: number) => (
+                      <td key={ci} style={{ border: "1px solid #ccc", padding: "4px" }}>{cell}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        }
+        if (b.type === "image") {
+          const ib = b as any;
+          return <img key={b.id} src={ib.url} alt="" style={{ ...style, objectFit: ib.fit ?? "contain" }} />;
+        }
+        return null;
+      })}
     </div>
   );
 }
