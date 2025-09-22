@@ -4,8 +4,7 @@ import { QuoteCanvasSchema, CanvasBlock, TextBlock, TableBlock } from "./schema"
 import { nanoid } from "nanoid";
 import { type VariableDef } from "./variables";
 import {
-  Type, Table, Bold, Italic, Underline,
-  AlignLeft, AlignCenter, AlignRight, Plus, Minus, Trash2,
+  Type, Table, Plus, Minus, Trash2,
   Eye, EyeOff, Copy, Columns, Rows, Merge, Split
 } from "lucide-react";
 import { apiFetch, getFirmCodeOrThrow } from "../../../../utils/api";
@@ -397,22 +396,9 @@ export default function QuoteCanvas({
           <div className="mb-6">
             <h3 className="text-sm font-semibold mb-3 text-gray-700">區塊屬性</h3>
 
-            {/* 表格區塊屬性 */}
-            {selectedBlock.type === "table" && (
-              <div className="space-y-3">
-                <div>
-                  <label className="flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={(selectedBlock as TableBlock).showBorders !== false}
-                      onChange={(e) => updateBlock(selectedBlock.id, { showBorders: e.target.checked })}
-                      className="rounded"
-                    />
-                    顯示邊框
-                  </label>
-                </div>
-              </div>
-            )}
+            <div className="text-xs text-gray-500">
+              選中區塊：{selectedBlock.type === "text" ? "文字" : "表格"}
+            </div>
           </div>
         )}
       </div>
@@ -517,110 +503,6 @@ export default function QuoteCanvas({
                   }}
                 >
                   {/* 文字區塊屬性控制面板 - 移到上方 */}
-                  {!previewMode && selectedBlockId === block.id && block.type === "text" && (
-                    <div className="absolute -top-20 left-0 bg-white border rounded-lg shadow-lg p-3 z-50 min-w-80">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="flex items-center gap-1">
-                          <label className="text-xs text-gray-600">字體大小:</label>
-                          <input
-                            type="number"
-                            min="8"
-                            max="72"
-                            value={(block as TextBlock).fontSize || 14}
-                            onChange={(e) => updateBlock(block.id, { fontSize: Number(e.target.value) })}
-                            className="w-16 px-2 py-1 border border-gray-300 rounded text-xs"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <label className="text-xs text-gray-600">顏色:</label>
-                          <input
-                            type="color"
-                            value={(block as TextBlock).color || "#000000"}
-                            onChange={(e) => updateBlock(block.id, { color: e.target.value })}
-                            className="w-8 h-6 border border-gray-300 rounded cursor-pointer"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <label className="text-xs text-gray-600">背景:</label>
-                          <input
-                            type="color"
-                            value={(block as TextBlock).backgroundColor || "#ffffff"}
-                            onChange={(e) => updateBlock(block.id, { backgroundColor: e.target.value })}
-                            className="w-8 h-6 border border-gray-300 rounded cursor-pointer"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const textBlock = block as TextBlock;
-                            updateBlock(block.id, { bold: !textBlock.bold });
-                          }}
-                          className={`p-1 rounded text-xs ${(block as TextBlock).bold ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 hover:bg-gray-200'}`}
-                          title="粗體"
-                        >
-                          <Bold className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const textBlock = block as TextBlock;
-                            updateBlock(block.id, { italic: !textBlock.italic });
-                          }}
-                          className={`p-1 rounded text-xs ${(block as TextBlock).italic ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 hover:bg-gray-200'}`}
-                          title="斜體"
-                        >
-                          <Italic className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const textBlock = block as TextBlock;
-                            updateBlock(block.id, { underline: !textBlock.underline });
-                          }}
-                          className={`p-1 rounded text-xs ${(block as TextBlock).underline ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 hover:bg-gray-200'}`}
-                          title="底線"
-                        >
-                          <Underline className="w-3 h-3" />
-                        </button>
-                        <div className="w-px h-4 bg-gray-300 mx-1"></div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            updateBlock(block.id, { align: "left" });
-                          }}
-                          className={`p-1 rounded text-xs ${(block as TextBlock).align === "left" ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 hover:bg-gray-200'}`}
-                          title="靠左對齊"
-                        >
-                          <AlignLeft className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            updateBlock(block.id, { align: "center" });
-                          }}
-                          className={`p-1 rounded text-xs ${(block as TextBlock).align === "center" ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 hover:bg-gray-200'}`}
-                          title="置中對齊"
-                        >
-                          <AlignCenter className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            updateBlock(block.id, { align: "right" });
-                          }}
-                          className={`p-1 rounded text-xs ${(block as TextBlock).align === "right" ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 hover:bg-gray-200'}`}
-                          title="靠右對齊"
-                        >
-                          <AlignRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
                   <BlockRenderer
                     block={block}
@@ -628,14 +510,6 @@ export default function QuoteCanvas({
                     selectedCellId={selectedCellId}
                     onUpdate={(patch) => updateBlock(block.id, patch)}
                     onCellSelect={(cellId) => setSelectedCellId(cellId)}
-                    onColumnResize={(colIndex, newWidth) => {
-                      if (block.type === "table") {
-                        const tableBlock = block as TableBlock;
-                        const newWidths = [...(tableBlock.columnWidths || [])];
-                        newWidths[colIndex] = newWidth;
-                        updateBlock(block.id, { columnWidths: newWidths });
-                      }
-                    }}
                   />
 
                   {/* 區塊控制按鈕 */}
@@ -644,6 +518,21 @@ export default function QuoteCanvas({
                       {/* 表格區塊的操作 */}
                       {block.type === "table" && (
                         <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const tableBlock = block as TableBlock;
+                              updateBlock(block.id, { showBorders: !tableBlock.showBorders });
+                            }}
+                            className={`p-1 hover:bg-gray-100 rounded ${
+                              (block as TableBlock).showBorders !== false
+                                ? 'bg-blue-100 text-blue-600'
+                                : 'text-gray-400'
+                            }`}
+                            title="切換邊框顯示"
+                          >
+                            <Table className="w-3 h-3" />
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -741,53 +630,14 @@ function BlockRenderer({
   previewMode,
   selectedCellId,
   onUpdate,
-  onCellSelect,
-  onColumnResize
+  onCellSelect
 }: {
   block: CanvasBlock;
   previewMode: boolean;
   selectedCellId: string | null;
   onUpdate: (patch: Partial<CanvasBlock>) => void;
   onCellSelect: (cellId: string | null) => void;
-  onColumnResize?: (colIndex: number, newWidth: number) => void;
 }) {
-  const [resizingColumn, setResizingColumn] = useState<number | null>(null);
-  const [resizeStartX, setResizeStartX] = useState(0);
-  const [resizeStartWidth, setResizeStartWidth] = useState(0);
-
-  // 處理欄位調整
-  const handleColumnResizeStart = (e: React.MouseEvent, colIndex: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (block.type !== "table") return;
-
-    const tableBlock = block as TableBlock;
-    const currentWidth = tableBlock.columnWidths?.[colIndex] || 25;
-
-    setResizingColumn(colIndex);
-    setResizeStartX(e.clientX);
-    setResizeStartWidth(currentWidth);
-
-    document.addEventListener('mousemove', handleColumnResizeMove);
-    document.addEventListener('mouseup', handleColumnResizeEnd);
-  };
-
-  const handleColumnResizeMove = (e: MouseEvent) => {
-    if (resizingColumn === null || !onColumnResize) return;
-
-    const deltaX = e.clientX - resizeStartX;
-    const deltaPercent = (deltaX / 400) * 100; // 假設表格寬度為 400px
-    const newWidth = Math.max(5, Math.min(80, resizeStartWidth + deltaPercent));
-
-    onColumnResize(resizingColumn, Math.round(newWidth));
-  };
-
-  const handleColumnResizeEnd = () => {
-    setResizingColumn(null);
-    document.removeEventListener('mousemove', handleColumnResizeMove);
-    document.removeEventListener('mouseup', handleColumnResizeEnd);
-  };
 
   if (block.type === "text") {
     const textBlock = block as TextBlock;
@@ -829,7 +679,7 @@ function BlockRenderer({
           backgroundColor: textBlock.backgroundColor || "transparent",
           width: "100%",
           height: "100%",
-          padding: "4px",
+          padding: "1px",
           border: "none",
           outline: "none",
           resize: "none",
@@ -842,7 +692,6 @@ function BlockRenderer({
 
   if (block.type === "table") {
     const tableBlock = block as TableBlock;
-    const columnWidths = tableBlock.columnWidths || [];
     const mergedCells = tableBlock.mergedCells || [];
 
     // 檢查儲存格是否被合併
@@ -867,133 +716,198 @@ function BlockRenderer({
 
     return (
       <div className="relative w-full h-full">
-        {/* 欄位調整線 - 只在非預覽模式顯示 */}
-        {!previewMode && (
-          <div className="absolute top-0 left-0 right-0 h-full pointer-events-none z-10">
-            {tableBlock.headers.map((_, i) => {
-              if (i === tableBlock.headers.length - 1) return null; // 最後一欄不需要調整線
-
-              const leftPercent = columnWidths.slice(0, i + 1).reduce((sum, w) => sum + (w || 25), 0);
-
-              return (
-                <div
-                  key={i}
-                  className="absolute top-0 bottom-0 w-1 cursor-col-resize pointer-events-auto group hover:bg-blue-300 transition-colors"
-                  style={{ left: `${leftPercent}%`, transform: 'translateX(-50%)' }}
-                  onMouseDown={(e) => handleColumnResizeStart(e, i)}
-                  title={`調整第 ${i + 1} 欄寬度`}
-                >
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-6 bg-blue-500 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="w-0.5 h-4 bg-white rounded"></div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <table
-          className="w-full h-full text-xs relative"
-          style={{
-            borderCollapse: "collapse",
-            border: tableBlock.showBorders !== false ? "1px solid #d1d5db" : "none"
-          }}
-        >
-          <thead>
-            <tr>
-              {tableBlock.headers.map((header, i) => (
-                <th
-                  key={i}
-                  className={`${tableBlock.showBorders !== false ? "border border-gray-300" : ""} p-1 relative`}
-                  style={{
-                    fontWeight: tableBlock.headerStyle?.bold ? "bold" : "normal",
-                    backgroundColor: tableBlock.headerStyle?.backgroundColor || "#f3f4f6",
-                    textAlign: tableBlock.headerStyle?.textAlign || "left",
-                    width: columnWidths[i] ? `${columnWidths[i]}%` : "auto",
-                  }}
-                >
-                  {previewMode ? (
-                    header
-                  ) : (
-                    <input
-                      value={header}
-                      onChange={(e) => {
-                        const newHeaders = [...tableBlock.headers];
-                        newHeaders[i] = e.target.value;
-                        onUpdate({ headers: newHeaders });
-                      }}
-                      className="w-full bg-transparent text-center font-semibold border-none outline-none"
-                      placeholder={`欄位 ${i + 1}`}
-                    />
-                  )}
-
-                  {/* 欄位寬度顯示 */}
-                  {!previewMode && (
-                    <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 bg-white px-1 rounded border">
-                      {columnWidths[i] || 25}%
-                    </div>
-                  )}
-                </th>
-              ))}
-            </tr>
-          </thead>
-        <tbody>
-          {tableBlock.rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {row.map((cell, colIndex) => {
-                if (isCellMerged(rowIndex, colIndex)) {
-                  return null; // 被合併的儲存格不渲染
-                }
-
-                const span = getCellSpan(rowIndex, colIndex);
-                const cellId = `${rowIndex}-${colIndex}`;
-                const isSelected = selectedCellId === cellId;
-
-                return (
-                  <td
-                    key={colIndex}
-                    className={`${tableBlock.showBorders !== false ? "border border-gray-300" : ""} p-1 ${
-                      isSelected ? 'bg-blue-100' : ''
-                    }`}
-                    style={{
-                      textAlign: tableBlock.cellStyle?.textAlign || "left",
-                      padding: tableBlock.cellStyle?.padding || 4,
-                      width: columnWidths[colIndex] ? `${columnWidths[colIndex]}%` : "auto",
-                    }}
-                    rowSpan={span.rowSpan}
-                    colSpan={span.colSpan}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!previewMode) {
-                        onCellSelect(cellId);
-                      }
-                    }}
-                  >
-                    {previewMode ? (
-                      cell
-                    ) : (
-                      <input
-                        value={cell}
-                        onChange={(e) => {
-                          const newRows = [...tableBlock.rows];
-                          newRows[rowIndex][colIndex] = e.target.value;
-                          onUpdate({ rows: newRows });
-                        }}
-                        className="w-full bg-transparent text-center border-none outline-none"
-                        placeholder="內容"
-                        onFocus={() => onCellSelect(cellId)}
-                      />
-                    )}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-        </table>
+        <TableRenderer
+          tableBlock={tableBlock}
+          previewMode={previewMode}
+          selectedCellId={selectedCellId}
+          onUpdate={onUpdate}
+          onCellSelect={onCellSelect}
+          mergedCells={mergedCells}
+          isCellMerged={isCellMerged}
+          getCellSpan={getCellSpan}
+        />
       </div>
     );
   }
 
   return null;
+}
+
+// 表格渲染器組件
+function TableRenderer({
+  tableBlock,
+  previewMode,
+  selectedCellId,
+  onUpdate,
+  onCellSelect,
+  mergedCells,
+  isCellMerged,
+  getCellSpan
+}: {
+  tableBlock: TableBlock;
+  previewMode: boolean;
+  selectedCellId: string | null;
+  onUpdate: (patch: Partial<CanvasBlock>) => void;
+  onCellSelect: (cellId: string | null) => void;
+  mergedCells: any[];
+  isCellMerged: (rowIndex: number, colIndex: number) => boolean;
+  getCellSpan: (rowIndex: number, colIndex: number) => { rowSpan: number; colSpan: number };
+}) {
+  const tableRef = useRef<HTMLTableElement>(null);
+  const [resizing, setResizing] = useState<{ colIndex: number; startX: number; startWidth: number } | null>(null);
+
+  // 處理欄位調整
+  const handleMouseDown = (e: React.MouseEvent, colIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!tableRef.current) return;
+
+    const th = tableRef.current.querySelector(`th:nth-child(${colIndex + 1})`) as HTMLElement;
+    if (!th) return;
+
+    setResizing({
+      colIndex,
+      startX: e.clientX,
+      startWidth: th.offsetWidth
+    });
+
+    document.body.style.cursor = 'col-resize';
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!resizing || !tableRef.current) return;
+
+    const deltaX = e.clientX - resizing.startX;
+    const newWidth = Math.max(50, resizing.startWidth + deltaX); // 最小寬度 50px
+
+    const th = tableRef.current.querySelector(`th:nth-child(${resizing.colIndex + 1})`) as HTMLElement;
+    if (th) {
+      th.style.width = `${newWidth}px`;
+    }
+
+    // 同步更新所有該欄的儲存格
+    const cells = tableRef.current.querySelectorAll(`td:nth-child(${resizing.colIndex + 1})`);
+    cells.forEach((cell) => {
+      (cell as HTMLElement).style.width = `${newWidth}px`;
+    });
+  };
+
+  const handleMouseUp = () => {
+    setResizing(null);
+    document.body.style.cursor = '';
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  };
+
+  return (
+    <table
+      ref={tableRef}
+      className="w-full h-full text-xs relative"
+      style={{
+        borderCollapse: "collapse",
+        border: tableBlock.showBorders !== false ? "1px solid #d1d5db" : "none"
+      }}
+    >
+      <thead>
+        <tr>
+          {tableBlock.headers.map((header, i) => (
+            <th
+              key={i}
+              className={`${tableBlock.showBorders !== false ? "border border-gray-300" : ""} p-1 relative group`}
+              style={{
+                fontWeight: tableBlock.headerStyle?.bold ? "bold" : "normal",
+                backgroundColor: tableBlock.headerStyle?.backgroundColor || "#f3f4f6",
+                textAlign: tableBlock.headerStyle?.textAlign || "left",
+                minWidth: "60px",
+                position: "relative"
+              }}
+            >
+              {previewMode ? (
+                header
+              ) : (
+                <input
+                  value={header}
+                  onChange={(e) => {
+                    const newHeaders = [...tableBlock.headers];
+                    newHeaders[i] = e.target.value;
+                    onUpdate({ headers: newHeaders });
+                  }}
+                  className="w-full bg-transparent text-center font-semibold border-none outline-none"
+                  placeholder={`欄位 ${i + 1}`}
+                />
+              )}
+
+              {/* 欄位調整控制項 - 像 Excel 一樣 */}
+              {!previewMode && i < tableBlock.headers.length - 1 && (
+                <div
+                  className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400 transition-colors z-10 group-hover:bg-blue-200"
+                  onMouseDown={(e) => handleMouseDown(e, i)}
+                  title="拖拽調整欄寬"
+                  style={{
+                    transform: 'translateX(50%)'
+                  }}
+                >
+                </div>
+              )}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {tableBlock.rows.map((row, rowIndex) => (
+          <tr key={rowIndex}>
+            {row.map((cell, colIndex) => {
+              if (isCellMerged(rowIndex, colIndex)) {
+                return null; // 被合併的儲存格不渲染
+              }
+
+              const span = getCellSpan(rowIndex, colIndex);
+              const cellId = `${rowIndex}-${colIndex}`;
+              const isSelected = selectedCellId === cellId;
+
+              return (
+                <td
+                  key={colIndex}
+                  className={`${tableBlock.showBorders !== false ? "border border-gray-300" : ""} p-1 ${
+                    isSelected ? 'bg-blue-100' : ''
+                  }`}
+                  style={{
+                    textAlign: tableBlock.cellStyle?.textAlign || "left",
+                    padding: tableBlock.cellStyle?.padding || 4,
+                  }}
+                  rowSpan={span.rowSpan}
+                  colSpan={span.colSpan}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!previewMode) {
+                      onCellSelect(cellId);
+                    }
+                  }}
+                >
+                  {previewMode ? (
+                    cell
+                  ) : (
+                    <input
+                      value={cell}
+                      onChange={(e) => {
+                        const newRows = [...tableBlock.rows];
+                        newRows[rowIndex][colIndex] = e.target.value;
+                        onUpdate({ rows: newRows });
+                      }}
+                      className="w-full bg-transparent text-center border-none outline-none"
+                      placeholder="內容"
+                      onFocus={() => onCellSelect(cellId)}
+                    />
+                  )}
+                </td>
+              );
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }
