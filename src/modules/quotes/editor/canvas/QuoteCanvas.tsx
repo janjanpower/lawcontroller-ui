@@ -287,7 +287,7 @@ export default function QuoteCanvas({
       {/* 左側工具面板 */}
       <div className="w-64 bg-gray-50 p-4 rounded-lg overflow-y-auto">
 
-       {/* 套用模板 */}
+         {/* 套用模板 */}
         <div className="mb-6">
           <h3 className="text-sm font-semibold mb-3 text-gray-700">套用模板</h3>
           <select
@@ -316,7 +316,7 @@ export default function QuoteCanvas({
           </button>
         </div>
 
-         {/* 畫布設定 */}
+        {/* 畫布設定 */}
         <div className="mb-6">
           <h3 className="text-sm font-semibold mb-3 text-gray-700">畫布設定</h3>
           <div className="space-y-2">
@@ -340,7 +340,6 @@ export default function QuoteCanvas({
             </label>
           </div>
         </div>
-
 
         {/* 新增區塊工具 */}
         <div className="mb-6">
@@ -398,8 +397,22 @@ export default function QuoteCanvas({
           <div className="mb-6">
             <h3 className="text-sm font-semibold mb-3 text-gray-700">區塊屬性</h3>
 
-            {/* 區塊屬性現在移到元素上方，這裡保留為空 */}
-            <p className="text-xs text-gray-500">所有區塊屬性已移至元素上方進行直接編輯</p>
+            {/* 表格區塊屬性 */}
+            {selectedBlock.type === "table" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={(selectedBlock as TableBlock).showBorders !== false}
+                      onChange={(e) => updateBlock(selectedBlock.id, { showBorders: e.target.checked })}
+                      className="rounded"
+                    />
+                    顯示邊框
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -503,161 +516,175 @@ export default function QuoteCanvas({
                     }
                   }}
                 >
+                  {/* 文字區塊屬性控制面板 - 移到上方 */}
+                  {!previewMode && selectedBlockId === block.id && block.type === "text" && (
+                    <div className="absolute -top-20 left-0 bg-white border rounded-lg shadow-lg p-3 z-50 min-w-80">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="flex items-center gap-1">
+                          <label className="text-xs text-gray-600">字體大小:</label>
+                          <input
+                            type="number"
+                            min="8"
+                            max="72"
+                            value={(block as TextBlock).fontSize || 14}
+                            onChange={(e) => updateBlock(block.id, { fontSize: Number(e.target.value) })}
+                            className="w-16 px-2 py-1 border border-gray-300 rounded text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <label className="text-xs text-gray-600">顏色:</label>
+                          <input
+                            type="color"
+                            value={(block as TextBlock).color || "#000000"}
+                            onChange={(e) => updateBlock(block.id, { color: e.target.value })}
+                            className="w-8 h-6 border border-gray-300 rounded cursor-pointer"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <label className="text-xs text-gray-600">背景:</label>
+                          <input
+                            type="color"
+                            value={(block as TextBlock).backgroundColor || "#ffffff"}
+                            onChange={(e) => updateBlock(block.id, { backgroundColor: e.target.value })}
+                            className="w-8 h-6 border border-gray-300 rounded cursor-pointer"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const textBlock = block as TextBlock;
+                            updateBlock(block.id, { bold: !textBlock.bold });
+                          }}
+                          className={`p-1 rounded text-xs ${(block as TextBlock).bold ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 hover:bg-gray-200'}`}
+                          title="粗體"
+                        >
+                          <Bold className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const textBlock = block as TextBlock;
+                            updateBlock(block.id, { italic: !textBlock.italic });
+                          }}
+                          className={`p-1 rounded text-xs ${(block as TextBlock).italic ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 hover:bg-gray-200'}`}
+                          title="斜體"
+                        >
+                          <Italic className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const textBlock = block as TextBlock;
+                            updateBlock(block.id, { underline: !textBlock.underline });
+                          }}
+                          className={`p-1 rounded text-xs ${(block as TextBlock).underline ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 hover:bg-gray-200'}`}
+                          title="底線"
+                        >
+                          <Underline className="w-3 h-3" />
+                        </button>
+                        <div className="w-px h-4 bg-gray-300 mx-1"></div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateBlock(block.id, { align: "left" });
+                          }}
+                          className={`p-1 rounded text-xs ${(block as TextBlock).align === "left" ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 hover:bg-gray-200'}`}
+                          title="靠左對齊"
+                        >
+                          <AlignLeft className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateBlock(block.id, { align: "center" });
+                          }}
+                          className={`p-1 rounded text-xs ${(block as TextBlock).align === "center" ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 hover:bg-gray-200'}`}
+                          title="置中對齊"
+                        >
+                          <AlignCenter className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateBlock(block.id, { align: "right" });
+                          }}
+                          className={`p-1 rounded text-xs ${(block as TextBlock).align === "right" ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 hover:bg-gray-200'}`}
+                          title="靠右對齊"
+                        >
+                          <AlignRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <BlockRenderer
                     block={block}
                     previewMode={previewMode}
                     selectedCellId={selectedCellId}
                     onUpdate={(patch) => updateBlock(block.id, patch)}
                     onCellSelect={(cellId) => setSelectedCellId(cellId)}
+                    onColumnResize={(colIndex, newWidth) => {
+                      if (block.type === "table") {
+                        const tableBlock = block as TableBlock;
+                        const newWidths = [...(tableBlock.columnWidths || [])];
+                        newWidths[colIndex] = newWidth;
+                        updateBlock(block.id, { columnWidths: newWidths });
+                      }
+                    }}
                   />
 
                   {/* 區塊控制按鈕 */}
                   {!previewMode && selectedBlockId === block.id && (
-                    <div className="absolute -top-12 left-0 flex flex-wrap gap-1 bg-white border rounded shadow-sm p-1 max-w-md">
-                      {/* 文字區塊的格式控制 */}
-                      {block.type === "text" && (
-                        <>
-                          {/* 字體大小 */}
-                          <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 rounded">
-                            <span className="text-xs text-gray-600">字體</span>
-                            <input
-                              type="number"
-                              min="8"
-                              max="72"
-                              value={(block as TextBlock).fontSize || 14}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                updateBlock(block.id, { fontSize: Number(e.target.value) });
-                              }}
-                              className="w-12 px-1 py-0.5 border border-gray-300 rounded text-xs text-center"
-                            />
-                          </div>
-
-                          {/* 文字顏色 */}
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs text-gray-600">色彩</span>
-                            <input
-                              type="color"
-                              value={(block as TextBlock).color || "#000000"}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                updateBlock(block.id, { color: e.target.value });
-                              }}
-                              className="w-6 h-6 border border-gray-300 rounded cursor-pointer"
-                              title="文字顏色"
-                            />
-                          </div>
-
-                          {/* 背景顏色 */}
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs text-gray-600">背景</span>
-                            <input
-                              type="color"
-                              value={(block as TextBlock).backgroundColor || "#ffffff"}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                updateBlock(block.id, { backgroundColor: e.target.value });
-                              }}
-                              className="w-6 h-6 border border-gray-300 rounded cursor-pointer"
-                              title="背景顏色"
-                            />
-                          </div>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const textBlock = block as TextBlock;
-                              updateBlock(block.id, { bold: !textBlock.bold });
-                            }}
-                            className={`p-1 rounded ${(block as TextBlock).bold ? 'bg-blue-200' : 'bg-gray-100'} hover:bg-blue-200`}
-                            title="粗體"
-                          >
-                            <Bold className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const textBlock = block as TextBlock;
-                              updateBlock(block.id, { italic: !textBlock.italic });
-                            }}
-                            className={`p-1 rounded ${(block as TextBlock).italic ? 'bg-blue-200' : 'bg-gray-100'} hover:bg-blue-200`}
-                            title="斜體"
-                          >
-                            <Italic className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const textBlock = block as TextBlock;
-                              updateBlock(block.id, { underline: !textBlock.underline });
-                            }}
-                            className={`p-1 rounded ${(block as TextBlock).underline ? 'bg-blue-200' : 'bg-gray-100'} hover:bg-blue-200`}
-                            title="底線"
-                          >
-                            <Underline className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const textBlock = block as TextBlock;
-                              const currentAlign = textBlock.align || "left";
-                              const nextAlign = currentAlign === "left" ? "center" : currentAlign === "center" ? "right" : "left";
-                              updateBlock(block.id, { align: nextAlign });
-                            }}
-                            className="p-1 rounded bg-gray-100 hover:bg-blue-200"
-                            title="對齊方式"
-                          >
-                            {(block as TextBlock).align === "center" ? <AlignCenter className="w-3 h-3" /> :
-                             (block as TextBlock).align === "right" ? <AlignRight className="w-3 h-3" /> :
-                             <AlignLeft className="w-3 h-3" />}
-                          </button>
-                        </>
-                      )}
-
+                    <div className="absolute -top-8 left-0 flex gap-1 bg-white border rounded shadow-sm p-1">
                       {/* 表格區塊的操作 */}
                       {block.type === "table" && (
                         <>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              addTableColumn(block.id);
-                            }}
-                            className="p-1 hover:bg-blue-100 rounded"
-                            title="新增欄"
-                          >
-                            <Plus className="w-3 h-3 text-blue-600" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeTableColumn(block.id);
-                            }}
-                            className="p-1 hover:bg-orange-100 rounded"
-                            title="刪除欄"
-                            disabled={(block as TableBlock).headers.length <= 1}
-                          >
-                            <Columns className="w-3 h-3 text-orange-600" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
                               addTableRow(block.id);
                             }}
-                            className="p-1 hover:bg-green-100 rounded"
+                            className="p-1 hover:bg-gray-100 rounded"
                             title="新增列"
                           >
-                            <Plus className="w-3 h-3 text-green-600" />
+                            <Rows className="w-3 h-3 text-green-600" />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               removeTableRow(block.id);
                             }}
-                            className="p-1 hover:bg-red-100 rounded"
+                            className="p-1 hover:bg-gray-100 rounded"
                             title="刪除列"
                             disabled={(block as TableBlock).rows.length <= 1}
                           >
-                            <Rows className="w-3 h-3 text-red-600" />
+                            <Minus className="w-3 h-3 text-red-600" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addTableColumn(block.id);
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded"
+                            title="新增欄"
+                          >
+                            <Columns className="w-3 h-3 text-blue-600" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeTableColumn(block.id);
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded"
+                            title="刪除欄"
+                            disabled={(block as TableBlock).headers.length <= 1}
+                          >
+                            <Minus className="w-3 h-3 text-orange-600" />
                           </button>
                           {selectedCellId && (
                             <button
@@ -714,14 +741,54 @@ function BlockRenderer({
   previewMode,
   selectedCellId,
   onUpdate,
-  onCellSelect
+  onCellSelect,
+  onColumnResize
 }: {
   block: CanvasBlock;
   previewMode: boolean;
   selectedCellId: string | null;
   onUpdate: (patch: Partial<CanvasBlock>) => void;
   onCellSelect: (cellId: string | null) => void;
+  onColumnResize?: (colIndex: number, newWidth: number) => void;
 }) {
+  const [resizingColumn, setResizingColumn] = useState<number | null>(null);
+  const [resizeStartX, setResizeStartX] = useState(0);
+  const [resizeStartWidth, setResizeStartWidth] = useState(0);
+
+  // 處理欄位調整
+  const handleColumnResizeStart = (e: React.MouseEvent, colIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (block.type !== "table") return;
+
+    const tableBlock = block as TableBlock;
+    const currentWidth = tableBlock.columnWidths?.[colIndex] || 25;
+
+    setResizingColumn(colIndex);
+    setResizeStartX(e.clientX);
+    setResizeStartWidth(currentWidth);
+
+    document.addEventListener('mousemove', handleColumnResizeMove);
+    document.addEventListener('mouseup', handleColumnResizeEnd);
+  };
+
+  const handleColumnResizeMove = (e: MouseEvent) => {
+    if (resizingColumn === null || !onColumnResize) return;
+
+    const deltaX = e.clientX - resizeStartX;
+    const deltaPercent = (deltaX / 400) * 100; // 假設表格寬度為 400px
+    const newWidth = Math.max(5, Math.min(80, resizeStartWidth + deltaPercent));
+
+    onColumnResize(resizingColumn, Math.round(newWidth));
+  };
+
+  const handleColumnResizeEnd = () => {
+    setResizingColumn(null);
+    document.removeEventListener('mousemove', handleColumnResizeMove);
+    document.removeEventListener('mouseup', handleColumnResizeEnd);
+  };
+
   if (block.type === "text") {
     const textBlock = block as TextBlock;
 
@@ -729,8 +796,6 @@ function BlockRenderer({
       return (
         <div
           style={{
-            display: "inline-block",   // ✅ 讓底色只包住文字，不是整個方塊
-            padding: "2px 6px",        // ✅ 比文字大一點點
             fontSize: textBlock.fontSize || 14,
             fontWeight: textBlock.bold ? "bold" : "normal",
             fontStyle: textBlock.italic ? "italic" : "normal",
@@ -738,7 +803,11 @@ function BlockRenderer({
             textAlign: textBlock.align || "left",
             color: textBlock.color || "#000000",
             backgroundColor: textBlock.backgroundColor || "transparent",
-            borderRadius: "4px",       // ✅ 加點圓角（可選）
+            width: "100%",
+            height: "100%",
+            padding: "4px",
+            border: "none",
+            outline: "none",
           }}
         >
           {textBlock.text}
@@ -797,53 +866,34 @@ function BlockRenderer({
     };
 
     return (
-      <div className="w-full h-full">
-        {/* 表格控制面板 - 只在非預覽模式顯示 */}
+      <div className="relative w-full h-full">
+        {/* 欄位調整線 - 只在非預覽模式顯示 */}
         {!previewMode && (
-          <div className="mb-2 p-2 bg-gray-50 border rounded text-xs space-y-2">
-            {/* 欄寬調整 */}
-            <div>
-              <span className="text-gray-600 font-medium">欄寬設定 (%)：</span>
-              <div className="flex gap-1 mt-1 flex-wrap">
-                {tableBlock.headers.map((header, i) => (
-                  <div key={i} className="flex items-center gap-1 bg-white rounded px-1 py-0.5">
-                    <span className="text-xs w-8 truncate">{header}</span>
-                    <input
-                      type="number"
-                      min="5"
-                      max="80"
-                      value={columnWidths[i] || 25}
-                      onChange={(e) => {
-                        const newWidths = [...columnWidths];
-                        while (newWidths.length <= i) newWidths.push(25);
-                        newWidths[i] = Number(e.target.value);
-                        onUpdate({ columnWidths: newWidths });
-                      }}
-                      className="w-10 px-1 text-center border border-gray-300 rounded text-xs"
-                    />
-                    <span className="text-xs text-gray-500">%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="absolute top-0 left-0 right-0 h-full pointer-events-none z-10">
+            {tableBlock.headers.map((_, i) => {
+              if (i === tableBlock.headers.length - 1) return null; // 最後一欄不需要調整線
 
-            {/* 表格選項 */}
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-1 text-xs">
-                <input
-                  type="checkbox"
-                  checked={tableBlock.showBorders !== false}
-                  onChange={(e) => onUpdate({ showBorders: e.target.checked })}
-                  className="rounded"
-                />
-                顯示邊框
-              </label>
-            </div>
+              const leftPercent = columnWidths.slice(0, i + 1).reduce((sum, w) => sum + (w || 25), 0);
+
+              return (
+                <div
+                  key={i}
+                  className="absolute top-0 bottom-0 w-1 cursor-col-resize pointer-events-auto group hover:bg-blue-300 transition-colors"
+                  style={{ left: `${leftPercent}%`, transform: 'translateX(-50%)' }}
+                  onMouseDown={(e) => handleColumnResizeStart(e, i)}
+                  title={`調整第 ${i + 1} 欄寬度`}
+                >
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-6 bg-blue-500 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="w-0.5 h-4 bg-white rounded"></div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
         <table
-          className="w-full h-full text-xs"
+          className="w-full h-full text-xs relative"
           style={{
             borderCollapse: "collapse",
             border: tableBlock.showBorders !== false ? "1px solid #d1d5db" : "none"
@@ -854,7 +904,7 @@ function BlockRenderer({
               {tableBlock.headers.map((header, i) => (
                 <th
                   key={i}
-                  className={tableBlock.showBorders !== false ? "border border-gray-300 p-1" : "p-1"}
+                  className={`${tableBlock.showBorders !== false ? "border border-gray-300" : ""} p-1 relative`}
                   style={{
                     fontWeight: tableBlock.headerStyle?.bold ? "bold" : "normal",
                     backgroundColor: tableBlock.headerStyle?.backgroundColor || "#f3f4f6",
@@ -876,63 +926,70 @@ function BlockRenderer({
                       placeholder={`欄位 ${i + 1}`}
                     />
                   )}
+
+                  {/* 欄位寬度顯示 */}
+                  {!previewMode && (
+                    <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 bg-white px-1 rounded border">
+                      {columnWidths[i] || 25}%
+                    </div>
+                  )}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody>
-            {tableBlock.rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {row.map((cell, colIndex) => {
-                  if (isCellMerged(rowIndex, colIndex)) {
-                    return null; // 被合併的儲存格不渲染
-                  }
+        <tbody>
+          {tableBlock.rows.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {row.map((cell, colIndex) => {
+                if (isCellMerged(rowIndex, colIndex)) {
+                  return null; // 被合併的儲存格不渲染
+                }
 
-                  const span = getCellSpan(rowIndex, colIndex);
-                  const cellId = `${rowIndex}-${colIndex}`;
-                  const isSelected = selectedCellId === cellId;
+                const span = getCellSpan(rowIndex, colIndex);
+                const cellId = `${rowIndex}-${colIndex}`;
+                const isSelected = selectedCellId === cellId;
 
-                  return (
-                    <td
-                      key={colIndex}
-                      className={`${tableBlock.showBorders !== false ? "border border-gray-300" : ""} p-1 ${
-                        isSelected ? 'bg-blue-100' : ''
-                      }`}
-                      style={{
-                        textAlign: tableBlock.cellStyle?.textAlign || "left",
-                        padding: tableBlock.cellStyle?.padding || 4,
-                        width: columnWidths[colIndex] ? `${columnWidths[colIndex]}%` : "auto",
-                      }}
-                      rowSpan={span.rowSpan}
-                      colSpan={span.colSpan}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!previewMode) {
-                          onCellSelect(cellId);
-                        }
-                      }}
-                    >
-                      {previewMode ? (
-                        cell
-                      ) : (
-                        <input
-                          value={cell}
-                          onChange={(e) => {
-                            const newRows = [...tableBlock.rows];
-                            newRows[rowIndex][colIndex] = e.target.value;
-                            onUpdate({ rows: newRows });
-                          }}
-                          className="w-full bg-transparent text-center border-none outline-none"
-                          placeholder="內容"
-                          onFocus={() => onCellSelect(cellId)}
-                        />
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
+                return (
+                  <td
+                    key={colIndex}
+                    className={`${tableBlock.showBorders !== false ? "border border-gray-300" : ""} p-1 ${
+                      isSelected ? 'bg-blue-100' : ''
+                    }`}
+                    style={{
+                      textAlign: tableBlock.cellStyle?.textAlign || "left",
+                      padding: tableBlock.cellStyle?.padding || 4,
+                      width: columnWidths[colIndex] ? `${columnWidths[colIndex]}%` : "auto",
+                    }}
+                    rowSpan={span.rowSpan}
+                    colSpan={span.colSpan}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!previewMode) {
+                        onCellSelect(cellId);
+                      }
+                    }}
+                  >
+                    {previewMode ? (
+                      cell
+                    ) : (
+                      <input
+                        value={cell}
+                        onChange={(e) => {
+                          const newRows = [...tableBlock.rows];
+                          newRows[rowIndex][colIndex] = e.target.value;
+                          onUpdate({ rows: newRows });
+                        }}
+                        className="w-full bg-transparent text-center border-none outline-none"
+                        placeholder="內容"
+                        onFocus={() => onCellSelect(cellId)}
+                      />
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
         </table>
       </div>
     );
