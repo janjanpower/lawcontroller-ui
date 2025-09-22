@@ -44,7 +44,7 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
     }
   };
 
-  /** 存成模板 */
+  /** 儲存模板 */
   const handleSaveAsTemplate = async () => {
     try {
       const firmCode = getFirmCodeOrThrow();
@@ -77,8 +77,8 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
     }
   };
 
-  /** 匯出 PDF */
-  const handleSave = async () => {
+  /** 匯出 PDF → 直接下載 */
+  const handleExport = async (current: QuoteCanvasSchema) => {
     try {
       const firmCode = getFirmCodeOrThrow();
       const res = await fetch(`/api/quotes/render-pdf?firm_code=${firmCode}`, {
@@ -86,19 +86,25 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           case_id: caseId,
-          schema_json: schema, // ✅ 直接傳整個 schema
+          schema_json: current, // ✅ 傳整個 schema
         }),
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         alert(err?.detail || "匯出失敗");
         return;
       }
 
-      const data = await res.json();
-      alert("PDF 匯出成功！");
-      window.open(data.pdf_url, "_blank");
+      // 後端若回傳 PDF bytes
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `quote_${caseId}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
       window.dispatchEvent(new CustomEvent("caseDetail:refresh", { detail: { caseId } }));
       onClose();
     } catch (e: any) {
@@ -134,17 +140,23 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
 
         {/* 編輯器 */}
         <div className="flex-1 overflow-y-auto p-4">
-          <QuoteCanvas value={schema} onChange={setSchema} />
+          <QuoteCanvas
+            value={schema}
+            onChange={setSchema}
+            onExport={handleExport}   // ✅ 傳入
+            onSaveTemplate={handleSaveAsTemplate}
+            onRemoveTemplate={() => {}} // TODO: 之後加移除模板
+          />
         </div>
 
         {/* 底部操作 */}
         <div className="px-4 py-3 border-t flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200">取消</button>
           <button onClick={handleSaveAsTemplate} className="px-4 py-2 rounded bg-purple-600 text-white">
-            存成模板
+            儲存模板
           </button>
-          <button onClick={handleSave} className="px-4 py-2 rounded bg-blue-600 text-white">
-            儲存並匯出
+          <button onClick={() => handleExport(schema)} className="px-4 py-2 rounded bg-blue-600 text-white">
+            匯出
           </button>
         </div>
       </div>

@@ -1,53 +1,48 @@
-export type BlockType = "heading" | "paragraph" | "table" | "signature" | "image";
+export type BlockType = "text" | "table" | "image";
 
 export interface CanvasBlockBase {
   id: string;
   type: BlockType;
-  x: number;   // 畫布座標（px）
+  x: number;
   y: number;
-  w: number;   // 寬（px）
-  h?: number;  // 可選，高度自動撐或手調
-  z?: number;  // 疊層
-  locked?: boolean; // ✅ 鎖定：禁止拖曳與縮放、位置固定
-  groupId?: string; // ✅ 群組：相接後合併，移動跟隨
+  w: number;
+  h?: number;
+  z?: number;
+  locked?: boolean;
+  groupId?: string; // 🆕 分組 ID
 }
 
-export interface HeadingBlock extends CanvasBlockBase {
-  type: "heading";
-  text: string;            // 支援 {{vars}}
+
+// 文字區塊（取代 heading + paragraph）
+export interface TextBlock extends CanvasBlockBase {
+  type: "text";
+  text: string;            // 可輸入文字，支援 {{vars}}
   align?: "left" | "center" | "right";
-  level?: 1 | 2 | 3;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  fontSize?: number;
+  level?: 1 | 2 | 3;       // 選填，若要保留標題概念
 }
 
-export interface ParagraphBlock extends CanvasBlockBase {
-  type: "paragraph";
-  text: string;            // 支援 {{vars}}
-}
-
+// 表格區塊
 export interface TableBlock extends CanvasBlockBase {
   type: "table";
   headers: string[];       // 支援 {{vars}}
   rows: string[][];        // 支援 {{vars}}
-  showBorders?: boolean;   // 編輯時可看線，輸出時我們會移除
+  showBorders?: boolean;
 }
 
-export interface SignatureBlock extends CanvasBlockBase {
-  type: "signature";
-  label?: string;
-  lineWidth?: number;      // 簽名線長度(px)
-}
-
+// 圖片區塊
 export interface ImageBlock extends CanvasBlockBase {
   type: "image";
-  url: string;             // 若要支援上傳，先放外部 URL
+  url: string;             // 外部 URL / 上傳後連結
   fit?: "cover" | "contain";
 }
 
 export type CanvasBlock =
-  | HeadingBlock
-  | ParagraphBlock
+  | TextBlock
   | TableBlock
-  | SignatureBlock
   | ImageBlock;
 
 export interface QuoteCanvasSchema {
