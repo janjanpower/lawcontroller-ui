@@ -8,6 +8,8 @@ export interface CanvasBlockBase {
   w: number;   // 寬（px）
   h?: number;  // 可選，高度自動撐或手調
   z?: number;  // 疊層
+  locked?: boolean; // ✅ 鎖定：禁止拖曳與縮放、位置固定
+  groupId?: string; // ✅ 群組：相接後合併，移動跟隨
 }
 
 export interface HeadingBlock extends CanvasBlockBase {

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Rnd } from "react-rnd";
 import { QuoteCanvasSchema, CanvasBlock, HeadingBlock, ParagraphBlock, TableBlock, SignatureBlock } from "./schema";
 import { ALL_VARS } from "./variables";
@@ -10,6 +10,43 @@ type Props = {
 };
 
 export default function QuoteCanvas({ value, onChange }: Props) {
+  const [showGrid, setShowGrid] = useState(true);
+  const [snapSize, setSnapSize] = useState(8);
+  const [highlightCenter, setHighlightCenter] = useState(true);
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  const pageW = value.page.width, pageH = value.page.height, margin = value.page.margin ?? 40;
+  const centerX = margin + (pageW - margin*2)/2;
+  const centerY = margin + (pageH - margin*2)/2;
+
+  // 群組移動：若 block 有 groupId，移動時帶動同組其他 block
+  const moveBlockBy = (id: string, dx: number, dy: number) => {
+    const blk = value.blocks.find(b => b.id === id);
+    if (!blk) return;
+    const gid = blk.groupId;
+    const ids = gid ? value.blocks.filter(b => b.groupId === gid).map(b => b.id) : [id];
+    const next = value.blocks.map(b => ids.includes(b.id) ? { ...b, x: Math.round((b.x + dx)/snapSize)*snapSize, y: Math.round((b.y + dy)/snapSize)*snapSize } : b);
+    onChange({ ...value, blocks: next });
+  };
+
+  const toggleLock = (id: string) => {
+    onChange({ ...value, blocks: value.blocks.map(b => b.id === id ? { ...b, locked: !b.locked } : b) });
+  };
+
+  // 相接偵測：靠近（<=8px）邊緣提供「合併」按鈕 → 指派同 groupId
+  const [pendingAttach, setPendingAttach] = useState<{a:string,b:string}|null>(null);
+  useEffect(() => {
+    // 簡化：檢查最後兩個互相靠近的 block
+    const blks = value.blocks;
+    for (let i=0;i<blks.length;i++) for (let j=i+1;j<blks.length;j++) {
+      const A = blks[i], B = blks[j];
+      const nearX = Math.abs((A.x+A.w) - B.x) <= 8 || Math.abs((B.x+B.w) - A.x) <= 8;
+      const nearY = Math.abs((A.y+A.h!) - B.y) <= 8 || Math.abs((B.y+B.h!) - A.y) <= 8;
+      if (nearX || nearY) { setPendingAttach({a:A.id,b:B.id}); return; }
+    }
+    setPendingAttach(null);
+  }, [value.blocks]);
+
   const addBlock = (type: CanvasBlock["type"]) => {
     const base = { id: nanoid(), x: 40, y: 40, w: 360 } as const;
     let block: CanvasBlock;
@@ -54,6 +91,41 @@ export default function QuoteCanvas({ value, onChange }: Props) {
   };
 
   return (
+    <div className="relative">
+      <div className="mb-2 flex items-center gap-3 text-sm">
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={showGrid} onChange={e=>setShowGrid(e.target.checked)}/>顯示格線</label>
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={highlightCenter} onChange={e=>setHighlightCenter(e.target.checked)}/>置中輔助線</label>
+        <label className="inline-flex items-center gap-1">貼齊間距
+          <input type="number" className="w-16 border rounded px-1 py-0.5" value={snapSize} min={2} max={32} step={2} onChange={e=>setSnapSize(parseInt(e.target.value)||8)}/>
+          px
+        </label>
+        {pendingAttach && (
+          <button className="px-2 py-1 text-xs bg-amber-100 border rounded" onClick={()=>{
+            const gid = crypto?.randomUUID?.() || String(Date.now());
+            onChange({ ...value, blocks: value.blocks.map(b => (b.id===pendingAttach.a||b.id===pendingAttach.b) ? { ...b, groupId: gid } : b) });
+            setPendingAttach(null);
+          }}>將相鄰元件合併移動</button>
+        )}
+      </div>
+      <div ref={canvasRef} className="relative border bg-white" style={{ width: pageW, height: pageH }}>
+        {showGrid && (
+          <svg className="absolute inset-0 pointer-events-none" width={pageW} height={pageH}>
+            {/* 格線 */}
+            {Array.from({length: Math.floor(pageW/snapSize)}).map((_,i)=>(
+              <line key={'v'+i} x1={i*snapSize} y1={0} x2={i*snapSize} y2={pageH} stroke="#eee" strokeWidth="1"/>
+            ))}
+            {Array.from({length: Math.floor(pageH/snapSize)}).map((_,i)=>(
+              <line key={'h'+i} x1={0} y1={i*snapSize} x2={pageW} y2={i*snapSize} stroke="#eee" strokeWidth="1"/>
+            ))}
+            {highlightCenter && (
+              <>
+                <line x1={centerX} y1={0} x2={centerX} y2={pageH} stroke="#82b1ff" strokeDasharray="4 4"/>
+                <line x1={0} y1={centerY} x2={pageW} y2={centerY} stroke="#82b1ff" strokeDasharray="4 4"/>
+              </>
+            )}
+          </svg>
+        )}
+
     <div className="flex gap-3">
       {/* 左側工具列 */}
       <div className="w-44 shrink-0">
@@ -87,7 +159,7 @@ export default function QuoteCanvas({ value, onChange }: Props) {
         }}
       >
         {value.blocks.map((b) => (
-          <Rnd
+          <Rnd grid={[snapSize, snapSize]}
             key={b.id}
             size={{ width: b.w, height: b.h ?? "auto" }}
             position={{ x: b.x, y: b.y }}
@@ -121,6 +193,41 @@ function BlockEditor({
   if (block.type === "heading") {
     const b = block as HeadingBlock;
     return (
+    <div className="relative">
+      <div className="mb-2 flex items-center gap-3 text-sm">
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={showGrid} onChange={e=>setShowGrid(e.target.checked)}/>顯示格線</label>
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={highlightCenter} onChange={e=>setHighlightCenter(e.target.checked)}/>置中輔助線</label>
+        <label className="inline-flex items-center gap-1">貼齊間距
+          <input type="number" className="w-16 border rounded px-1 py-0.5" value={snapSize} min={2} max={32} step={2} onChange={e=>setSnapSize(parseInt(e.target.value)||8)}/>
+          px
+        </label>
+        {pendingAttach && (
+          <button className="px-2 py-1 text-xs bg-amber-100 border rounded" onClick={()=>{
+            const gid = crypto?.randomUUID?.() || String(Date.now());
+            onChange({ ...value, blocks: value.blocks.map(b => (b.id===pendingAttach.a||b.id===pendingAttach.b) ? { ...b, groupId: gid } : b) });
+            setPendingAttach(null);
+          }}>將相鄰元件合併移動</button>
+        )}
+      </div>
+      <div ref={canvasRef} className="relative border bg-white" style={{ width: pageW, height: pageH }}>
+        {showGrid && (
+          <svg className="absolute inset-0 pointer-events-none" width={pageW} height={pageH}>
+            {/* 格線 */}
+            {Array.from({length: Math.floor(pageW/snapSize)}).map((_,i)=>(
+              <line key={'v'+i} x1={i*snapSize} y1={0} x2={i*snapSize} y2={pageH} stroke="#eee" strokeWidth="1"/>
+            ))}
+            {Array.from({length: Math.floor(pageH/snapSize)}).map((_,i)=>(
+              <line key={'h'+i} x1={0} y1={i*snapSize} x2={pageW} y2={i*snapSize} stroke="#eee" strokeWidth="1"/>
+            ))}
+            {highlightCenter && (
+              <>
+                <line x1={centerX} y1={0} x2={centerX} y2={pageH} stroke="#82b1ff" strokeDasharray="4 4"/>
+                <line x1={0} y1={centerY} x2={pageW} y2={centerY} stroke="#82b1ff" strokeDasharray="4 4"/>
+              </>
+            )}
+          </svg>
+        )}
+
       <div>
         <div className="flex justify-between items-center mb-1">
           <select
@@ -147,6 +254,41 @@ function BlockEditor({
   if (block.type === "paragraph") {
     const b = block as ParagraphBlock;
     return (
+    <div className="relative">
+      <div className="mb-2 flex items-center gap-3 text-sm">
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={showGrid} onChange={e=>setShowGrid(e.target.checked)}/>顯示格線</label>
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={highlightCenter} onChange={e=>setHighlightCenter(e.target.checked)}/>置中輔助線</label>
+        <label className="inline-flex items-center gap-1">貼齊間距
+          <input type="number" className="w-16 border rounded px-1 py-0.5" value={snapSize} min={2} max={32} step={2} onChange={e=>setSnapSize(parseInt(e.target.value)||8)}/>
+          px
+        </label>
+        {pendingAttach && (
+          <button className="px-2 py-1 text-xs bg-amber-100 border rounded" onClick={()=>{
+            const gid = crypto?.randomUUID?.() || String(Date.now());
+            onChange({ ...value, blocks: value.blocks.map(b => (b.id===pendingAttach.a||b.id===pendingAttach.b) ? { ...b, groupId: gid } : b) });
+            setPendingAttach(null);
+          }}>將相鄰元件合併移動</button>
+        )}
+      </div>
+      <div ref={canvasRef} className="relative border bg-white" style={{ width: pageW, height: pageH }}>
+        {showGrid && (
+          <svg className="absolute inset-0 pointer-events-none" width={pageW} height={pageH}>
+            {/* 格線 */}
+            {Array.from({length: Math.floor(pageW/snapSize)}).map((_,i)=>(
+              <line key={'v'+i} x1={i*snapSize} y1={0} x2={i*snapSize} y2={pageH} stroke="#eee" strokeWidth="1"/>
+            ))}
+            {Array.from({length: Math.floor(pageH/snapSize)}).map((_,i)=>(
+              <line key={'h'+i} x1={0} y1={i*snapSize} x2={pageW} y2={i*snapSize} stroke="#eee" strokeWidth="1"/>
+            ))}
+            {highlightCenter && (
+              <>
+                <line x1={centerX} y1={0} x2={centerX} y2={pageH} stroke="#82b1ff" strokeDasharray="4 4"/>
+                <line x1={0} y1={centerY} x2={pageW} y2={centerY} stroke="#82b1ff" strokeDasharray="4 4"/>
+              </>
+            )}
+          </svg>
+        )}
+
       <div>
         <div className="flex justify-end mb-1">
           <button className="icon-btn" onClick={onRemove}>🗑</button>
@@ -164,6 +306,41 @@ function BlockEditor({
   if (block.type === "table") {
     const b = block as TableBlock;
     return (
+    <div className="relative">
+      <div className="mb-2 flex items-center gap-3 text-sm">
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={showGrid} onChange={e=>setShowGrid(e.target.checked)}/>顯示格線</label>
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={highlightCenter} onChange={e=>setHighlightCenter(e.target.checked)}/>置中輔助線</label>
+        <label className="inline-flex items-center gap-1">貼齊間距
+          <input type="number" className="w-16 border rounded px-1 py-0.5" value={snapSize} min={2} max={32} step={2} onChange={e=>setSnapSize(parseInt(e.target.value)||8)}/>
+          px
+        </label>
+        {pendingAttach && (
+          <button className="px-2 py-1 text-xs bg-amber-100 border rounded" onClick={()=>{
+            const gid = crypto?.randomUUID?.() || String(Date.now());
+            onChange({ ...value, blocks: value.blocks.map(b => (b.id===pendingAttach.a||b.id===pendingAttach.b) ? { ...b, groupId: gid } : b) });
+            setPendingAttach(null);
+          }}>將相鄰元件合併移動</button>
+        )}
+      </div>
+      <div ref={canvasRef} className="relative border bg-white" style={{ width: pageW, height: pageH }}>
+        {showGrid && (
+          <svg className="absolute inset-0 pointer-events-none" width={pageW} height={pageH}>
+            {/* 格線 */}
+            {Array.from({length: Math.floor(pageW/snapSize)}).map((_,i)=>(
+              <line key={'v'+i} x1={i*snapSize} y1={0} x2={i*snapSize} y2={pageH} stroke="#eee" strokeWidth="1"/>
+            ))}
+            {Array.from({length: Math.floor(pageH/snapSize)}).map((_,i)=>(
+              <line key={'h'+i} x1={0} y1={i*snapSize} x2={pageW} y2={i*snapSize} stroke="#eee" strokeWidth="1"/>
+            ))}
+            {highlightCenter && (
+              <>
+                <line x1={centerX} y1={0} x2={centerX} y2={pageH} stroke="#82b1ff" strokeDasharray="4 4"/>
+                <line x1={0} y1={centerY} x2={pageW} y2={centerY} stroke="#82b1ff" strokeDasharray="4 4"/>
+              </>
+            )}
+          </svg>
+        )}
+
       <div>
         <div className="flex justify-between items-center mb-1">
           <div className="text-xs text-gray-500">雙擊儲存格可編輯，Enter 建新列</div>
@@ -212,6 +389,41 @@ function BlockEditor({
   if (block.type === "signature") {
     const b = block as SignatureBlock;
     return (
+    <div className="relative">
+      <div className="mb-2 flex items-center gap-3 text-sm">
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={showGrid} onChange={e=>setShowGrid(e.target.checked)}/>顯示格線</label>
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={highlightCenter} onChange={e=>setHighlightCenter(e.target.checked)}/>置中輔助線</label>
+        <label className="inline-flex items-center gap-1">貼齊間距
+          <input type="number" className="w-16 border rounded px-1 py-0.5" value={snapSize} min={2} max={32} step={2} onChange={e=>setSnapSize(parseInt(e.target.value)||8)}/>
+          px
+        </label>
+        {pendingAttach && (
+          <button className="px-2 py-1 text-xs bg-amber-100 border rounded" onClick={()=>{
+            const gid = crypto?.randomUUID?.() || String(Date.now());
+            onChange({ ...value, blocks: value.blocks.map(b => (b.id===pendingAttach.a||b.id===pendingAttach.b) ? { ...b, groupId: gid } : b) });
+            setPendingAttach(null);
+          }}>將相鄰元件合併移動</button>
+        )}
+      </div>
+      <div ref={canvasRef} className="relative border bg-white" style={{ width: pageW, height: pageH }}>
+        {showGrid && (
+          <svg className="absolute inset-0 pointer-events-none" width={pageW} height={pageH}>
+            {/* 格線 */}
+            {Array.from({length: Math.floor(pageW/snapSize)}).map((_,i)=>(
+              <line key={'v'+i} x1={i*snapSize} y1={0} x2={i*snapSize} y2={pageH} stroke="#eee" strokeWidth="1"/>
+            ))}
+            {Array.from({length: Math.floor(pageH/snapSize)}).map((_,i)=>(
+              <line key={'h'+i} x1={0} y1={i*snapSize} x2={pageW} y2={i*snapSize} stroke="#eee" strokeWidth="1"/>
+            ))}
+            {highlightCenter && (
+              <>
+                <line x1={centerX} y1={0} x2={centerX} y2={pageH} stroke="#82b1ff" strokeDasharray="4 4"/>
+                <line x1={0} y1={centerY} x2={pageW} y2={centerY} stroke="#82b1ff" strokeDasharray="4 4"/>
+              </>
+            )}
+          </svg>
+        )}
+
       <div>
         <div className="flex justify-end mb-1">
           <button className="icon-btn" onClick={onRemove}>🗑</button>
@@ -224,6 +436,41 @@ function BlockEditor({
 
   // image
   return (
+    <div className="relative">
+      <div className="mb-2 flex items-center gap-3 text-sm">
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={showGrid} onChange={e=>setShowGrid(e.target.checked)}/>顯示格線</label>
+        <label className="inline-flex items-center gap-1"><input type="checkbox" checked={highlightCenter} onChange={e=>setHighlightCenter(e.target.checked)}/>置中輔助線</label>
+        <label className="inline-flex items-center gap-1">貼齊間距
+          <input type="number" className="w-16 border rounded px-1 py-0.5" value={snapSize} min={2} max={32} step={2} onChange={e=>setSnapSize(parseInt(e.target.value)||8)}/>
+          px
+        </label>
+        {pendingAttach && (
+          <button className="px-2 py-1 text-xs bg-amber-100 border rounded" onClick={()=>{
+            const gid = crypto?.randomUUID?.() || String(Date.now());
+            onChange({ ...value, blocks: value.blocks.map(b => (b.id===pendingAttach.a||b.id===pendingAttach.b) ? { ...b, groupId: gid } : b) });
+            setPendingAttach(null);
+          }}>將相鄰元件合併移動</button>
+        )}
+      </div>
+      <div ref={canvasRef} className="relative border bg-white" style={{ width: pageW, height: pageH }}>
+        {showGrid && (
+          <svg className="absolute inset-0 pointer-events-none" width={pageW} height={pageH}>
+            {/* 格線 */}
+            {Array.from({length: Math.floor(pageW/snapSize)}).map((_,i)=>(
+              <line key={'v'+i} x1={i*snapSize} y1={0} x2={i*snapSize} y2={pageH} stroke="#eee" strokeWidth="1"/>
+            ))}
+            {Array.from({length: Math.floor(pageH/snapSize)}).map((_,i)=>(
+              <line key={'h'+i} x1={0} y1={i*snapSize} x2={pageW} y2={i*snapSize} stroke="#eee" strokeWidth="1"/>
+            ))}
+            {highlightCenter && (
+              <>
+                <line x1={centerX} y1={0} x2={centerX} y2={pageH} stroke="#82b1ff" strokeDasharray="4 4"/>
+                <line x1={0} y1={centerY} x2={pageW} y2={centerY} stroke="#82b1ff" strokeDasharray="4 4"/>
+              </>
+            )}
+          </svg>
+        )}
+
     <div>
       <div className="flex justify-between mb-1">
         <input

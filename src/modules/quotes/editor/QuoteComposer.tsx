@@ -110,18 +110,9 @@ export default function QuoteComposer({ value, onChange }: Props) {
 
       {/* 新增卡片 */}
       <div className="flex gap-2">
-        <button className="px-3 py-1 bg-gray-200 rounded" onClick={() => addCard("text")}>
-          + 文字段落
-        </button>
-        <button className="px-3 py-1 bg-gray-200 rounded" onClick={() => addCard("table")}>
-          + 表格
-        </button>
-        <button className="px-3 py-1 bg-gray-200 rounded" onClick={() => addCard("divider")}>
-          + 分隔線
-        </button>
-        <button className="px-3 py-1 bg-gray-200 rounded" onClick={() => addCard("footer")}>
-          + 頁腳
-        </button>
+        <button className="px-3 py-1 bg-gray-200 rounded" onClick={() => addCard("text")}>+ 文字</button>
+        <button className="px-3 py-1 bg-gray-200 rounded" onClick={() => addCard("table")}>+ 表格</button>
+        {/* 圖片請改在「畫布模式」中新增（支援拖曳/縮放/貼齊） */}
       </div>
     </div>
   );

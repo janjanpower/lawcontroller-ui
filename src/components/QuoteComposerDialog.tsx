@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import QuoteCanvas from "@/modules/quotes/editor/canvas/QuoteCanvas";
-import type { QuoteCanvasSchema } from "@/modules/quotes/editor/canvas/schema";
+import QuoteCanvas from "../modules/quotes/editor/canvas/QuoteCanvas";
+import type { QuoteCanvasSchema } from "../modules/quotes/editor/canvas/schema";
 import { getFirmCodeOrThrow } from "../utils/api";
 
 const A4PX = { width: 794, height: 1123, margin: 40 }; // 96dpi A4 約略尺寸

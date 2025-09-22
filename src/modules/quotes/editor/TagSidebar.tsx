@@ -60,6 +60,12 @@ function formatCell(v: any, type?: Column['type']) {
   }
 }
 
+async function handleDeleteTemplate() {
+    if (!confirm('確定要移除這個模板？此動作無法復原')) return;
+    // TODO: 呼叫後端 API 刪除模板（需提供 template.id）
+    alert('模板已移除（請串接 API）');
+  }
+
 export default function QuoteComposer({ isOpen, onClose, caseId, template }: QuoteComposerProps) {
   const previewRef = useRef<HTMLDivElement>(null);
   const [ctx, setCtx] = useState<Dict>({});
@@ -334,12 +340,13 @@ export default function QuoteComposer({ isOpen, onClose, caseId, template }: Quo
           />
 
           <button onClick={handleSaveTemplate} className="px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700">
-            儲存為模板
+            儲存模板
           </button>
+          <button onClick={handleDeleteTemplate} className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700">移除模板</button>
 
           <button onClick={handleSaveToCase} className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">儲存到案件</button>
           <button disabled={exporting} onClick={handleExportPDF} className="px-4 py-2 rounded bg-[#334d6d] text-white hover:bg-[#3f5a7d] inline-flex items-center gap-2">
-            <Download className="w-4 h-4"/>{exporting ? '匯出中…' : '匯出 PDF'}
+            <Download className="w-4 h-4"/>{exporting ? '匯出中…' : '匯出'}
           </button>
         </div>
       </div>
