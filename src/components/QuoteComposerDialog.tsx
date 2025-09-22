@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import QuoteCanvas from "../modules/quotes/editor/canvas/QuoteCanvas";
 import type { QuoteCanvasSchema } from "../modules/quotes/editor/canvas/schema";
-import { getFirmCodeOrThrow } from "../utils/api";
+import { getFirmCodeOrThrow, apiFetch } from "../utils/api";
+import { X, Eye, Save, Download, Trash2 } from "lucide-react";
 
 const A4PX = { width: 794, height: 1123, margin: 40 }; // 96dpi A4 約略尺寸
 
@@ -15,9 +16,12 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
   const [schema, setSchema] = useState<QuoteCanvasSchema>({
     page: A4PX,
     blocks: [],
+    gridSize: 10,
+    showGrid: true,
   });
   const [templates, setTemplates] = useState<any[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
@@ -26,14 +30,17 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
     if (!isOpen) return;
     (async () => {
       try {
+        setLoading(true);
         const firmCode = getFirmCodeOrThrow();
-        const res = await fetch(`/api/quote-templates?firm_code=${firmCode}`);
+        const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
         if (res.ok) {
           const data = await res.json();
           setTemplates(data || []);
         }
       } catch (err) {
         console.error("載入模板失敗", err);
+      } finally {
+        setLoading(false);
       }
     })();
   }, [isOpen]);
@@ -49,15 +56,17 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
   const handleSaveAsTemplate = async () => {
     try {
       const firmCode = getFirmCodeOrThrow();
-      const name = prompt("請輸入模板名稱：", "我的模板");
+      const name = prompt("請輸入模板名稱：", "自訂報價單模板");
       if (!name) return;
 
-      const res = await fetch(`/api/quote-templates?firm_code=${firmCode}`, {
+      setLoading(true);
+      const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          description: `由案件 ${caseId} 建立的自訂模板`,
           content_json: schema,
+          is_default: false,
         }),
       });
 
@@ -68,13 +77,15 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
       }
 
       alert("模板已儲存！");
-      const reload = await fetch(`/api/quote-templates?firm_code=${firmCode}`);
+      const reload = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
       if (reload.ok) {
         const data = await reload.json();
         setTemplates(data || []);
       }
     } catch (e: any) {
       alert("發生錯誤：" + (e.message || "未知錯誤"));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -82,10 +93,30 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
   const handleRemoveTemplate = async () => {
     try {
       const firmCode = getFirmCodeOrThrow();
-      const tplId = prompt("請輸入要移除的模板 ID：");
-      if (!tplId) return;
+      
+      if (templates.length === 0) {
+        alert("目前沒有可移除的模板");
+        return;
+      }
 
-      const res = await fetch(`/api/quote-templates/${tplId}?firm_code=${firmCode}`, {
+      // 顯示模板選擇對話框
+      const templateOptions = templates.map(t => `${t.id}: ${t.name}`).join('\n');
+      const selectedTemplate = prompt(`請選擇要移除的模板：\n\n${templateOptions}\n\n請輸入模板 ID：`);
+      
+      if (!selectedTemplate) return;
+      
+      const template = templates.find(t => t.id === selectedTemplate || t.name === selectedTemplate);
+      if (!template) {
+        alert("找不到指定的模板");
+        return;
+      }
+
+      if (!confirm(`確定要刪除模板「${template.name}」嗎？此操作無法復原。`)) {
+        return;
+      }
+
+      setLoading(true);
+      const res = await apiFetch(`/api/quote-templates/${template.id}?firm_code=${firmCode}`, {
         method: "DELETE",
       });
 
@@ -96,14 +127,15 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
       }
 
       alert("模板已移除！");
-      // ✅ 重新載入模板清單
-      const reload = await fetch(`/api/quote-templates?firm_code=${firmCode}`);
+      const reload = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
       if (reload.ok) {
         const data = await reload.json();
         setTemplates(data || []);
       }
     } catch (e: any) {
       alert("發生錯誤：" + (e.message || "未知錯誤"));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -111,9 +143,9 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
   const handleExport = async (current: QuoteCanvasSchema) => {
     try {
       const firmCode = getFirmCodeOrThrow();
-      const res = await fetch(`/api/quotes/render-pdf?firm_code=${firmCode}`, {
+      setLoading(true);
+      const res = await apiFetch(`/api/quotes/render-pdf?firm_code=${firmCode}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           case_id: caseId,
           schema_json: current,
@@ -136,7 +168,7 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `quote_${caseId}.pdf`;
+      a.download = `報價單_${caseId}_${new Date().toISOString().split('T')[0]}.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
 
@@ -144,73 +176,156 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
       onClose();
     } catch (e: any) {
       alert("發生錯誤：" + (e.message || "未知錯誤"));
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-[95vh] flex flex-col">
         {/* 標題列 */}
-        <div className="flex justify-between items-center px-4 py-2 border-b">
-          <h2 className="text-lg font-semibold">建立報價單</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
+        <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Save className="w-5 h-5" />
+            建立報價單
+          </h2>
+          <button 
+            onClick={onClose} 
+            className="text-white hover:text-gray-300 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* 套用模板下拉選單 */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b">
-          <span className="text-sm text-gray-600">套用模板：</span>
-          <select
-            onChange={(e) => {
-              const tpl = templates.find((t) => t.id === e.target.value);
-              if (tpl) applyTemplate(tpl);
-            }}
-            className="border rounded p-1 text-sm"
-          >
-            <option value="">選擇模板</option>
-            {templates.map((tpl) => (
-              <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
-            ))}
-          </select>
+        {/* 工具列 */}
+        <div className="flex items-center justify-between gap-4 px-6 py-3 border-b bg-gray-50">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">套用模板：</span>
+              <select
+                onChange={(e) => {
+                  const tpl = templates.find((t) => t.id === e.target.value);
+                  if (tpl) applyTemplate(tpl);
+                }}
+                className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+                disabled={loading}
+              >
+                <option value="">選擇現有模板</option>
+                {templates.map((tpl) => (
+                  <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {loading && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#334d6d]"></div>
+                處理中...
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 編輯器 */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-hidden">
           <QuoteCanvas
             value={schema}
             onChange={setSchema}
             onExport={handleExport}
             onSaveTemplate={handleSaveAsTemplate}
             onRemoveTemplate={handleRemoveTemplate}
+            caseId={caseId}
           />
         </div>
 
         {/* 底部操作列 */}
-        <div className="px-4 py-3 border-t flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200">取消</button>
-          <button onClick={() => setPreviewOpen(true)} className="px-4 py-2 rounded bg-gray-500 text-white">
-            👁 預覽
+        <div className="px-6 py-4 border-t bg-gray-50 flex justify-between items-center">
+          <button 
+            onClick={onClose} 
+            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors"
+            disabled={loading}
+          >
+            取消
           </button>
-          <button onClick={handleSaveAsTemplate} className="px-4 py-2 rounded bg-purple-600 text-white">
-            💾 儲存模板
-          </button>
-          <button onClick={handleRemoveTemplate} className="px-4 py-2 rounded bg-red-600 text-white">
-            🗑 移除模板
-          </button>
-          <button onClick={() => handleExport(schema)} className="px-4 py-2 rounded bg-blue-600 text-white">
-            📄 匯出
-          </button>
+          
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setPreviewOpen(true)} 
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center gap-2"
+              disabled={loading}
+            >
+              <Eye className="w-4 h-4" />
+              預覽
+            </button>
+            <button 
+              onClick={handleSaveAsTemplate} 
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors flex items-center gap-2"
+              disabled={loading}
+            >
+              <Save className="w-4 h-4" />
+              儲存模板
+            </button>
+            <button 
+              onClick={handleRemoveTemplate} 
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors flex items-center gap-2"
+              disabled={loading || templates.length === 0}
+            >
+              <Trash2 className="w-4 h-4" />
+              移除模板
+            </button>
+            <button 
+              onClick={() => handleExport(schema)} 
+              className="px-6 py-2 bg-[#334d6d] hover:bg-[#3f5a7d] text-white rounded-md transition-colors flex items-center gap-2 font-medium"
+              disabled={loading}
+            >
+              <Download className="w-4 h-4" />
+              匯出 PDF
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 預覽 Modal */}
+      {/* 預覽對話框 */}
       {previewOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-white rounded shadow-xl p-4 max-w-4xl max-h-[90vh] overflow-auto">
-            <div className="flex justify-between items-center mb-2">
-              <h2 className="text-lg font-bold">樣式預覽</h2>
-              <button className="icon-btn" onClick={() => setPreviewOpen(false)}>✖</button>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-60">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl max-h-[90vh] overflow-auto">
+            <div className="bg-[#334d6d] text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Eye className="w-5 h-5" />
+                報價單預覽
+              </h2>
+              <button 
+                onClick={() => setPreviewOpen(false)}
+                className="text-white hover:text-gray-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <PreviewRenderer schema={schema} />
+            <div className="p-6">
+              <PreviewRenderer schema={schema} />
+            </div>
+            <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
+              <button 
+                onClick={() => setPreviewOpen(false)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors"
+              >
+                關閉預覽
+              </button>
+              <button 
+                onClick={() => {
+                  setPreviewOpen(false);
+                  handleExport(schema);
+                }}
+                className="px-6 py-2 bg-[#334d6d] hover:bg-[#3f5a7d] text-white rounded-md transition-colors flex items-center gap-2"
+                disabled={loading}
+              >
+                <Download className="w-4 h-4" />
+                直接匯出
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -218,69 +333,95 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
   );
 }
 
-/** 簡單的預覽渲染器：根據 block 的位置還原畫面 */
+/** 預覽渲染器：根據 schema 渲染最終效果 */
 function PreviewRenderer({ schema }: { schema: QuoteCanvasSchema }) {
   return (
     <div
+      className="bg-white shadow-lg mx-auto"
       style={{
         width: schema.page.width,
         height: schema.page.height,
-        background: "#fff",
-        margin: "0 auto",
-        padding: schema.page.margin,
         position: "relative",
+        transform: "scale(0.8)",
+        transformOrigin: "top center",
       }}
     >
-      {schema.blocks.map((b) => {
+      {schema.blocks.map((block) => {
         const style: React.CSSProperties = {
           position: "absolute",
-          left: b.x,
-          top: b.y,
-          width: b.w,
-          height: b.h ?? "auto",
+          left: block.x,
+          top: block.y,
+          width: block.w,
+          height: block.h || "auto",
+          zIndex: block.z || 1,
         };
 
-        if (b.type === "text") {
-          const tb = b as any;
+        if (block.type === "text") {
+          const textBlock = block as TextBlock;
           return (
             <div
-              key={b.id}
+              key={block.id}
               style={{
                 ...style,
-                fontSize: tb.fontSize ?? 14,
-                fontWeight: tb.bold ? "bold" : "normal",
-                fontStyle: tb.italic ? "italic" : "normal",
-                textDecoration: tb.underline ? "underline" : "none",
-                textAlign: tb.align ?? "left",
+                fontSize: textBlock.fontSize || 14,
+                fontWeight: textBlock.bold ? "bold" : "normal",
+                fontStyle: textBlock.italic ? "italic" : "normal",
+                textDecoration: textBlock.underline ? "underline" : "none",
+                textAlign: textBlock.align || "left",
+                color: textBlock.color || "#000000",
+                backgroundColor: textBlock.backgroundColor || "transparent",
+                padding: "4px",
+                wordWrap: "break-word",
               }}
             >
-              {tb.text}
+              {textBlock.text}
             </div>
           );
         }
-        if (b.type === "table") {
-          const tb = b as any;
+
+        if (block.type === "table") {
+          const tableBlock = block as TableBlock;
           return (
             <table
-              key={b.id}
+              key={block.id}
               style={{
                 ...style,
                 borderCollapse: "collapse",
-                background: "#fff",
+                fontSize: "12px",
               }}
+              className="border border-gray-400"
             >
               <thead>
                 <tr>
-                  {tb.headers.map((h: string, i: number) => (
-                    <th key={i} style={{ border: "1px solid #ccc", padding: "4px" }}>{h}</th>
+                  {tableBlock.headers.map((header, i) => (
+                    <th
+                      key={i}
+                      className="border border-gray-400 px-2 py-1"
+                      style={{
+                        fontWeight: tableBlock.headerStyle?.bold ? "bold" : "normal",
+                        backgroundColor: tableBlock.headerStyle?.backgroundColor || "#f3f4f6",
+                        textAlign: tableBlock.headerStyle?.textAlign || "center",
+                      }}
+                    >
+                      {header}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {tb.rows.map((row: string[], ri: number) => (
-                  <tr key={ri}>
-                    {row.map((cell: string, ci: number) => (
-                      <td key={ci} style={{ border: "1px solid #ccc", padding: "4px" }}>{cell}</td>
+                {tableBlock.rows.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {row.map((cell, colIndex) => (
+                      <td
+                        key={colIndex}
+                        className="border border-gray-400 px-2 py-1"
+                        style={{
+                          textAlign: tableBlock.cellStyle?.textAlign || "left",
+                          padding: tableBlock.cellStyle?.padding || 4,
+                        }}
+                      >
+                        {cell}
+                      </td>
                     ))}
                   </tr>
                 ))}
@@ -288,10 +429,22 @@ function PreviewRenderer({ schema }: { schema: QuoteCanvasSchema }) {
             </table>
           );
         }
-        if (b.type === "image") {
-          const ib = b as any;
-          return <img key={b.id} src={ib.url} alt="" style={{ ...style, objectFit: ib.fit ?? "contain" }} />;
+
+        if (block.type === "image") {
+          const imageBlock = block as ImageBlock;
+          return (
+            <img
+              key={block.id}
+              src={imageBlock.url}
+              alt={imageBlock.alt || "圖片"}
+              style={{
+                ...style,
+                objectFit: imageBlock.fit || "contain",
+              }}
+            />
+          );
         }
+
         return null;
       })}
     </div>
