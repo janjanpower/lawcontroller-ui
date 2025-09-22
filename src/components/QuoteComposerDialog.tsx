@@ -264,10 +264,10 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
             <button 
               onClick={handleRemoveTemplate} 
               className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors flex items-center gap-2"
-              disabled={loading || templates.length === 0}
+              disabled={loading}
             >
               <Trash2 className="w-4 h-4" />
-              移除當前模板
+              使用新模板
             </button>
             <button 
               onClick={() => handleExport(schema)} 
