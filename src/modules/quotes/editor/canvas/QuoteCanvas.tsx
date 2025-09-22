@@ -395,10 +395,16 @@ export default function QuoteCanvas({
         {selectedBlock && (
           <div className="mb-6">
             <h3 className="text-sm font-semibold mb-3 text-gray-700">區塊屬性</h3>
-            <div className="text-xs text-gray-600">
-              {selectedBlock.type === "text" && "文字區塊"}
-              {selectedBlock.type === "table" && "表格區塊"}
-            </div>
+            {selectedBlock.type === "text" && (
+              <div className="text-xs text-gray-600">
+                文字區塊 - 使用上方工具列編輯格式
+              </div>
+            )}
+            {selectedBlock.type === "table" && (
+              <div className="text-xs text-gray-600">
+                表格區塊 - 拖拽欄位邊界調整寬度
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -530,6 +536,98 @@ export default function QuoteCanvas({
                           <Unlock className="w-3 h-3 text-gray-600" />
                         )}
                       </button>
+
+                      {/* 文字區塊的格式工具 */}
+                      {block.type === "text" && (
+                        <>
+                          {/* 字體大小 */}
+                          <input
+                            type="number"
+                            min="8"
+                            max="72"
+                            value={(block as TextBlock).fontSize || 14}
+                            onChange={(e) => updateBlock(block.id, { fontSize: parseInt(e.target.value) })}
+                            className="w-12 px-1 py-0.5 text-xs border rounded"
+                            title="字體大小"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+
+                          {/* 粗體 */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateBlock(block.id, { bold: !(block as TextBlock).bold });
+                            }}
+                            className={`p-1 hover:bg-gray-100 rounded font-bold ${
+                              (block as TextBlock).bold ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                            }`}
+                            title="粗體"
+                          >
+                            B
+                          </button>
+
+                          {/* 斜體 */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateBlock(block.id, { italic: !(block as TextBlock).italic });
+                            }}
+                            className={`p-1 hover:bg-gray-100 rounded italic ${
+                              (block as TextBlock).italic ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                            }`}
+                            title="斜體"
+                          >
+                            I
+                          </button>
+
+                          {/* 底線 */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateBlock(block.id, { underline: !(block as TextBlock).underline });
+                            }}
+                            className={`p-1 hover:bg-gray-100 rounded underline ${
+                              (block as TextBlock).underline ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                            }`}
+                            title="底線"
+                          >
+                            U
+                          </button>
+
+                          {/* 文字對齊 */}
+                          <select
+                            value={(block as TextBlock).align || "left"}
+                            onChange={(e) => updateBlock(block.id, { align: e.target.value })}
+                            className="px-1 py-0.5 text-xs border rounded"
+                            title="文字對齊"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="left">靠左</option>
+                            <option value="center">置中</option>
+                            <option value="right">靠右</option>
+                          </select>
+
+                          {/* 文字顏色 */}
+                          <input
+                            type="color"
+                            value={(block as TextBlock).color || "#000000"}
+                            onChange={(e) => updateBlock(block.id, { color: e.target.value })}
+                            className="w-6 h-6 border rounded cursor-pointer"
+                            title="文字顏色"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+
+                          {/* 背景顏色 */}
+                          <input
+                            type="color"
+                            value={(block as TextBlock).backgroundColor || "#ffffff"}
+                            onChange={(e) => updateBlock(block.id, { backgroundColor: e.target.value })}
+                            className="w-6 h-6 border rounded cursor-pointer"
+                            title="背景顏色"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </>
+                      )}
 
                       {/* 表格區塊的操作 */}
                       {block.type === "table" && (
@@ -785,39 +883,35 @@ function TableRenderer({
     });
 
     document.body.style.cursor = 'col-resize';
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizing || !tableRef.current) return;
+
+      const deltaX = e.clientX - resizing.startX;
+      const newWidth = Math.max(50, resizing.startWidth + deltaX);
+
+      const th = tableRef.current.querySelector(`th:nth-child(${resizing.colIndex + 1})`) as HTMLElement;
+      if (th) {
+        th.style.width = `${newWidth}px`;
+      }
+
+      const cells = tableRef.current.querySelectorAll(`td:nth-child(${resizing.colIndex + 1})`);
+      cells.forEach((cell) => {
+        (cell as HTMLElement).style.width = `${newWidth}px`;
+      });
+    };
+
+    const handleMouseUp = () => {
+      setResizing(null);
+      document.body.style.cursor = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   }, []);
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!resizing || !tableRef.current) return;
-
-    const deltaX = e.clientX - resizing.startX;
-    const newWidth = Math.max(50, resizing.startWidth + deltaX); // 最小寬度 50px
-
-    const th = tableRef.current.querySelector(`th:nth-child(${resizing.colIndex + 1})`) as HTMLElement;
-    if (th) {
-      th.style.width = `${newWidth}px`;
-    }
-
-    // 同步更新所有該欄的儲存格
-    const cells = tableRef.current.querySelectorAll(`td:nth-child(${resizing.colIndex + 1})`);
-    cells.forEach((cell) => {
-      (cell as HTMLElement).style.width = `${newWidth}px`;
-    });
-  };
-
-  const handleMouseUp = () => {
-    if (resizing) {
-      // 這裡可以選擇是否要將新寬度保存到 state
-      // 目前保持視覺效果，不強制同步到 columnWidths
-    }
-
-    setResizing(null);
-    document.body.style.cursor = '';
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  };
 
   return (
     <table
