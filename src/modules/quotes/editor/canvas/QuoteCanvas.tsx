@@ -7,6 +7,11 @@ import {
   Type, Table, Plus, Minus, Trash2,
   Eye, EyeOff, Copy, Columns, Rows, Merge, Split, Lock, Unlock
 } from "lucide-react";
+import {
+  Type, Table, Plus, Minus, Trash2,
+  Eye, EyeOff, Copy, Columns, Rows, Merge, Split, Lock, Unlock,
+  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Palette
+} from "lucide-react";
 import { apiFetch, getFirmCodeOrThrow } from "../../../../utils/api";
 
 type Props = {
@@ -535,7 +540,7 @@ export default function QuoteCanvas({
                             max="72"
                             value={(block as TextBlock).fontSize || 14}
                             onChange={(e) => updateBlock(block.id, { fontSize: parseInt(e.target.value) })}
-                            className="w-10 px-1 py-0.5 text-xs border rounded"
+                            className="w-8 px-1 py-0.5 text-xs border rounded focus:ring-1 focus:ring-[#334d6d] outline-none"
                             title="字體大小"
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -546,12 +551,12 @@ export default function QuoteCanvas({
                               e.stopPropagation();
                               updateBlock(block.id, { bold: !(block as TextBlock).bold });
                             }}
-                            className={`p-1 hover:bg-gray-100 rounded font-bold text-xs ${
+                            className={`p-1 hover:bg-gray-100 rounded transition-colors ${
                               (block as TextBlock).bold ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
                             }`}
                             title="粗體"
                           >
-                            B
+                            <Bold className="w-3 h-3" />
                           </button>
 
                           {/* 斜體 */}
@@ -560,12 +565,12 @@ export default function QuoteCanvas({
                               e.stopPropagation();
                               updateBlock(block.id, { italic: !(block as TextBlock).italic });
                             }}
-                            className={`p-1 hover:bg-gray-100 rounded italic text-xs ${
+                            className={`p-1 hover:bg-gray-100 rounded transition-colors ${
                               (block as TextBlock).italic ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
                             }`}
                             title="斜體"
                           >
-                            I
+                            <Italic className="w-3 h-3" />
                           </button>
 
                           {/* 底線 */}
@@ -574,15 +579,15 @@ export default function QuoteCanvas({
                               e.stopPropagation();
                               updateBlock(block.id, { underline: !(block as TextBlock).underline });
                             }}
-                            className={`p-1 hover:bg-gray-100 rounded underline text-xs ${
+                            className={`p-1 hover:bg-gray-100 rounded transition-colors ${
                               (block as TextBlock).underline ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
                             }`}
                             title="底線"
                           >
-                            U
+                            <Underline className="w-3 h-3" />
                           </button>
 
-                          {/* 文字對齊 - 改為 icon 按鈕 */}
+                          {/* 文字對齊 */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -590,37 +595,58 @@ export default function QuoteCanvas({
                               const nextAlign = currentAlign === "left" ? "center" : currentAlign === "center" ? "right" : "left";
                               updateBlock(block.id, { align: nextAlign });
                             }}
-                            className="p-1 hover:bg-gray-100 rounded"
-                            title={`文字對齊: ${(block as TextBlock).align === "center" ? "置中" : (block as TextBlock).align === "right" ? "靠右" : "靠左"}`}
+                            className={`p-1 hover:bg-gray-100 rounded transition-colors ${
+                              (block as TextBlock).align ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                            }`}
+                            title={`對齊方式: ${(block as TextBlock).align === "center" ? "置中" : (block as TextBlock).align === "right" ? "靠右" : "靠左"}`}
                           >
                             {(block as TextBlock).align === "center" ? (
-                              <span className="text-xs font-bold text-gray-600">⫸</span>
+                              <AlignCenter className="w-3 h-3" />
                             ) : (block as TextBlock).align === "right" ? (
-                              <span className="text-xs font-bold text-gray-600">⫷</span>
+                              <AlignRight className="w-3 h-3" />
                             ) : (
-                              <span className="text-xs font-bold text-gray-600">⫸</span>
+                              <AlignLeft className="w-3 h-3" />
                             )}
                           </button>
 
-                          {/* 文字顏色 */}
-                          <input
-                            type="color"
-                            value={(block as TextBlock).color || "#000000"}
-                            onChange={(e) => updateBlock(block.id, { color: e.target.value })}
-                            className="w-5 h-5 border rounded cursor-pointer"
-                            title="文字顏色"
-                            onClick={(e) => e.stopPropagation()}
-                          />
+                          {/* 顏色選擇器 - 包裝在按鈕內 */}
+                          <div className="relative">
+                            <button
+                              className="p-1 hover:bg-gray-100 rounded transition-colors relative"
+                              title="文字顏色"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Palette className="w-3 h-3 text-gray-600" />
+                              <input
+                                type="color"
+                                value={(block as TextBlock).color || "#000000"}
+                                onChange={(e) => updateBlock(block.id, { color: e.target.value })}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </button>
+                          </div>
 
                           {/* 背景顏色 */}
-                          <input
-                            type="color"
-                            value={(block as TextBlock).backgroundColor || "#ffffff"}
-                            onChange={(e) => updateBlock(block.id, { backgroundColor: e.target.value })}
-                            className="w-5 h-5 border rounded cursor-pointer"
-                            title="背景顏色"
-                            onClick={(e) => e.stopPropagation()}
-                          />
+                          <div className="relative">
+                            <button
+                              className="p-1 hover:bg-gray-100 rounded transition-colors relative"
+                              title="背景顏色"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div
+                                className="w-3 h-3 border border-gray-300 rounded-sm"
+                                style={{ backgroundColor: (block as TextBlock).backgroundColor || "#ffffff" }}
+                              />
+                              <input
+                                type="color"
+                                value={(block as TextBlock).backgroundColor || "#ffffff"}
+                                onChange={(e) => updateBlock(block.id, { backgroundColor: e.target.value })}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </button>
+                          </div>
                         </>
                       )}
 
@@ -885,7 +911,6 @@ function TableRenderer({
 
   // 處理欄位寬度調整
   const handleMouseDown = (e: React.MouseEvent, colIndex: number) => {
-    console.log('handleMouseDown triggered for column', colIndex);
     e.preventDefault();
     e.stopPropagation();
 
