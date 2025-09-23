@@ -20,228 +20,180 @@ type Props = {
 };
 
 // 變數標籤組件
-function VariableTag({
-  varKey,
-  value,
-  color = "#3b82f6",
-  onColorChange,
-  onDelete,
-  previewMode = false
-}: {
+const VariableTag: React.FC<{
   varKey: string;
   value?: string;
   color?: string;
   onColorChange?: (color: string) => void;
   onDelete?: () => void;
   previewMode?: boolean;
-}) {
+}> = ({ varKey, value, color = "#3b82f6", onColorChange, onDelete, previewMode }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
 
-  if (previewMode) {
-    return (
-      <span
-        style={{
-          backgroundColor: color,
-          color: 'white',
-          padding: '2px 6px',
-          borderRadius: '4px',
-          fontSize: '0.85em',
-          fontWeight: '500'
-        }}
-      >
-        {value || varKey}
-      </span>
-    );
+  if (previewMode && value !== undefined) {
+    return <span style={{ color }}>{value}</span>;
   }
 
   return (
     <span
+      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-mono cursor-pointer select-none"
+      style={{ backgroundColor: color + "20", color, border: `1px solid ${color}` }}
       contentEditable={false}
-      className="inline-flex items-center gap-1 px-2 py-1 rounded text-white text-sm font-medium cursor-pointer select-none"
-      style={{ backgroundColor: color }}
-      onClick={(e) => e.stopPropagation()}
+      suppressContentEditableWarning={true}
     >
-      <span>{{`${varKey}`}}</span>
-      <div className="relative">
-        <button
-          onClick={() => setShowColorPicker(!showColorPicker)}
-          className="w-3 h-3 rounded-full border border-white/50 hover:border-white"
-          style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}
-        />
-        {showColorPicker && (
-          <div className="absolute top-full left-0 mt-1 z-50">
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => onColorChange?.(e.target.value)}
-              className="w-8 h-8 border-none rounded cursor-pointer"
-            />
-          </div>
-        )}
-      </div>
-      <button
-        onClick={onDelete}
-        className="w-3 h-3 text-white/70 hover:text-white text-xs"
-      >
-        ×
-      </button>
+      <span>{`{{${varKey}}}`}</span>
+      {!previewMode && (
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowColorPicker(!showColorPicker);
+            }}
+            className="w-3 h-3 rounded-full border border-white"
+            style={{ backgroundColor: color }}
+            title="選擇顏色"
+          />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete?.();
+            }}
+            className="text-red-500 hover:text-red-700"
+            title="刪除標籤"
+          >
+            ×
+          </button>
+          {showColorPicker && (
+            <div className="absolute z-50 mt-2">
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => onColorChange?.(e.target.value)}
+                className="w-8 h-8"
+              />
+            </div>
+          )}
+        </>
+      )}
     </span>
   );
-}
+};
 
 // 富文本編輯器組件
-function RichTextEditor({
-  value,
-  onChange,
-  previewMode,
-  vars,
-  onInsertVariable
-}: {
+const RichTextEditor: React.FC<{
   value: string;
   onChange: (value: string) => void;
-  previewMode: boolean;
   vars: VariableDef[];
-  onInsertVariable: (varKey: string) => void;
-}) {
+  previewMode?: boolean;
+  style?: React.CSSProperties;
+}> = ({ value, onChange, vars, previewMode, style }) => {
   const editorRef = useRef<HTMLDivElement>(null);
-  const [variableTags, setVariableTags] = useState<Array<{
-    id: string;
-    varKey: string;
-    color: string;
-    startIndex: number;
-    endIndex: number;
-  }>>([]);
+  const [variableTags, setVariableTags] = useState<Record<string, { color: string; value?: string }>>({});
 
   // 解析文本中的變數標籤
-  const parseVariableTags = useCallback((text: string) => {
-    const regex = /\{\{([^}]+)\}\}/g;
-    const tags = [];
-    let match;
+  const parseContent = useCallback(() => {
+    if (!editorRef.current || previewMode) return;
 
-    while ((match = regex.exec(text)) !== null) {
-      tags.push({
-        id: nanoid(),
-        varKey: match[1],
-        color: "#3b82f6",
-        startIndex: match.index,
-        endIndex: match.index + match[0].length
-      });
+    const content = editorRef.current.innerHTML;
+    const variableRegex = /\{\{([^}]+)\}\}/g;
+    let match;
+    const foundVars: Record<string, { color: string; value?: string }> = {};
+
+    while ((match = variableRegex.exec(content)) !== null) {
+      const varKey = match[1];
+      const varDef = vars.find(v => v.key === varKey);
+      foundVars[varKey] = {
+        color: variableTags[varKey]?.color || "#3b82f6",
+        value: varDef?.value
+      };
     }
 
-    setVariableTags(tags);
-  }, []);
+    setVariableTags(foundVars);
+  }, [vars, variableTags, previewMode]);
 
-  // 渲染帶有變數標籤的內容
+  // 渲染內容（預覽模式或編輯模式）
   const renderContent = useCallback(() => {
     if (previewMode) {
       // 預覽模式：替換變數為實際值
-      let result = value;
-      vars.forEach(v => {
-        const regex = new RegExp(`\\{\\{${v.key}\\}\\}`, 'g');
-        result = result.replace(regex, v.value || v.label);
+      let content = value;
+      Object.entries(variableTags).forEach(([varKey, { value: varValue }]) => {
+        if (varValue !== undefined) {
+          content = content.replace(new RegExp(`\\{\\{${varKey}\\}\\}`, 'g'), varValue);
+        }
       });
-      return result;
+      return content;
     }
 
-    // 編輯模式：渲染變數標籤
-    if (!variableTags.length) return value;
-
-    const parts = [];
-    let lastIndex = 0;
-
-    variableTags.forEach((tag, index) => {
-      // 添加標籤前的文本
-      if (tag.startIndex > lastIndex) {
-        parts.push(value.slice(lastIndex, tag.startIndex));
-      }
-
-      // 添加變數標籤
-      const varDef = vars.find(v => v.key === tag.varKey);
-      parts.push(
-        <VariableTag
-          key={tag.id}
-          varKey={tag.varKey}
-          value={varDef?.value}
-          color={tag.color}
-          onColorChange={(color) => {
-            const newTags = [...variableTags];
-            newTags[index].color = color;
-            setVariableTags(newTags);
-          }}
-          onDelete={() => {
-            const newValue = value.slice(0, tag.startIndex) + value.slice(tag.endIndex);
-            onChange(newValue);
-          }}
-          previewMode={false}
-        />
-      );
-
-      lastIndex = tag.endIndex;
+    // 編輯模式：顯示變數標籤
+    return value.replace(/\{\{([^}]+)\}\}/g, (match, varKey) => {
+      const tag = variableTags[varKey] || { color: "#3b82f6" };
+      return `<span class="variable-tag" data-var="${varKey}" style="background-color: ${tag.color}20; color: ${tag.color}; border: 1px solid ${tag.color}; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 11px; cursor: pointer; user-select: none;">${match}</span>`;
     });
+  }, [value, variableTags, previewMode]);
 
-    // 添加最後的文本
-    if (lastIndex < value.length) {
-      parts.push(value.slice(lastIndex));
+  const insertVariable = (varKey: string) => {
+    if (!editorRef.current || previewMode) return;
+
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const varTag = `{{${varKey}}}`;
+      
+      const textNode = document.createTextNode(varTag);
+      range.deleteContents();
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.setEndAfter(textNode);
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      // 更新內容
+      onChange(editorRef.current.innerText);
+      parseContent();
     }
-
-    return parts;
-  }, [value, variableTags, vars, previewMode, onChange]);
-
-  useEffect(() => {
-    parseVariableTags(value);
-  }, [value, parseVariableTags]);
-
-  const handleInsertVariable = (varKey: string) => {
-    const newTag = `{{${varKey}}}`;
-    const newValue = value + newTag;
-    onChange(newValue);
-    onInsertVariable(varKey);
   };
 
-  if (previewMode) {
-    return (
-      <div className="w-full h-full p-2 whitespace-pre-wrap">
-        {renderContent()}
-      </div>
-    );
-  }
+  useEffect(() => {
+    parseContent();
+  }, [parseContent]);
 
   return (
-    <div className="w-full h-full">
+    <div className="relative">
       <div
         ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        className="w-full h-full p-2 outline-none resize-none overflow-auto"
-        style={{ minHeight: '100%' }}
-        onInput={(e) => {
-          const target = e.target as HTMLDivElement;
-          onChange(target.textContent || '');
+        contentEditable={!previewMode}
+        suppressContentEditableWarning={true}
+        onInput={() => {
+          if (editorRef.current && !previewMode) {
+            onChange(editorRef.current.innerText);
+          }
         }}
-        dangerouslySetInnerHTML={{ __html: value }}
+        onBlur={parseContent}
+        style={style}
+        className={`w-full h-full p-2 border-none outline-none ${previewMode ? '' : 'min-h-[40px]'}`}
+        dangerouslySetInnerHTML={{ __html: renderContent() }}
       />
-
+      
       {/* 變數插入按鈕 */}
-      <div className="absolute bottom-2 right-2 z-10">
-        <select
-          onChange={(e) => {
-            if (e.target.value) {
-              handleInsertVariable(e.target.value);
-              e.target.value = '';
-            }
-          }}
-          className="text-xs border rounded px-2 py-1 bg-white shadow-sm"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <option value="">插入變數...</option>
-          {vars.map(v => (
-            <option key={v.key} value={v.key}>{v.label}</option>
-          ))}
-        </select>
-      </div>
+      {!previewMode && vars.length > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 bg-white border-t p-2">
+          <div className="flex flex-wrap gap-1">
+            {vars.slice(0, 6).map((v) => (
+              <button
+                key={v.key}
+                onClick={() => insertVariable(v.key)}
+                className="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 rounded transition-colors"
+                title={`插入 {{${v.key}}}`}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
 
 export default function QuoteCanvas({
   value,
@@ -258,8 +210,8 @@ export default function QuoteCanvas({
   const [previewMode, setPreviewMode] = useState(false);
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
-  const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
   const [selectedCells, setSelectedCells] = useState<string[]>([]);
+  const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const gridSize = value.gridSize || 10;
@@ -280,7 +232,7 @@ export default function QuoteCanvas({
     })();
   }, []);
 
-  // 載入案件變數
+  // 載入案件變數（包含階段）
   useEffect(() => {
     if (!caseId) return;
 
@@ -292,6 +244,7 @@ export default function QuoteCanvas({
           const caseVars = await res.json();
           setVars(caseVars);
         } else {
+          // 如果 API 不存在，使用基本案件資料
           const caseRes = await apiFetch(`/api/cases/${caseId}?firm_code=${firmCode}`);
           if (caseRes.ok) {
             const caseData = await caseRes.json();
@@ -342,9 +295,9 @@ export default function QuoteCanvas({
           italic: false,
           underline: false,
           fontSize: 14,
-          fontFamily: "Noto Sans TC",
           align: "left",
           color: "#000000",
+          fontFamily: "Noto Sans TC",
           h: 40,
         } as TextBlock;
         break;
@@ -357,9 +310,10 @@ export default function QuoteCanvas({
           showBorders: true,
           h: 120,
           headerStyle: { bold: true, backgroundColor: "#f3f4f6" },
-          cellStyle: { padding: 8, textAlign: "left" },
+          cellStyle: { padding: 8, textAlign: "left", fontFamily: "Noto Sans TC", fontSize: 12 },
           columnWidths: [25, 15, 25, 25],
           mergedCells: [],
+          hasFixedHeader: false, // 新增：不固定標題行
         } as TableBlock;
         break;
       default:
@@ -370,12 +324,32 @@ export default function QuoteCanvas({
     setSelectedBlockId(block.id);
   };
 
-  // 更新區塊
+  // 更新區塊並置頂
   const updateBlock = (id: string, patch: Partial<CanvasBlock>) => {
-    onChange({
-      ...value,
-      blocks: value.blocks.map((b) => (b.id === id ? { ...b, ...patch } as CanvasBlock : b)),
+    const updatedBlocks = value.blocks.map((b) => {
+      if (b.id === id) {
+        const updated = { ...b, ...patch } as CanvasBlock;
+        // 如果是當前選中的區塊，將其 z-index 設為最高
+        if (selectedBlockId === id) {
+          updated.z = Math.max(...value.blocks.map(block => block.z || 0)) + 1;
+        }
+        return updated;
+      }
+      return b;
     });
+
+    onChange({ ...value, blocks: updatedBlocks });
+  };
+
+  // 選中區塊時置頂
+  const selectBlock = (id: string) => {
+    setSelectedBlockId(id);
+    setSelectedCellId(null);
+    setSelectedCells([]);
+    
+    // 將選中的區塊置頂
+    const maxZ = Math.max(...value.blocks.map(block => block.z || 0));
+    updateBlock(id, { z: maxZ + 1 });
   };
 
   // 刪除區塊
@@ -431,6 +405,74 @@ export default function QuoteCanvas({
     }
   };
 
+  // 儲存模板（更新或新建）
+  const handleSaveTemplate = async () => {
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      
+      if (currentTemplateId) {
+        // 更新現有模板
+        const currentTemplate = templates.find(t => t.id === currentTemplateId);
+        if (currentTemplate) {
+          const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              name: currentTemplate.name,
+              description: currentTemplate.description,
+              content_json: value,
+              is_default: currentTemplate.is_default
+            }),
+          });
+
+          if (res.ok) {
+            alert("模板已更新！");
+            // 重新載入模板列表
+            const reload = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
+            if (reload.ok) {
+              const data = await reload.json();
+              setTemplates(data || []);
+            }
+          } else {
+            const err = await res.json();
+            alert(err?.detail || "更新模板失敗");
+          }
+        }
+      } else {
+        // 創建新模板
+        const name = prompt("請輸入模板名稱：", "自訂報價單模板");
+        if (!name) return;
+
+        const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`, {
+          method: "POST",
+          body: JSON.stringify({
+            name,
+            description: `由案件 ${caseId} 建立的自訂模板`,
+            content_json: value,
+            is_default: false,
+          }),
+        });
+
+        if (res.ok) {
+          const newTemplate = await res.json();
+          setCurrentTemplateId(newTemplate.id);
+          alert("模板已儲存！");
+          
+          // 重新載入模板列表
+          const reload = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
+          if (reload.ok) {
+            const data = await reload.json();
+            setTemplates(data || []);
+          }
+        } else {
+          const err = await res.json();
+          alert(err?.detail || "儲存模板失敗");
+        }
+      }
+    } catch (e: any) {
+      alert("發生錯誤：" + (e.message || "未知錯誤"));
+    }
+  };
+
   // 表格操作函數
   const addTableRow = (blockId: string) => {
     const block = value.blocks.find(b => b.id === blockId) as TableBlock;
@@ -480,7 +522,10 @@ export default function QuoteCanvas({
 
   // 合併儲存格功能
   const mergeCells = (blockId: string) => {
-    if (selectedCells.length < 2) return;
+    if (selectedCells.length < 2) {
+      alert("請選擇至少兩個儲存格進行合併");
+      return;
+    }
 
     const block = value.blocks.find(b => b.id === blockId) as TableBlock;
     if (!block || block.type !== "table") return;
@@ -507,6 +552,7 @@ export default function QuoteCanvas({
     setSelectedCells([]);
   };
 
+  // 拆除合併
   const unmergeCells = (blockId: string) => {
     const block = value.blocks.find(b => b.id === blockId) as TableBlock;
     if (!block || block.type !== "table") return;
@@ -523,63 +569,32 @@ export default function QuoteCanvas({
     setSelectedCells([]);
   };
 
-  // 處理儲存模板
-  const handleSaveTemplate = async () => {
-    try {
-      const firmCode = getFirmCodeOrThrow();
+  // 檢查儲存格是否被合併
+  const isCellMerged = (blockId: string, rowIndex: number, colIndex: number) => {
+    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
+    if (!block || block.type !== "table") return false;
 
-      if (currentTemplateId) {
-        // 更新現有模板
-        const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            name: templates.find(t => t.id === currentTemplateId)?.name || "未命名模板",
-            description: "更新的模板",
-            content_json: value,
-            is_default: false,
-          }),
-        });
+    const mergedCells = block.mergedCells || [];
+    return mergedCells.some(merge =>
+      rowIndex >= merge.startRow && rowIndex <= merge.endRow &&
+      colIndex >= merge.startCol && colIndex <= merge.endCol &&
+      !(rowIndex === merge.startRow && colIndex === merge.startCol)
+    );
+  };
 
-        if (!res.ok) {
-          const err = await res.json();
-          alert(err?.detail || "更新模板失敗");
-          return;
-        }
+  // 取得合併儲存格的 span
+  const getCellSpan = (blockId: string, rowIndex: number, colIndex: number) => {
+    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
+    if (!block || block.type !== "table") return { rowSpan: 1, colSpan: 1 };
 
-        alert("模板已更新！");
-      } else {
-        // 創建新模板
-        const name = prompt("請輸入模板名稱：", "自訂報價單模板");
-        if (!name) return;
-
-        const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`, {
-          method: "POST",
-          body: JSON.stringify({
-            name,
-            description: `由案件 ${caseId} 建立的自訂模板`,
-            content_json: value,
-            is_default: false,
-          }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          alert(err?.detail || "儲存模板失敗");
-          return;
-        }
-
-        alert("模板已儲存！");
-      }
-
-      // 重新載入模板列表
-      const reload = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
-      if (reload.ok) {
-        const data = await reload.json();
-        setTemplates(data || []);
-      }
-    } catch (e: any) {
-      alert("發生錯誤：" + (e.message || "未知錯誤"));
-    }
+    const mergedCells = block.mergedCells || [];
+    const merge = mergedCells.find(m =>
+      m.startRow === rowIndex && m.startCol === colIndex
+    );
+    return merge ? {
+      rowSpan: merge.endRow - merge.startRow + 1,
+      colSpan: merge.endCol - merge.startCol + 1
+    } : { rowSpan: 1, colSpan: 1 };
   };
 
   const selectedBlock = value.blocks.find(b => b.id === selectedBlockId);
@@ -592,9 +607,14 @@ export default function QuoteCanvas({
         <div className="mb-6">
           <h3 className="text-sm font-semibold mb-3 text-gray-700">模板選單</h3>
           <select
+            value={currentTemplateId || ""}
             onChange={(e) => {
               const tpl = templates.find((t) => t.id === e.target.value);
-              if (tpl) applyTemplate(tpl);
+              if (tpl) {
+                applyTemplate(tpl);
+              } else {
+                setCurrentTemplateId(null);
+              }
             }}
             className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
           >
@@ -689,6 +709,32 @@ export default function QuoteCanvas({
             )}
           </div>
         )}
+
+        {/* 合併儲存格控制 */}
+        {selectedBlock?.type === "table" && (
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-3 text-gray-700">儲存格操作</h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => mergeCells(selectedBlockId!)}
+                disabled={selectedCells.length < 2}
+                className="w-full px-3 py-2 bg-purple-100 hover:bg-purple-200 disabled:bg-gray-100 disabled:text-gray-400 rounded-md text-sm transition-colors"
+              >
+                合併選中儲存格 ({selectedCells.length})
+              </button>
+              <button
+                onClick={() => unmergeCells(selectedBlockId!)}
+                disabled={selectedCells.length === 0}
+                className="w-full px-3 py-2 bg-orange-100 hover:bg-orange-200 disabled:bg-gray-100 disabled:text-gray-400 rounded-md text-sm transition-colors"
+              >
+                拆除合併
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              按住 Ctrl/Cmd 點擊多個儲存格進行選擇
+            </p>
+          </div>
+        )}
       </div>
 
       {/* 右側畫布區域 */}
@@ -741,7 +787,7 @@ export default function QuoteCanvas({
 
             {/* 渲染所有區塊 */}
             {value.blocks
-              .sort((a, b) => (a.z || 0) - (b.z || 0)) // 先按 z-index 排序
+              .sort((a, b) => (a.z || 0) - (b.z || 0)) // 按 z-index 排序
               .map((block) => (
               <Rnd
                 key={block.id}
@@ -774,9 +820,7 @@ export default function QuoteCanvas({
                   const newY = snapToGridHelper(pos.y);
                   updateBlock(block.id, { w: newW, h: newH, x: newX, y: newY });
                 }}
-                style={{
-                  zIndex: selectedBlockId === block.id ? 9999 : (block.z || 1) // 選中的元素置頂
-                }}
+                style={{ zIndex: block.z || 1 }}
                 className={`group ${selectedBlockId === block.id ? 'ring-2 ring-blue-500' : ''}`}
               >
                 <div
@@ -791,9 +835,7 @@ export default function QuoteCanvas({
                   onClick={(e) => {
                     e.stopPropagation();
                     if (!previewMode) {
-                      setSelectedBlockId(block.id);
-                      // 更新 z-index 讓選中元素置頂
-                      updateBlock(block.id, { z: Date.now() });
+                      selectBlock(block.id);
                     }
                   }}
                 >
@@ -804,28 +846,40 @@ export default function QuoteCanvas({
                     selectedCells={selectedCells}
                     vars={vars}
                     onUpdate={(patch) => updateBlock(block.id, patch)}
-                    onCellSelect={(cellId) => setSelectedCellId(cellId)}
-                    onCellsSelect={(cellIds) => setSelectedCells(cellIds)}
-                    onInsertVariable={(varKey) => insertVariableToBlock(block.id, varKey)}
+                    onCellSelect={(cellId, isMultiSelect) => {
+                      if (isMultiSelect && selectedCells.includes(cellId)) {
+                        setSelectedCells(prev => prev.filter(id => id !== cellId));
+                      } else if (isMultiSelect) {
+                        setSelectedCells(prev => [...prev, cellId]);
+                      } else {
+                        setSelectedCellId(cellId);
+                        setSelectedCells([cellId]);
+                      }
+                    }}
+                    isCellMerged={(row, col) => isCellMerged(block.id, row, col)}
+                    getCellSpan={(row, col) => getCellSpan(block.id, row, col)}
                   />
 
                   {/* 區塊控制按鈕 - 固定寬度比例 */}
                   {!previewMode && selectedBlockId === block.id && (
-                    <div
-                      className="absolute -top-12 left-0 bg-white border rounded shadow-sm p-1 flex items-center justify-between"
+                    <div 
+                      className="absolute bg-white border rounded shadow-sm p-1 flex justify-between items-center"
                       style={{
-                        width: `${block.w}px`, // 固定寬度與區塊相同
-                        minWidth: '300px' // 最小寬度確保按鈕不會太擠
+                        top: -40,
+                        left: 0,
+                        right: 0,
+                        height: 32,
+                        zIndex: 1000
                       }}
                     >
-                      {/* 左側：功能控制項 */}
-                      <div className="flex gap-1 flex-1">
-                        {/* 文字區塊的格式工具 */}
-                        {block.type === "text" && (
+                      {/* 左側：功能控制項 (70%) */}
+                      <div className="flex gap-1 flex-1 overflow-x-auto">
+                        {/* 通用文字工具 */}
+                        {(block.type === "text" || block.type === "table") && (
                           <>
                             {/* 字體選擇 */}
                             <select
-                              value={(block as TextBlock).fontFamily || "Noto Sans TC"}
+                              value={(block as any).fontFamily || "Noto Sans TC"}
                               onChange={(e) => updateBlock(block.id, { fontFamily: e.target.value })}
                               className="text-xs border rounded px-1 py-0.5 focus:ring-1 focus:ring-[#334d6d] outline-none"
                               onClick={(e) => e.stopPropagation()}
@@ -842,7 +896,7 @@ export default function QuoteCanvas({
                               type="number"
                               min="8"
                               max="72"
-                              value={(block as TextBlock).fontSize || 14}
+                              value={(block as any).fontSize || 14}
                               onChange={(e) => updateBlock(block.id, { fontSize: parseInt(e.target.value) })}
                               className="w-12 px-1 py-0.5 text-xs border rounded focus:ring-1 focus:ring-[#334d6d] outline-none"
                               title="字體大小"
@@ -853,10 +907,10 @@ export default function QuoteCanvas({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                updateBlock(block.id, { bold: !(block as TextBlock).bold });
+                                updateBlock(block.id, { bold: !(block as any).bold });
                               }}
                               className={`p-1 hover:bg-gray-100 rounded transition-colors ${
-                                (block as TextBlock).bold ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                                (block as any).bold ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
                               }`}
                               title="粗體"
                             >
@@ -867,10 +921,10 @@ export default function QuoteCanvas({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                updateBlock(block.id, { italic: !(block as TextBlock).italic });
+                                updateBlock(block.id, { italic: !(block as any).italic });
                               }}
                               className={`p-1 hover:bg-gray-100 rounded transition-colors ${
-                                (block as TextBlock).italic ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                                (block as any).italic ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
                               }`}
                               title="斜體"
                             >
@@ -881,10 +935,10 @@ export default function QuoteCanvas({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                updateBlock(block.id, { underline: !(block as TextBlock).underline });
+                                updateBlock(block.id, { underline: !(block as any).underline });
                               }}
                               className={`p-1 hover:bg-gray-100 rounded transition-colors ${
-                                (block as TextBlock).underline ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                                (block as any).underline ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
                               }`}
                               title="底線"
                             >
@@ -895,18 +949,18 @@ export default function QuoteCanvas({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const currentAlign = (block as TextBlock).align || "left";
+                                const currentAlign = (block as any).align || "left";
                                 const nextAlign = currentAlign === "left" ? "center" : currentAlign === "center" ? "right" : "left";
                                 updateBlock(block.id, { align: nextAlign });
                               }}
                               className={`p-1 hover:bg-gray-100 rounded transition-colors ${
-                                (block as TextBlock).align ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                                (block as any).align ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
                               }`}
-                              title={`對齊方式: ${(block as TextBlock).align === "center" ? "置中" : (block as TextBlock).align === "right" ? "靠右" : "靠左"}`}
+                              title={`對齊方式: ${(block as any).align === "center" ? "置中" : (block as any).align === "right" ? "靠右" : "靠左"}`}
                             >
-                              {(block as TextBlock).align === "center" ? (
+                              {(block as any).align === "center" ? (
                                 <AlignCenter className="w-3 h-3" />
-                              ) : (block as TextBlock).align === "right" ? (
+                              ) : (block as any).align === "right" ? (
                                 <AlignRight className="w-3 h-3" />
                               ) : (
                                 <AlignLeft className="w-3 h-3" />
@@ -923,7 +977,7 @@ export default function QuoteCanvas({
                                 <Palette className="w-3 h-3 text-gray-600" />
                                 <input
                                   type="color"
-                                  value={(block as TextBlock).color || "#000000"}
+                                  value={(block as any).color || "#000000"}
                                   onChange={(e) => updateBlock(block.id, { color: e.target.value })}
                                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                   onClick={(e) => e.stopPropagation()}
@@ -940,11 +994,11 @@ export default function QuoteCanvas({
                               >
                                 <div
                                   className="w-3 h-3 border border-gray-300 rounded-sm"
-                                  style={{ backgroundColor: (block as TextBlock).backgroundColor || "#ffffff" }}
+                                  style={{ backgroundColor: (block as any).backgroundColor || "#ffffff" }}
                                 />
                                 <input
                                   type="color"
-                                  value={(block as TextBlock).backgroundColor || "#ffffff"}
+                                  value={(block as any).backgroundColor || "#ffffff"}
                                   onChange={(e) => updateBlock(block.id, { backgroundColor: e.target.value })}
                                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                   onClick={(e) => e.stopPropagation()}
@@ -954,118 +1008,9 @@ export default function QuoteCanvas({
                           </>
                         )}
 
-                        {/* 表格區塊的操作 */}
+                        {/* 表格專用工具 */}
                         {block.type === "table" && (
                           <>
-                            {/* 字體選擇 */}
-                            <select
-                              value={(block as TableBlock).fontFamily || "Noto Sans TC"}
-                              onChange={(e) => updateBlock(block.id, { fontFamily: e.target.value })}
-                              className="text-xs border rounded px-1 py-0.5 focus:ring-1 focus:ring-[#334d6d] outline-none"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <option value="Noto Sans TC">思源黑體</option>
-                              <option value="Microsoft JhengHei">微軟正黑體</option>
-                              <option value="Arial">Arial</option>
-                              <option value="Times New Roman">Times New Roman</option>
-                              <option value="Courier New">Courier New</option>
-                            </select>
-
-                            {/* 字體大小 */}
-                            <input
-                              type="number"
-                              min="8"
-                              max="72"
-                              value={(block as TableBlock).fontSize || 12}
-                              onChange={(e) => updateBlock(block.id, { fontSize: parseInt(e.target.value) })}
-                              className="w-12 px-1 py-0.5 text-xs border rounded focus:ring-1 focus:ring-[#334d6d] outline-none"
-                              title="字體大小"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-
-                            {/* 粗體 */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                updateBlock(block.id, { bold: !(block as TableBlock).bold });
-                              }}
-                              className={`p-1 hover:bg-gray-100 rounded transition-colors ${
-                                (block as TableBlock).bold ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                              }`}
-                              title="粗體"
-                            >
-                              <Bold className="w-3 h-3" />
-                            </button>
-
-                            {/* 斜體 */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                updateBlock(block.id, { italic: !(block as TableBlock).italic });
-                              }}
-                              className={`p-1 hover:bg-gray-100 rounded transition-colors ${
-                                (block as TableBlock).italic ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                              }`}
-                              title="斜體"
-                            >
-                              <Italic className="w-3 h-3" />
-                            </button>
-
-                            {/* 底線 */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                updateBlock(block.id, { underline: !(block as TableBlock).underline });
-                              }}
-                              className={`p-1 hover:bg-gray-100 rounded transition-colors ${
-                                (block as TableBlock).underline ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                              }`}
-                              title="底線"
-                            >
-                              <Underline className="w-3 h-3" />
-                            </button>
-
-                            {/* 文字對齊 */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const currentAlign = (block as TableBlock).textAlign || "left";
-                                const nextAlign = currentAlign === "left" ? "center" : currentAlign === "center" ? "right" : "left";
-                                updateBlock(block.id, { textAlign: nextAlign });
-                              }}
-                              className={`p-1 hover:bg-gray-100 rounded transition-colors ${
-                                (block as TableBlock).textAlign ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                              }`}
-                              title={`對齊方式: ${(block as TableBlock).textAlign === "center" ? "置中" : (block as TableBlock).textAlign === "right" ? "靠右" : "靠左"}`}
-                            >
-                              {(block as TableBlock).textAlign === "center" ? (
-                                <AlignCenter className="w-3 h-3" />
-                              ) : (block as TableBlock).textAlign === "right" ? (
-                                <AlignRight className="w-3 h-3" />
-                              ) : (
-                                <AlignLeft className="w-3 h-3" />
-                              )}
-                            </button>
-
-                            {/* 文字顏色 */}
-                            <div className="relative">
-                              <button
-                                className="p-1 hover:bg-gray-100 rounded transition-colors relative"
-                                title="文字顏色"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Palette className="w-3 h-3 text-gray-600" />
-                                <input
-                                  type="color"
-                                  value={(block as TableBlock).color || "#000000"}
-                                  onChange={(e) => updateBlock(block.id, { color: e.target.value })}
-                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              </button>
-                            </div>
-
-                            {/* 顯示邊框切換 */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1120,28 +1065,24 @@ export default function QuoteCanvas({
                             >
                               <Minus className="w-3 h-3 text-orange-600" />
                             </button>
-
-                            {/* 合併儲存格按鈕 */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 mergeCells(block.id);
                               }}
                               className="p-1 hover:bg-gray-100 rounded"
-                              title="合併選中的儲存格"
+                              title="合併選中儲存格"
                               disabled={selectedCells.length < 2}
                             >
                               <Merge className="w-3 h-3 text-purple-600" />
                             </button>
-
-                            {/* 拆除合併按鈕 */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 unmergeCells(block.id);
                               }}
                               className="p-1 hover:bg-gray-100 rounded"
-                              title="拆除合併儲存格"
+                              title="拆除合併"
                               disabled={selectedCells.length === 0}
                             >
                               <Split className="w-3 h-3 text-orange-600" />
@@ -1150,7 +1091,7 @@ export default function QuoteCanvas({
                         )}
                       </div>
 
-                      {/* 右側：通用操作 */}
+                      {/* 右側：通用操作 (30%) */}
                       <div className="flex gap-1">
                         <button
                           onClick={(e) => {
@@ -1196,37 +1137,6 @@ export default function QuoteCanvas({
             ))}
           </div>
         </div>
-
-        {/* 底部狀態列 */}
-        <div className="bg-white border-t px-4 py-2 text-sm text-gray-600">
-          <div className="flex justify-between items-center">
-            <div>
-              {selectedBlock && (
-                <span>
-                  已選擇: {selectedBlock.type === "text" ? "文字區塊" : "表格區塊"}
-                  ({selectedBlock.x}, {selectedBlock.y}) {selectedBlock.w}×{selectedBlock.h}
-                </span>
-              )}
-              {selectedCells.length > 0 && (
-                <span className="ml-4">已選擇 {selectedCells.length} 個儲存格</span>
-              )}
-            </div>
-            <div className="flex gap-4">
-              <button
-                onClick={() => handleSaveTemplate()}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                {currentTemplateId ? "更新模板" : "儲存為模板"}
-              </button>
-              <button
-                onClick={() => onExport(value)}
-                className="text-green-600 hover:text-green-800"
-              >
-                匯出 PDF
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -1241,8 +1151,8 @@ function BlockRenderer({
   vars,
   onUpdate,
   onCellSelect,
-  onCellsSelect,
-  onInsertVariable
+  isCellMerged,
+  getCellSpan
 }: {
   block: CanvasBlock;
   previewMode: boolean;
@@ -1250,11 +1160,10 @@ function BlockRenderer({
   selectedCells: string[];
   vars: VariableDef[];
   onUpdate: (patch: Partial<CanvasBlock>) => void;
-  onCellSelect: (cellId: string | null) => void;
-  onCellsSelect: (cellIds: string[]) => void;
-  onInsertVariable: (varKey: string) => void;
+  onCellSelect: (cellId: string, isMultiSelect?: boolean) => void;
+  isCellMerged: (rowIndex: number, colIndex: number) => boolean;
+  getCellSpan: (rowIndex: number, colIndex: number) => { rowSpan: number; colSpan: number };
 }) {
-
   if (block.type === "text") {
     const textBlock = block as TextBlock;
 
@@ -1262,142 +1171,39 @@ function BlockRenderer({
       <RichTextEditor
         value={textBlock.text}
         onChange={(text) => onUpdate({ text })}
-        previewMode={previewMode}
         vars={vars}
-        onInsertVariable={onInsertVariable}
+        previewMode={previewMode}
+        style={{
+          fontSize: textBlock.fontSize || 14,
+          fontWeight: textBlock.bold ? "bold" : "normal",
+          fontStyle: textBlock.italic ? "italic" : "normal",
+          textDecoration: textBlock.underline ? "underline" : "none",
+          textAlign: textBlock.align || "left",
+          color: textBlock.color || "#000000",
+          backgroundColor: textBlock.backgroundColor || "transparent",
+          fontFamily: textBlock.fontFamily || "Noto Sans TC",
+        }}
       />
     );
   }
 
   if (block.type === "table") {
     const tableBlock = block as TableBlock;
-    const mergedCells = tableBlock.mergedCells || [];
-
-    // 檢查儲存格是否被合併
-    const isCellMerged = (rowIndex: number, colIndex: number) => {
-      return mergedCells.some(merge =>
-        rowIndex >= merge.startRow && rowIndex <= merge.endRow &&
-        colIndex >= merge.startCol && colIndex <= merge.endCol &&
-        !(rowIndex === merge.startRow && colIndex === merge.startCol)
-      );
-    };
-
-    // 取得合併儲存格的 span
-    const getCellSpan = (rowIndex: number, colIndex: number) => {
-      const merge = mergedCells.find(m =>
-        m.startRow === rowIndex && m.startCol === colIndex
-      );
-      return merge ? {
-        rowSpan: merge.endRow - merge.startRow + 1,
-        colSpan: merge.endCol - merge.startCol + 1
-      } : { rowSpan: 1, colSpan: 1 };
-    };
-
-    // 處理儲存格選擇
-    const handleCellClick = (rowIndex: number, colIndex: number, e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (previewMode) return;
-
-      const cellId = `${rowIndex}-${colIndex}`;
-
-      if (e.ctrlKey || e.metaKey) {
-        // Ctrl/Cmd + 點擊：多選
-        if (selectedCells.includes(cellId)) {
-          onCellsSelect(selectedCells.filter(id => id !== cellId));
-        } else {
-          onCellsSelect([...selectedCells, cellId]);
-        }
-      } else if (e.shiftKey && selectedCellId) {
-        // Shift + 點擊：範圍選擇
-        const [startRow, startCol] = selectedCellId.split('-').map(Number);
-        const minRow = Math.min(startRow, rowIndex);
-        const maxRow = Math.max(startRow, rowIndex);
-        const minCol = Math.min(startCol, colIndex);
-        const maxCol = Math.max(startCol, colIndex);
-
-        const rangeCells = [];
-        for (let r = minRow; r <= maxRow; r++) {
-          for (let c = minCol; c <= maxCol; c++) {
-            rangeCells.push(`${r}-${c}`);
-          }
-        }
-        onCellsSelect(rangeCells);
-      } else {
-        // 單選
-        onCellSelect(cellId);
-        onCellsSelect([cellId]);
-      }
-    };
-
-    // 渲染儲存格內容（支援變數標籤）
-    const renderCellContent = (content: string, rowIndex: number, colIndex: number) => {
-      if (previewMode) {
-        // 預覽模式：替換變數為實際值
-        let result = content;
-        vars.forEach(v => {
-          const regex = new RegExp(`\\{\\{${v.key}\\}\\}`, 'g');
-          result = result.replace(regex, v.value || v.label);
-        });
-        return result;
-      }
-
-      // 編輯模式：解析並渲染變數標籤
-      const regex = /\{\{([^}]+)\}\}/g;
-      const parts = [];
-      let lastIndex = 0;
-      let match;
-
-      while ((match = regex.exec(content)) !== null) {
-        // 添加標籤前的文本
-        if (match.index > lastIndex) {
-          parts.push(content.slice(lastIndex, match.index));
-        }
-
-        // 添加變數標籤
-        const varDef = vars.find(v => v.key === match[1]);
-        parts.push(
-          <VariableTag
-            key={`${rowIndex}-${colIndex}-${match.index}`}
-            varKey={match[1]}
-            value={varDef?.value}
-            onDelete={() => {
-              const newContent = content.slice(0, match.index) + content.slice(match.index + match[0].length);
-              const newRows = [...tableBlock.rows];
-              newRows[rowIndex][colIndex] = newContent;
-              onUpdate({ rows: newRows });
-            }}
-          />
-        );
-
-        lastIndex = match.index + match[0].length;
-      }
-
-      // 添加最後的文本
-      if (lastIndex < content.length) {
-        parts.push(content.slice(lastIndex));
-      }
-
-      return parts.length > 0 ? parts : content;
-    };
 
     return (
-      <div className="relative w-full h-full">
+      <div className="relative w-full h-full overflow-auto">
         <table
           className="w-full h-full text-xs relative"
           style={{
             borderCollapse: "collapse",
             border: tableBlock.showBorders !== false ? "1px solid #d1d5db" : "none",
-            fontFamily: (tableBlock as any).fontFamily || "Noto Sans TC",
-            fontSize: (tableBlock as any).fontSize || 12,
-            fontWeight: (tableBlock as any).bold ? "bold" : "normal",
-            fontStyle: (tableBlock as any).italic ? "italic" : "normal",
-            textDecoration: (tableBlock as any).underline ? "underline" : "none",
-            color: (tableBlock as any).color || "#000000"
+            fontFamily: (tableBlock.cellStyle as any)?.fontFamily || "Noto Sans TC",
+            fontSize: (tableBlock.cellStyle as any)?.fontSize || 12,
           }}
         >
           <tbody>
-            {/* 移除固定標題行，所有行都是一般儲存格 */}
-            {tableBlock.rows.map((row, rowIndex) => (
+            {/* 將標題行作為普通行處理 */}
+            {[tableBlock.headers, ...tableBlock.rows].map((row, rowIndex) => (
               <tr key={rowIndex}>
                 {row.map((cell, colIndex) => {
                   if (isCellMerged(rowIndex, colIndex)) {
@@ -1412,61 +1218,68 @@ function BlockRenderer({
                     <td
                       key={colIndex}
                       className={`${tableBlock.showBorders !== false ? "border border-gray-300" : ""} p-1 ${
-                        isSelected ? 'bg-blue-100' : ''
-                      } cursor-pointer`}
+                        isSelected ? 'bg-blue-100' : rowIndex === 0 ? 'bg-gray-50' : ''
+                      }`}
                       style={{
-                        textAlign: (tableBlock as any).textAlign || "left",
+                        textAlign: (tableBlock.cellStyle as any)?.textAlign || "left",
                         padding: tableBlock.cellStyle?.padding || 4,
+                        fontWeight: rowIndex === 0 && tableBlock.headerStyle?.bold ? "bold" : "normal",
+                        backgroundColor: isSelected ? '#dbeafe' : 
+                                       rowIndex === 0 ? (tableBlock.headerStyle?.backgroundColor || "#f3f4f6") : 
+                                       'transparent',
+                        fontFamily: (tableBlock.cellStyle as any)?.fontFamily || "Noto Sans TC",
+                        fontSize: (tableBlock.cellStyle as any)?.fontSize || 12,
+                        color: (tableBlock.cellStyle as any)?.color || "#000000",
                       }}
                       rowSpan={span.rowSpan}
                       colSpan={span.colSpan}
-                      onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!previewMode) {
+                          const isMultiSelect = e.ctrlKey || e.metaKey;
+                          onCellSelect(cellId, isMultiSelect);
+                        }
+                      }}
                     >
                       {previewMode ? (
-                        <div className="w-full h-full">
-                          {renderCellContent(cell, rowIndex, colIndex)}
-                        </div>
+                        // 預覽模式：替換變數
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html: cell.replace(/\{\{([^}]+)\}\}/g, (match: string, varKey: string) => {
+                              const varDef = vars.find(v => v.key === varKey);
+                              return varDef?.value || match;
+                            })
+                          }}
+                        />
                       ) : (
-                        <div className="relative w-full h-full">
-                          <input
-                            value={cell}
-                            onChange={(e) => {
-                              const newRows = [...tableBlock.rows];
-                              newRows[rowIndex][colIndex] = e.target.value;
+                        <RichTextEditor
+                          value={cell}
+                          onChange={(newValue) => {
+                            const newRows = rowIndex === 0 ? 
+                              [row.map((c, i) => i === colIndex ? newValue : c), ...tableBlock.rows] :
+                              tableBlock.rows.map((r, i) => 
+                                i === rowIndex - 1 ? r.map((c, j) => j === colIndex ? newValue : c) : r
+                              );
+                            
+                            if (rowIndex === 0) {
+                              onUpdate({ headers: newRows[0], rows: newRows.slice(1) });
+                            } else {
                               onUpdate({ rows: newRows });
-                            }}
-                            className="w-full bg-transparent border-none outline-none"
-                            placeholder="內容"
-                            onFocus={() => {
-                              onCellSelect(cellId);
-                              onCellsSelect([cellId]);
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-
-                          {/* 變數插入按鈕 */}
-                          {selectedCellId === cellId && (
-                            <div className="absolute top-full left-0 mt-1 z-50">
-                              <select
-                                onChange={(e) => {
-                                  if (e.target.value) {
-                                    const newRows = [...tableBlock.rows];
-                                    newRows[rowIndex][colIndex] += `{{${e.target.value}}}`;
-                                    onUpdate({ rows: newRows });
-                                    e.target.value = '';
-                                  }
-                                }}
-                                className="text-xs border rounded px-2 py-1 bg-white shadow-sm"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <option value="">插入變數...</option>
-                                {vars.map(v => (
-                                  <option key={v.key} value={v.key}>{v.label}</option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
-                        </div>
+                            }
+                          }}
+                          vars={vars}
+                          previewMode={false}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            border: "none",
+                            outline: "none",
+                            background: "transparent",
+                            fontFamily: (tableBlock.cellStyle as any)?.fontFamily || "Noto Sans TC",
+                            fontSize: (tableBlock.cellStyle as any)?.fontSize || 12,
+                            color: (tableBlock.cellStyle as any)?.color || "#000000",
+                          }}
+                        />
                       )}
                     </td>
                   );
