@@ -73,6 +73,12 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
         });
         if (res.ok) {
           alert("模板已更新！");
+          // 重新載入模板列表
+          const reload = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
+          if (reload.ok) {
+            const data = await reload.json();
+            setTemplates(data || []);
+          }
         } else {
           const err = await res.json();
           alert(err?.detail || "更新模板失敗");
@@ -96,14 +102,17 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
         alert(err?.detail || "儲存模板失敗");
         return;
       }
+      const newTemplate = await res.json();
+      setCurrentTemplateId(newTemplate.id);
       alert("模板已儲存！");
+      // 重新載入模板列表
+      const reload = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
+      if (reload.ok) {
+        const data = await reload.json();
+        setTemplates(data || []);
+      }
     }
 
-    const reload = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
-    if (reload.ok) {
-      const data = await reload.json();
-      setTemplates(data || []);
-    }
   } catch (e: any) {
     alert("發生錯誤：" + (e.message || "未知錯誤"));
   } finally {

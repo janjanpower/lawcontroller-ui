@@ -37,6 +37,8 @@ export function renderString(tpl: string, ctx: Dict): string {
       value = first.replace(/^['"]|['"]$/g, '');
     } else if (first === 'now') {
       value = new Date().toISOString();
+    } else if (first === 'sys.day') {
+      value = String(new Date().getDate());
     } else {
       value = getByPath(ctx, first);
     }

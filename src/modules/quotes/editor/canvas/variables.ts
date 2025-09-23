@@ -20,6 +20,7 @@ export const SYS_VARS: VariableDef[] = [
   { key: "sys.now", label: "今天日期" },
   { key: "sys.year", label: "今年年份" },
   { key: "sys.month", label: "本月月份" },
+  { key: "sys.day", label: "今天日期" },
 ];
 
 // 基礎變數（不包含階段，階段會動態載入）
