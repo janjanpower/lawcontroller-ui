@@ -34,6 +34,19 @@ export interface MergedCell {
   endCol: number;
 }
 
+// 儲存格樣式
+export interface CellStyle {
+  backgroundColor?: string;
+  color?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  fontSize?: number;
+  fontFamily?: string;
+  textAlign?: "left" | "center" | "right";
+  padding?: number;
+}
+
 // 表格區塊（增強版）
 export interface TableBlock extends CanvasBlockBase {
   type: "table";
@@ -48,16 +61,8 @@ export interface TableBlock extends CanvasBlockBase {
     backgroundColor?: string;
     textAlign?: "left" | "center" | "right";
   };
-  cellStyle?: {
-    padding?: number;
-    textAlign?: "left" | "center" | "right";
-    fontFamily?: string;
-    fontSize?: number;
-    color?: string;
-    bold?: boolean;
-    italic?: boolean;
-    underline?: boolean;
-  };
+  cellStyle?: CellStyle;
+  cellStyles?: { [cellId: string]: CellStyle }; // 個別儲存格樣式
 }
 
 export type CanvasBlock = TextBlock | TableBlock;

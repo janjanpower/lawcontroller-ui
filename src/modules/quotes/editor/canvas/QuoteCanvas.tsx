@@ -1,395 +1,177 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Rnd } from "react-rnd";
-import { QuoteCanvasSchema, CanvasBlock, TextBlock, TableBlock } from "./schema";
-import { nanoid } from "nanoid";
-import { type VariableDef } from "./variables";
-import {
-  Type, Table, Plus, Minus, Trash2,
-  Eye, EyeOff, Copy, Columns, Rows, Lock, Unlock,
-  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Palette,
-  Move, GripVertical
-} from "lucide-react";
-import { apiFetch, getFirmCodeOrThrow } from "../../../../utils/api";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Rnd } from 'react-rnd';
+import { 
+  Type, 
+  Table, 
+  Eye, 
+  EyeOff, 
+  Grid, 
+  Download, 
+  Save, 
+  Trash2, 
+  Copy, 
+  Lock, 
+  Unlock,
+  Bold,
+  Italic,
+  Underline,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Plus,
+  Minus,
+  Palette,
+  Settings,
+  ChevronDown,
+  X,
+  Tag
+} from 'lucide-react';
+import { apiFetch, getFirmCodeOrThrow } from '../../../../utils/api';
+import type { QuoteCanvasSchema, CanvasBlock, TextBlock, TableBlock } from './schema';
 
-type Props = {
+interface QuoteCanvasProps {
   value: QuoteCanvasSchema;
   onChange: (schema: QuoteCanvasSchema) => void;
   onExport: (schema: QuoteCanvasSchema) => void;
   onSaveTemplate: () => void;
   onRemoveTemplate: () => void;
-  caseId?: string;
-};
+  caseId: string;
+}
 
-// 變數便條組件
-const VariableTag: React.FC<{
+interface VariableTag {
+  key: string;
   label: string;
-  value?: string;
-  color?: string;
-  previewMode?: boolean;
-  onDelete?: () => void;
-}> = ({ label, value, color = "#3b82f6", previewMode, onDelete }) => {
-  if (previewMode && value !== undefined) {
-    return <span style={{ color }}>{value}</span>;
-  }
-
-  return (
-    <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium cursor-pointer select-none bg-blue-100 border border-blue-300 text-blue-800 hover:bg-blue-200 align-baseline"
-      contentEditable={false}
-      suppressContentEditableWarning={true}
-      onMouseDown={(e) => e.preventDefault()}
-      style={{
-        verticalAlign: 'baseline',
-        lineHeight: '1.2',
-        display: 'inline-flex',
-        alignItems: 'center'
-      }}
-    >
-      <span>{label}</span>
-      {!previewMode && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onDelete?.();
-          }}
-          className="text-red-500 hover:text-red-700 ml-1 text-xs leading-none"
-          title="刪除便條"
-        >
-          ×
-        </button>
-      )}
-    </span>
-  );
-};
-
-// 富文本編輯器組件
-const RichTextEditor: React.FC<{
   value: string;
-  onChange: (value: string) => void;
-  vars: VariableDef[];
-  previewMode?: boolean;
-  style?: React.CSSProperties;
-  showVariablePanel?: boolean;
-}> = ({ value, onChange, vars, previewMode, style, showVariablePanel }) => {
+}
+
+// Rich Text Editor Component
+const RichTextEditor: React.FC<{
+  content: string;
+  onChange: (content: string) => void;
+  style: React.CSSProperties;
+  vars: VariableTag[];
+  isPreview: boolean;
+}> = ({ content, onChange, style, vars, isPreview }) => {
   const editorRef = useRef<HTMLDivElement>(null);
 
-  // 保存和恢復游標位置
-  const saveCursorPosition = () => {
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      return {
-        startContainer: range.startContainer,
-        startOffset: range.startOffset,
-        endContainer: range.endContainer,
-        endOffset: range.endOffset
-      };
-    }
-    return null;
-  };
-
-  const restoreCursorPosition = (position: any) => {
-    if (!position || !editorRef.current) return;
-
-    try {
-      const selection = window.getSelection();
-      if (selection) {
-        const range = document.createRange();
-        range.setStart(position.startContainer, position.startOffset);
-        range.setEnd(position.endContainer, position.endOffset);
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
-    } catch (e) {
-      // 如果恢復失敗，將游標設到末尾
-      const selection = window.getSelection();
-      if (selection && editorRef.current) {
-        const range = document.createRange();
-        range.selectNodeContents(editorRef.current);
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
-    }
-  };
-
-  // 解析文本並渲染變數便條
-  const renderContent = useCallback(() => {
-    if (previewMode) {
-      // 預覽模式：替換變數為實際值
-      let content = value;
+  const renderContent = () => {
+    if (isPreview) {
+      // 在預覽模式中替換變數標籤為實際值
+      let rendered = content;
       vars.forEach(v => {
-        if (v.value !== undefined) {
-          const regex = new RegExp(`\\{\\{${v.key}\\}\\}`, 'g');
-          content = content.replace(regex, v.value);
-        }
+        const regex = new RegExp(`{{${v.key}}}`, 'g');
+        rendered = rendered.replace(regex, v.value || v.label);
       });
-      return content;
+      return rendered;
     }
+    return content;
+  };
 
-    // 編輯模式：返回原始文本，便條會在 DOM 中動態渲染
-    return value;
-  }, [value, vars, previewMode, onChange]);
-
-  // 將文本中的變數標籤轉換為便條元素
-  const renderVariableTags = useCallback(() => {
-    if (!editorRef.current || previewMode) return;
-
-    const cursorPos = saveCursorPosition();
-    let html = value;
-
-    // 將 {{varKey}} 替換為便條 HTML
-    html = html.replace(/\{\{([^}]+)\}\}/g, (match, varKey) => {
-      const varDef = vars.find(v => v.key === varKey);
-      const label = varDef?.label || varKey;
-
-      return `<span class="variable-tag inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium cursor-pointer select-none bg-blue-100 border border-blue-300 text-blue-800 hover:bg-blue-200"
-                    data-var="${varKey}"
-                    contenteditable="false"
-                    style="vertical-align: baseline; line-height: 1.2; display: inline-flex; align-items: center;">
-                <span>${label}</span>
-                <button class="text-red-500 hover:text-red-700 ml-1 text-xs leading-none" title="刪除便條">×</button>
-              </span>`;
-    });
-
-    editorRef.current.innerHTML = html;
-
-    // 為便條添加刪除事件
-    const tags = editorRef.current.querySelectorAll('.variable-tag');
-    tags.forEach(tag => {
-      const deleteBtn = tag.querySelector('button');
-      if (deleteBtn) {
-        deleteBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          const varKey = tag.getAttribute('data-var');
-          if (varKey) {
-            const newValue = value.replace(`{{${varKey}}}`, '');
-            onChange(newValue);
-          }
-        });
-      }
-    });
-
-    // 恢復游標位置
-    if (cursorPos) {
-      setTimeout(() => restoreCursorPosition(cursorPos), 0);
-    }
-  }, [value, vars, previewMode, onChange]);
-
-  // 處理輸入
   const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
-    if (previewMode) return;
-
-    const target = e.currentTarget;
-    const cursorPos = saveCursorPosition();
-    let newValue = '';
-
-    // 遍歷所有子節點，提取文本和變數標籤
-    const processNode = (node: Node): string => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent || '';
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        const element = node as Element;
-        if (element.classList.contains('variable-tag')) {
-          const varKey = element.getAttribute('data-var');
-          return varKey ? `{{${varKey}}}` : '';
-        } else {
-          let result = '';
-          node.childNodes.forEach(child => {
-            result += processNode(child);
-          });
-          return result;
-        }
-      }
-      return '';
-    };
-
-    target.childNodes.forEach(child => {
-      newValue += processNode(child);
-    });
-
-    onChange(newValue);
-
-    // 延遲恢復游標位置
-    setTimeout(() => {
-      if (cursorPos) {
-        restoreCursorPosition(cursorPos);
-      }
-    }, 0);
+    const newContent = e.currentTarget.innerHTML;
+    onChange(newContent);
   };
-
-  // 插入變數
-  const insertVariable = (varKey: string) => {
-    if (!editorRef.current || previewMode) return;
-
-    const selection = window.getSelection();
-    let insertPos = value.length;
-
-    if (selection && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      const textBeforeCursor = range.startContainer.textContent?.substring(0, range.startOffset) || '';
-      const textBeforeInValue = value.indexOf(textBeforeCursor);
-      if (textBeforeInValue !== -1) {
-        insertPos = textBeforeInValue + textBeforeCursor.length;
-      }
-    }
-
-    const newValue = value.substring(0, insertPos) + `{{${varKey}}}` + value.substring(insertPos);
-    onChange(newValue);
-  };
-
-  // 處理鍵盤事件
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (previewMode) return;
-
-    // 處理 Backspace：如果選中便條則刪除整個便條
-    if (e.key === 'Backspace') {
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-
-        // 檢查是否選中了便條
-        const selectedNode = range.commonAncestorContainer;
-        let tagElement: Element | null = null;
-
-        if (selectedNode.nodeType === Node.ELEMENT_NODE) {
-          tagElement = selectedNode as Element;
-        } else if (selectedNode.parentElement) {
-          tagElement = selectedNode.parentElement;
-        }
-
-        // 如果選中的是便條或便條內的元素，刪除整個便條
-        if (tagElement && (tagElement.classList.contains('variable-tag') || tagElement.closest('.variable-tag'))) {
-          e.preventDefault();
-          const varTag = tagElement.classList.contains('variable-tag') ? tagElement : tagElement.closest('.variable-tag');
-          if (varTag) {
-            const varKey = varTag.getAttribute('data-var');
-            if (varKey) {
-              const newValue = value.replace(`{{${varKey}}}`, '');
-              onChange(newValue);
-            }
-          }
-          return;
-        }
-
-        // 如果游標緊鄰便條，刪除整個便條
-        if (range.collapsed && range.startOffset === 0) {
-          const container = range.startContainer;
-          const prevSibling = container.previousSibling;
-          if (prevSibling && (prevSibling as Element).classList?.contains('variable-tag')) {
-            e.preventDefault();
-            const varKey = (prevSibling as Element).getAttribute('data-var');
-            if (varKey) {
-              const newValue = value.replace(`{{${varKey}}}`, '');
-              onChange(newValue);
-            }
-            return;
-          }
-        }
-      }
-    }
-  };
-
-  // 當值或變數改變時重新渲染便條
-  useEffect(() => {
-    renderVariableTags();
-  }, [renderVariableTags]);
 
   return (
-    <div className="relative">
-      <div
-        ref={editorRef}
-        contentEditable={!previewMode}
-        suppressContentEditableWarning={true}
-        onInput={handleInput}
-        onKeyDown={handleKeyDown}
-        style={style}
-        className={`w-full h-full p-2 border-none outline-none leading-relaxed ${previewMode ? '' : 'min-h-[40px]'}`}
-        dangerouslySetInnerHTML={previewMode ? { __html: renderContent() as string } : undefined}
-      />
-
-      {/* 變數插入按鈕 */}
-      {!previewMode && showVariablePanel && vars.length > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 bg-white border-t p-2">
-          <div className="flex flex-wrap gap-1">
-            {vars.slice(0, 6).map((v) => (
-              <button
-                key={v.key}
-                onClick={() => insertVariable(v.key)}
-                className="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 rounded transition-colors"
-                title={`插入 ${v.label}`}
-              >
-                {v.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <div
+      ref={editorRef}
+      contentEditable={!isPreview}
+      onInput={handleInput}
+      style={{
+        ...style,
+        minHeight: '40px',
+        padding: '8px',
+        border: isPreview ? 'none' : '1px dashed #ccc',
+        outline: 'none',
+        whiteSpace: 'pre-wrap',
+        wordWrap: 'break-word',
+        lineHeight: '1.5'
+      }}
+      dangerouslySetInnerHTML={{ __html: renderContent() }}
+      suppressContentEditableWarning={true}
+    />
   );
 };
 
-// 表格儲存格組件
+// Table Cell Component
 const TableCell: React.FC<{
-  value: string;
-  onChange: (value: string) => void;
+  content: string;
+  onChange: (content: string) => void;
+  style: React.CSSProperties;
+  vars: VariableTag[];
+  isPreview: boolean;
   isSelected: boolean;
-  onSelect: () => void;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
-  showResizeHandle: boolean;
-  onResizeStart: (e: React.MouseEvent) => void;
-  style?: React.CSSProperties;
-}> = ({
-  value,
-  onChange,
-  isSelected,
-  onSelect,
-  onMouseEnter,
-  onMouseLeave,
-  showResizeHandle,
-  onResizeStart,
-  style
-}) => {
-  const cellRef = useRef<HTMLDivElement>(null);
+  onClick: () => void;
+}> = ({ content, onChange, style, vars, isPreview, isSelected, onClick }) => {
+  const renderContent = () => {
+    if (isPreview) {
+      let rendered = content;
+      vars.forEach(v => {
+        const regex = new RegExp(`{{${v.key}}}`, 'g');
+        rendered = rendered.replace(regex, v.value || v.label);
+      });
+      return rendered;
+    }
+    return content;
+  };
+
+  const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
+    const newContent = e.currentTarget.innerHTML;
+    onChange(newContent);
+  };
 
   return (
     <td
-      className={`border border-gray-300 p-1 relative group hover:bg-gray-50 ${isSelected ? 'bg-blue-100' : ''}`}
-      style={style}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      onClick={onSelect}
+      style={{
+        ...style,
+        border: '1px solid #ddd',
+        padding: '8px',
+        minHeight: '30px',
+        backgroundColor: isSelected ? '#e3f2fd' : style.backgroundColor,
+        cursor: isPreview ? 'default' : 'pointer'
+      }}
+      onClick={onClick}
     >
       <div
-        ref={cellRef}
-        contentEditable
-        suppressContentEditableWarning={true}
-        onInput={(e) => {
-          const target = e.currentTarget;
-          onChange(target.textContent || '');
+        contentEditable={!isPreview && isSelected}
+        onInput={handleInput}
+        style={{
+          outline: 'none',
+          minHeight: '20px',
+          whiteSpace: 'pre-wrap',
+          wordWrap: 'break-word',
+          lineHeight: '1.4'
         }}
-        className="w-full h-full outline-none min-h-[20px] leading-relaxed"
-        style={{ wordBreak: 'break-word' }}
+        dangerouslySetInnerHTML={{ __html: renderContent() }}
         suppressContentEditableWarning={true}
       />
-
-      {/* 欄寬調整手柄 */}
-      {showResizeHandle && (
-        <div
-          className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-          onMouseDown={onResizeStart}
-          title="拖移調整欄寬"
-          style={{ backgroundColor: 'rgba(59, 130, 246, 0.3)' }}
-        >
-          <div className="w-0.5 h-4 bg-blue-500 rounded"></div>
-        </div>
-      )}
     </td>
   );
 };
+
+// Variable Tag Component
+const VariableTag: React.FC<{
+  varKey: string;
+  label: string;
+  onInsert: () => void;
+}> = ({ varKey, label, onInsert }) => (
+  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-md p-2 hover:bg-blue-100 transition-colors">
+    <div className="flex-1 min-w-0">
+      <div className="text-xs font-mono text-blue-700 truncate">
+        {`{{${varKey}}}`}
+      </div>
+      <div className="text-xs text-gray-600 truncate">
+        {label}
+      </div>
+    </div>
+    <button
+      onClick={onInsert}
+      className="ml-2 px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors flex-shrink-0"
+    >
+      插入
+    </button>
+  </div>
+);
 
 export default function QuoteCanvas({
   value,
@@ -397,891 +179,846 @@ export default function QuoteCanvas({
   onExport,
   onSaveTemplate,
   onRemoveTemplate,
-  caseId,
-}: Props) {
+  caseId
+}: QuoteCanvasProps) {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [vars, setVars] = useState<VariableDef[]>([]);
-  const [showGrid, setShowGrid] = useState(true);
-  const [snapToGrid, setSnapToGrid] = useState(true);
-  const [previewMode, setPreviewMode] = useState(false);
-  const [templates, setTemplates] = useState<any[]>([]);
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
-  const [selectedCells, setSelectedCells] = useState<string[]>([]);
+  const [isPreview, setIsPreview] = useState(false);
+  const [variables, setVariables] = useState<VariableTag[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
-  const [hoveredCellId, setHoveredCellId] = useState<string | null>(null);
-  const [resizingColumn, setResizingColumn] = useState<{ blockId: string; colIndex: number } | null>(null);
+  const [templateName, setTemplateName] = useState('');
+  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
+  const [showVariablePanel, setShowVariablePanel] = useState(true);
+  const [loading, setLoading] = useState(false);
+
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  const gridSize = value.gridSize || 10;
+  // 載入變數和模板
+  useEffect(() => {
+    loadVariables();
+    loadTemplates();
+  }, [caseId]);
 
-  // 載入模板列表
+  const loadVariables = async () => {
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const res = await apiFetch(`/api/cases/${caseId}/variables?firm_code=${encodeURIComponent(firmCode)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setVariables(data || []);
+      }
+    } catch (error) {
+      console.error('載入變數失敗:', error);
+    }
+  };
+
   const loadTemplates = async () => {
     try {
       const firmCode = getFirmCodeOrThrow();
-      const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
+      const res = await apiFetch(`/api/quote-templates?firm_code=${encodeURIComponent(firmCode)}`);
       if (res.ok) {
         const data = await res.json();
         setTemplates(data || []);
       }
-    } catch (err) {
-      console.error("載入模板失敗", err);
+    } catch (error) {
+      console.error('載入模板失敗:', error);
     }
   };
 
-  useEffect(() => {
-    loadTemplates();
-  }, []);
+  const selectedBlock = value.blocks.find(b => b.id === selectedBlockId);
+  const isTextSelected = selectedBlock?.type === 'text';
+  const isTableSelected = selectedBlock?.type === 'table';
 
-  // 載入案件變數（包含階段）
-  useEffect(() => {
-    if (!caseId) return;
-
-    (async () => {
-      try {
-        setLoading(true);
-        const firmCode = getFirmCodeOrThrow();
-
-        // 載入案件資料
-        const caseRes = await apiFetch(`/api/cases/${caseId}?firm_code=${firmCode}`);
-        if (!caseRes.ok) {
-          throw new Error('無法載入案件資料');
-        }
-        const caseData = await caseRes.json();
-
-        // 載入事務所資料
-        const firmRes = await apiFetch(`/api/firms/current?firm_code=${firmCode}`);
-        let firmData = {};
-        if (firmRes.ok) {
-          firmData = await firmRes.json();
-        } else {
-          // 如果沒有專門的事務所 API，從 localStorage 取得
-          firmData = {
-            firm_name: localStorage.getItem('law_firm_name') || '',
-            firm_code: firmCode,
-          };
-        }
-
-        // 載入案件階段
-        const stagesRes = await apiFetch(`/api/cases/${caseId}/stages?firm_code=${firmCode}`);
-        let stageVars: VariableDef[] = [];
-        if (stagesRes.ok) {
-          const stages = await stagesRes.json();
-          stageVars = stages.map((stage: any) => ({
-            key: `stage.${stage.stage_name}`,
-            label: `階段：${stage.stage_name}`,
-            value: stage.stage_date || stage.stage_name
-          }));
-        }
-
-        // 組合所有變數
-        const today = new Date();
-        const allVars: VariableDef[] = [
-          // 案件相關變數
-          { key: "case.client_name", label: "客戶姓名", value: caseData.client_name || '' },
-          { key: "case.case_number", label: "案件編號", value: caseData.case_number || '' },
-          { key: "case.case_type", label: "案件類型", value: caseData.case_type || '' },
-          { key: "case.case_reason", label: "案由", value: caseData.case_reason || '' },
-          { key: "case.court", label: "法院", value: caseData.court || '' },
-          { key: "case.division", label: "股別", value: caseData.division || '' },
-          { key: "case.lawyer_name", label: "律師姓名", value: caseData.lawyer_name || '' },
-          { key: "case.legal_affairs_name", label: "法務姓名", value: caseData.legal_affairs_name || '' },
-          { key: "case.opposing_party", label: "對造", value: caseData.opposing_party || '' },
-          { key: "case.progress", label: "目前進度", value: caseData.progress || '' },
-          { key: "case.progress_date", label: "進度日期", value: caseData.progress_date || '' },
-
-          // 事務所相關變數
-          { key: "firm.name", label: "事務所名稱", value: (firmData as any).firm_name || '' },
-          { key: "firm.code", label: "事務所代碼", value: (firmData as any).firm_code || firmCode },
-
-          // 系統變數（移除前導零）
-          { key: "sys.now", label: "今天日期", value: today.toISOString().split('T')[0] },
-          { key: "sys.day", label: "今天日期", value: String(today.getDate()) }, // 移除前導零
-          { key: "sys.year", label: "今年年份", value: String(today.getFullYear()) },
-          { key: "sys.month", label: "本月月份", value: String(today.getMonth() + 1) },
-
-          // 階段變數
-          ...stageVars
-        ];
-
-        setVars(allVars);
-      } catch (err) {
-        console.error("載入案件變數失敗", err);
-        // 設定基本的備用變數
-        const today = new Date();
-        const fallbackVars: VariableDef[] = [
-          { key: "case.client_name", label: "客戶姓名", value: '' },
-          { key: "case.case_number", label: "案件編號", value: '' },
-          { key: "firm.name", label: "事務所名稱", value: localStorage.getItem('law_firm_name') || '' },
-          { key: "sys.now", label: "今天日期", value: today.toISOString().split('T')[0] },
-          { key: "sys.day", label: "今天日期", value: String(today.getDate()) },
-        ];
-        setVars(fallbackVars);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [caseId]);
-
-  // 網格對齊輔助函數
-  const snapToGridHelper = useCallback((value: number) => {
-    if (!snapToGrid) return value;
-    return Math.round(value / gridSize) * gridSize;
-  }, [snapToGrid, gridSize]);
-
-  // 新增區塊
-  const addBlock = (type: CanvasBlock["type"]) => {
-    const base = {
-      id: nanoid(),
-      x: snapToGridHelper(40),
-      y: snapToGridHelper(40),
-      w: 360,
-      z: Date.now(),
-      locked: false
-    } as const;
-
-    let block: CanvasBlock;
-    switch (type) {
-      case "text":
-        block = {
-          ...base,
-          type,
-          text: "",
-          bold: false,
-          italic: false,
-          underline: false,
-          fontSize: 14,
-          align: "left",
-          color: "#000000",
-          fontFamily: "Noto Sans TC",
-          h: 40,
-        } as TextBlock;
-        break;
-      case "table":
-        block = {
-          ...base,
-          type,
-          headers: ["", "", ""],
-          rows: [["", "", ""], ["", "", ""], ["", "", ""]],
-          showBorders: true,
-          h: 120,
-          headerStyle: { bold: false, backgroundColor: "transparent" },
-          cellStyle: { padding: 8, textAlign: "left", fontFamily: "Noto Sans TC", fontSize: 12 },
-          columnWidths: [33.33, 33.33, 33.34],
-          mergedCells: [],
-          hasFixedHeader: false,
-        } as TableBlock;
-        break;
-      default:
-        return;
-    }
-
-    onChange({ ...value, blocks: [...value.blocks, block] });
-    setSelectedBlockId(block.id);
-  };
-
-  // 更新區塊並置頂
-  const updateBlock = (id: string, patch: Partial<CanvasBlock>) => {
-    const updatedBlocks = value.blocks.map((b) => {
-      if (b.id === id) {
-        const updated = { ...b, ...patch } as CanvasBlock;
-        // 如果是當前選中的區塊，將其 z-index 設為最高
-        if (selectedBlockId === id) {
-          updated.z = Math.max(...value.blocks.map(block => block.z || 0)) + 1;
-        }
-        return updated;
-      }
-      return b;
-    });
-
-    onChange({ ...value, blocks: updatedBlocks });
-  };
-
-  // 選中區塊時置頂
-  const selectBlock = (id: string) => {
-    setSelectedBlockId(id);
-    setSelectedCellId(null);
-    setSelectedCells([]);
-
-    // 將選中的區塊置頂
-    const maxZ = Math.max(...value.blocks.map(block => block.z || 0));
-    updateBlock(id, { z: maxZ + 1 });
-  };
-
-  // 刪除區塊
-  const removeBlock = (id: string) => {
-    onChange({ ...value, blocks: value.blocks.filter((b) => b.id !== id) });
-    if (selectedBlockId === id) {
-      setSelectedBlockId(null);
-    }
-  };
-
-  // 複製區塊
-  const duplicateBlock = (id: string) => {
-    const block = value.blocks.find(b => b.id === id);
-    if (!block) return;
-
-    const newBlock = {
-      ...block,
-      id: nanoid(),
-      x: block.x + 20,
-      y: block.y + 20,
-      z: Date.now(),
+  // 新增文字區塊
+  const addTextBlock = () => {
+    const newBlock: TextBlock = {
+      id: `text-${Date.now()}`,
+      type: 'text',
+      x: 50,
+      y: 50,
+      w: 300,
+      h: 60,
+      text: '點擊編輯文字',
+      fontSize: 14,
+      align: 'left'
     };
-
-    onChange({ ...value, blocks: [...value.blocks, newBlock] });
+    
+    onChange({
+      ...value,
+      blocks: [...value.blocks, newBlock]
+    });
     setSelectedBlockId(newBlock.id);
   };
 
+  // 新增表格區塊
+  const addTableBlock = () => {
+    const newBlock: TableBlock = {
+      id: `table-${Date.now()}`,
+      type: 'table',
+      x: 50,
+      y: 150,
+      w: 400,
+      h: 200,
+      headers: ['項目', '數量', '單價', '小計'],
+      rows: [
+        ['項目1', '1', '1000', '1000'],
+        ['項目2', '2', '500', '1000']
+      ],
+      showBorders: true,
+      columnWidths: [40, 15, 20, 25]
+    };
+    
+    onChange({
+      ...value,
+      blocks: [...value.blocks, newBlock]
+    });
+    setSelectedBlockId(newBlock.id);
+  };
+
+  // 複製區塊
+  const copyBlock = () => {
+    if (!selectedBlock) return;
+    
+    const newBlock = {
+      ...selectedBlock,
+      id: `${selectedBlock.type}-${Date.now()}`,
+      x: selectedBlock.x + 20,
+      y: selectedBlock.y + 20
+    };
+    
+    onChange({
+      ...value,
+      blocks: [...value.blocks, newBlock]
+    });
+    setSelectedBlockId(newBlock.id);
+  };
+
+  // 鎖定/解鎖區塊
+  const toggleLock = () => {
+    if (!selectedBlock) return;
+    
+    const updatedBlocks = value.blocks.map(block =>
+      block.id === selectedBlockId
+        ? { ...block, locked: !block.locked }
+        : block
+    );
+    
+    onChange({
+      ...value,
+      blocks: updatedBlocks
+    });
+  };
+
+  // 移除區塊
+  const removeBlock = () => {
+    if (!selectedBlock) return;
+    
+    const updatedBlocks = value.blocks.filter(block => block.id !== selectedBlockId);
+    onChange({
+      ...value,
+      blocks: updatedBlocks
+    });
+    setSelectedBlockId(null);
+    setSelectedCellId(null);
+  };
+
+  // 更新區塊
+  const updateBlock = (blockId: string, updates: Partial<CanvasBlock>) => {
+    const updatedBlocks = value.blocks.map(block =>
+      block.id === blockId ? { ...block, ...updates } : block
+    );
+    
+    onChange({
+      ...value,
+      blocks: updatedBlocks
+    });
+  };
+
   // 插入變數到區塊
-  const insertVariableToBlock = (blockId: string, varKey: string) => {
-    const block = value.blocks.find(b => b.id === blockId);
+  const insertVariableToBlock = (varKey: string) => {
+    if (!selectedBlock) return;
 
-    if (block?.type === "text") {
-      const textBlock = block as TextBlock;
-      updateBlock(blockId, { text: textBlock.text + `{{${varKey}}}` });
-    } else if (block?.type === "table" && selectedCellId) {
-      const tableBlock = block as TableBlock;
+    const varTag = `{{${varKey}}}`;
+
+    if (selectedBlock.type === 'text') {
+      const textBlock = selectedBlock as TextBlock;
+      updateBlock(selectedBlock.id, {
+        text: textBlock.text + varTag
+      });
+    } else if (selectedBlock.type === 'table' && selectedCellId) {
+      const tableBlock = selectedBlock as TableBlock;
       const [rowIndex, colIndex] = selectedCellId.split('-').map(Number);
-
-      if (tableBlock.rows[rowIndex] && tableBlock.rows[rowIndex][colIndex] !== undefined) {
+      
+      if (rowIndex >= 0 && colIndex >= 0) {
         const newRows = [...tableBlock.rows];
-        newRows[rowIndex][colIndex] += `{{${varKey}}}`;
-        updateBlock(blockId, { rows: newRows });
+        if (newRows[rowIndex] && newRows[rowIndex][colIndex] !== undefined) {
+          newRows[rowIndex][colIndex] += varTag;
+          updateBlock(selectedBlock.id, { rows: newRows });
+        }
       }
     }
   };
 
-  // 套用模板
-  const applyTemplate = (tpl: any) => {
-    if (tpl?.content_json) {
-      onChange(tpl.content_json);
-      setCurrentTemplateId(tpl.id);
-      setSelectedBlockId(null);
+  // 格式化工具函數
+  const updateTextFormat = (property: keyof TextBlock, value: any) => {
+    if (!selectedBlock || selectedBlock.type !== 'text') return;
+    updateBlock(selectedBlock.id, { [property]: value });
+  };
+
+  // 表格操作函數
+  const addTableRow = () => {
+    if (!selectedBlock || selectedBlock.type !== 'table') return;
+    const tableBlock = selectedBlock as TableBlock;
+    const newRow = new Array(tableBlock.headers.length).fill('');
+    updateBlock(selectedBlock.id, {
+      rows: [...tableBlock.rows, newRow]
+    });
+  };
+
+  const removeTableRow = () => {
+    if (!selectedBlock || selectedBlock.type !== 'table') return;
+    const tableBlock = selectedBlock as TableBlock;
+    if (tableBlock.rows.length > 1) {
+      updateBlock(selectedBlock.id, {
+        rows: tableBlock.rows.slice(0, -1)
+      });
     }
   };
 
-  // 儲存模板（更新或新建）
+  const addTableColumn = () => {
+    if (!selectedBlock || selectedBlock.type !== 'table') return;
+    const tableBlock = selectedBlock as TableBlock;
+    
+    updateBlock(selectedBlock.id, {
+      headers: [...tableBlock.headers, '新欄位'],
+      rows: tableBlock.rows.map(row => [...row, '']),
+      columnWidths: [...(tableBlock.columnWidths || []), 20]
+    });
+  };
+
+  const removeTableColumn = () => {
+    if (!selectedBlock || selectedBlock.type !== 'table') return;
+    const tableBlock = selectedBlock as TableBlock;
+    if (tableBlock.headers.length > 1) {
+      updateBlock(selectedBlock.id, {
+        headers: tableBlock.headers.slice(0, -1),
+        rows: tableBlock.rows.map(row => row.slice(0, -1)),
+        columnWidths: tableBlock.columnWidths?.slice(0, -1)
+      });
+    }
+  };
+
+  // 模板管理
   const handleSaveTemplate = async () => {
-    try {
-      const firmCode = getFirmCodeOrThrow();
-
-      if (currentTemplateId) {
-        // 更新現有模板
-        const currentTemplate = templates.find(t => t.id === currentTemplateId);
-        if (currentTemplate) {
-          const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              name: currentTemplate.name,
-              description: currentTemplate.description,
-              content_json: value,
-              is_default: currentTemplate.is_default
-            }),
-          });
-
-          if (res.ok) {
-            alert("模板已更新！");
-            await loadTemplates();
-          } else {
-            const err = await res.json();
-            alert(err?.detail || "更新模板失敗");
-          }
-        }
-      } else {
-        // 創建新模板
-        const name = prompt("請輸入模板名稱：", "自訂報價單模板");
-        if (!name) return;
-
-        const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`, {
-          method: "POST",
-          body: JSON.stringify({
-            name,
-            description: `由案件 ${caseId} 建立的自訂模板`,
-            content_json: value,
-            is_default: false,
-          }),
-        });
-
-        if (res.ok) {
-          const newTemplate = await res.json();
-          setCurrentTemplateId(newTemplate.id);
-          alert("模板已儲存！");
-          await loadTemplates();
-        } else {
-          const err = await res.json();
-          alert(err?.detail || "儲存模板失敗");
-        }
-      }
-    } catch (e: any) {
-      alert("發生錯誤：" + (e.message || "未知錯誤"));
-    }
-  };
-
-  // 移除模板
-  const handleRemoveTemplate = async () => {
-    if (!currentTemplateId) {
-      alert("請先選擇一個模板");
+    if (!templateName.trim()) {
+      alert('請輸入模板名稱');
       return;
     }
 
     try {
+      setLoading(true);
       const firmCode = getFirmCodeOrThrow();
-      const template = templates.find(t => t.id === currentTemplateId);
-      if (!template) {
-        alert("找不到當前模板");
-        return;
+      
+      const payload = {
+        name: templateName,
+        description: '',
+        content_json: value,
+        is_default: false
+      };
+
+      let res;
+      if (currentTemplateId) {
+        // 更新現有模板
+        res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${encodeURIComponent(firmCode)}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        });
+      } else {
+        // 建立新模板
+        res = await apiFetch(`/api/quote-templates?firm_code=${encodeURIComponent(firmCode)}`, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
       }
 
-      if (!confirm(`確定要刪除模板「${template.name}」嗎？此操作無法復原。`)) {
-        return;
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentTemplateId(data.id);
+        await loadTemplates();
+        alert(currentTemplateId ? '模板更新成功' : '模板儲存成功');
+      } else {
+        const error = await res.json();
+        alert(error.detail || '儲存失敗');
       }
+    } catch (error) {
+      console.error('儲存模板失敗:', error);
+      alert('儲存模板失敗');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
-        method: "DELETE",
+  const handleRemoveTemplate = async () => {
+    if (!currentTemplateId) return;
+    
+    if (!confirm('確定要刪除此模板嗎？')) return;
+
+    try {
+      setLoading(true);
+      const firmCode = getFirmCodeOrThrow();
+      
+      const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${encodeURIComponent(firmCode)}`, {
+        method: 'DELETE'
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err?.detail || "移除模板失敗");
-        return;
+      if (res.ok) {
+        setCurrentTemplateId(null);
+        setTemplateName('');
+        // 重置為空白畫布
+        onChange({
+          page: value.page,
+          blocks: [],
+          gridSize: value.gridSize,
+          showGrid: value.showGrid
+        });
+        await loadTemplates();
+        alert('模板刪除成功');
+      } else {
+        const error = await res.json();
+        alert(error.detail || '刪除失敗');
       }
-
-      alert("模板已移除！");
-      await loadTemplates();
-
-      // 清空當前模板並使用預設模板
-      setCurrentTemplateId(null);
-      onChange({ page: { width: 794, height: 1123, margin: 40 }, blocks: [], gridSize: 10, showGrid: true });
-
-    } catch (e: any) {
-      alert("發生錯誤：" + (e.message || "未知錯誤"));
+    } catch (error) {
+      console.error('刪除模板失敗:', error);
+      alert('刪除模板失敗');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 表格操作函數
-  const addTableRow = (blockId: string) => {
-    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
-    if (!block || block.type !== "table") return;
-
-    const colCount = Math.max(block.headers.length, block.rows[0]?.length || 3);
-    const newRow = new Array(colCount).fill("");
-    updateBlock(blockId, { rows: [...block.rows, newRow] });
+  const loadTemplate = (template: any) => {
+    setCurrentTemplateId(template.id);
+    setTemplateName(template.name);
+    onChange(template.content_json);
+    setShowTemplateDropdown(false);
   };
-
-  const removeTableRow = (blockId: string) => {
-    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
-    if (!block || block.type !== "table" || block.rows.length <= 1) return;
-
-    const newRows = block.rows.slice(0, -1);
-    updateBlock(blockId, { rows: newRows });
-  };
-
-  const addTableColumn = (blockId: string) => {
-    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
-    if (!block || block.type !== "table") return;
-
-    const newHeaders = [...block.headers, ""];
-    const newRows = block.rows.map(row => [...row, ""]);
-    const currentWidths = block.columnWidths || [];
-    const totalWidth = currentWidths.reduce((sum, w) => sum + w, 0);
-    const newWidth = Math.max(10, (100 - totalWidth) / (currentWidths.length + 1));
-    const newWidths = [...currentWidths, newWidth];
-
-    updateBlock(blockId, {
-      headers: newHeaders,
-      rows: newRows,
-      columnWidths: newWidths
-    });
-  };
-
-  const removeTableColumn = (blockId: string) => {
-    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
-    if (!block || block.type !== "table" || block.headers.length <= 1) return;
-
-    const newHeaders = block.headers.slice(0, -1);
-    const newRows = block.rows.map(row => row.slice(0, -1));
-    const newWidths = (block.columnWidths || []).slice(0, -1);
-
-    updateBlock(blockId, {
-      headers: newHeaders,
-      rows: newRows,
-      columnWidths: newWidths
-    });
-  };
-
-  // 處理欄寬調整
-  const handleColumnResize = useCallback((e: MouseEvent) => {
-    if (!resizingColumn) return;
-
-    const { blockId, colIndex } = resizingColumn;
-    const block = value.blocks.find(b => b.id === blockId) as TableBlock;
-    if (!block || block.type !== "table") return;
-
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const relativeX = e.clientX - rect.left;
-    const blockElement = document.querySelector(`[data-block-id="${blockId}"]`);
-    if (!blockElement) return;
-
-    const blockRect = blockElement.getBoundingClientRect();
-    const tableWidth = blockRect.width;
-    const newWidthPercent = Math.max(5, Math.min(80, ((relativeX - blockRect.left) / tableWidth) * 100));
-
-    const newWidths = [...(block.columnWidths || [])];
-    newWidths[colIndex] = newWidthPercent;
-
-    updateBlock(blockId, { columnWidths: newWidths });
-  }, [resizingColumn, value.blocks, updateBlock]);
-
-  // 監聽滑鼠事件
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (resizingColumn) {
-        handleColumnResize(e);
-      }
-    };
-
-    const handleMouseUp = () => {
-      setResizingColumn(null);
-    };
-
-    if (resizingColumn) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [resizingColumn, handleColumnResize]);
-
-  const selectedBlock = value.blocks.find(b => b.id === selectedBlockId);
 
   return (
-    <div className="flex gap-4 h-full">
-      {/* 左側工具面板 */}
-      <div className="w-64 bg-gray-50 p-4 rounded-lg overflow-y-auto">
-        {/* 套用模板 */}
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold mb-3 text-gray-700">模板選單</h3>
-          <select
-            value={currentTemplateId || ""}
-            onChange={(e) => {
-              const tpl = templates.find((t) => t.id === e.target.value);
-              if (tpl) {
-                applyTemplate(tpl);
-              } else {
-                setCurrentTemplateId(null);
-              }
-            }}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-          >
-            <option value="">選擇模板</option>
-            {templates.map((tpl) => (
-              <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* 預覽模式 */}
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold mb-3 text-gray-700">檢視模式</h3>
-          <button
-            onClick={() => setPreviewMode(!previewMode)}
-            className="w-full flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm transition-colors"
-          >
-            {previewMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            {previewMode ? "編輯模式" : "預覽模式"}
-          </button>
-        </div>
-
-        {/* 畫布設定 */}
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold mb-3 text-gray-700">畫布設定</h3>
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={showGrid}
-                onChange={(e) => setShowGrid(e.target.checked)}
-                className="rounded"
-              />
-              顯示格線
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={snapToGrid}
-                onChange={(e) => setSnapToGrid(e.target.checked)}
-                className="rounded"
-              />
-              對齊格線
-            </label>
-          </div>
-        </div>
-
-        {/* 新增區塊工具 */}
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold mb-3 text-gray-700">新增物件</h3>
-          <div className="space-y-2">
-            <button
-              onClick={() => addBlock("text")}
-              className="w-full flex items-center gap-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 rounded-md text-sm transition-colors"
-            >
-              <Type className="w-4 h-4" />
-              文字
-            </button>
-            <button
-              onClick={() => addBlock("table")}
-              className="w-full flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 rounded-md text-sm transition-colors"
-            >
-              <Table className="w-4 h-4" />
-              表格
-            </button>
-          </div>
-        </div>
-
-        {/* 可用變數便條 */}
-        {vars.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-3 text-gray-700">變數便條</h3>
-            <p className="text-xs text-gray-500 mb-2">點擊便條插入到選中的內容裡</p>
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {vars.map((v) => (
-                <button
-                  key={v.key}
-                  onClick={() => selectedBlockId && insertVariableToBlock(selectedBlockId, v.key)}
-                  disabled={!selectedBlockId}
-                  className={`w-full text-left px-2 py-1 text-xs rounded transition-colors flex items-center justify-between ${
-                    selectedBlockId
-                      ? 'bg-blue-50 hover:bg-blue-100 cursor-pointer border border-blue-200'
-                      : 'bg-gray-100 cursor-not-allowed opacity-50'
-                  }`}
-                >
-                  <span className="text-gray-800">{v.label}</span>
-                  {selectedBlockId && (
-                    <Plus className="w-3 h-3 text-blue-600" />
-                  )}
-                </button>
-              ))}
+    <div className="flex h-full bg-gray-50">
+      {/* 左側變數面板 */}
+      {showVariablePanel && (
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                變數標籤
+              </h3>
+              <button
+                onClick={() => setShowVariablePanel(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            {!selectedBlockId && (
-              <p className="text-xs text-gray-500 mt-2">請先選擇一個區塊來插入變數</p>
-            )}
+            <p className="text-xs text-gray-600">
+              點擊插入變數到選中的元素
+            </p>
           </div>
-        )}
-      </div>
+          
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-3">
+              {variables.length === 0 ? (
+                <div className="text-center text-gray-500 text-sm py-8">
+                  載入變數中...
+                </div>
+              ) : (
+                variables.map((variable) => (
+                  <VariableTag
+                    key={variable.key}
+                    varKey={variable.key}
+                    label={variable.label}
+                    onInsert={() => insertVariableToBlock(variable.key)}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* 右側畫布區域 */}
+      {/* 主要編輯區域 */}
       <div className="flex-1 flex flex-col">
         {/* 頂部工具列 */}
-        {selectedBlock && (
-          <div className="bg-white border-b p-3 flex items-center gap-2 flex-wrap">
-            {/* 文字格式工具 */}
-            {(selectedBlock.type === "text") && (
-              <>
-                {/* 字體選擇 */}
-                <select
-                  value={(selectedBlock as any).fontFamily || "Noto Sans TC"}
-                  onChange={(e) => updateBlock(selectedBlock.id, { fontFamily: e.target.value })}
-                  className="text-xs border rounded px-2 py-1 focus:ring-1 focus:ring-[#334d6d] outline-none"
-                >
-                  <option value="Noto Sans TC">思源黑體</option>
-                  <option value="Microsoft JhengHei">微軟正黑體</option>
-                  <option value="Arial">Arial</option>
-                  <option value="Times New Roman">Times New Roman</option>
-                  <option value="Courier New">Courier New</option>
-                </select>
+        <div className="bg-white border-b border-gray-200 p-4">
+          <div className="flex items-center justify-between">
+            {/* 左側：全域工具 */}
+            <div className="flex items-center gap-4">
+              {/* 預覽模式切換 */}
+              <button
+                onClick={() => setIsPreview(!isPreview)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                  isPreview 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {isPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <span className="text-sm font-medium">
+                  {isPreview ? '編輯模式' : '預覽模式'}
+                </span>
+              </button>
 
-                {/* 字體大小 */}
-                <input
-                  type="number"
-                  min="8"
-                  max="72"
-                  value={(selectedBlock as any).fontSize || 14}
-                  onChange={(e) => updateBlock(selectedBlock.id, { fontSize: parseInt(e.target.value) })}
-                  className="w-16 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-[#334d6d] outline-none"
-                  title="字體大小"
-                />
-
-                {/* 粗體 */}
-                <button
-                  onClick={() => updateBlock(selectedBlock.id, { bold: !(selectedBlock as any).bold })}
-                  className={`p-1 hover:bg-gray-100 rounded transition-colors ${
-                    (selectedBlock as any).bold ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                  }`}
-                  title="粗體"
-                >
-                  <Bold className="w-4 h-4" />
-                </button>
-
-                {/* 斜體 */}
-                <button
-                  onClick={() => updateBlock(selectedBlock.id, { italic: !(selectedBlock as any).italic })}
-                  className={`p-1 hover:bg-gray-100 rounded transition-colors ${
-                    (selectedBlock as any).italic ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                  }`}
-                  title="斜體"
-                >
-                  <Italic className="w-4 h-4" />
-                </button>
-
-                {/* 底線 */}
-                <button
-                  onClick={() => updateBlock(selectedBlock.id, { underline: !(selectedBlock as any).underline })}
-                  className={`p-1 hover:bg-gray-100 rounded transition-colors ${
-                    (selectedBlock as any).underline ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                  }`}
-                  title="底線"
-                >
-                  <Underline className="w-4 h-4" />
-                </button>
-
-                {/* 文字對齊 */}
-                <button
-                  onClick={() => {
-                    const currentAlign = (selectedBlock as any).align || "left";
-                    const nextAlign = currentAlign === "left" ? "center" : currentAlign === "center" ? "right" : "left";
-                    updateBlock(selectedBlock.id, { align: nextAlign });
-                  }}
-                  className="p-1 hover:bg-gray-100 rounded transition-colors"
-                  title={`對齊方式: ${(selectedBlock as any).align === "center" ? "置中" : (selectedBlock as any).align === "right" ? "靠右" : "靠左"}`}
-                >
-                  {(selectedBlock as any).align === "center" ? (
-                    <AlignCenter className="w-4 h-4" />
-                  ) : (selectedBlock as any).align === "right" ? (
-                    <AlignRight className="w-4 h-4" />
-                  ) : (
-                    <AlignLeft className="w-4 h-4" />
-                  )}
-                </button>
-
-                {/* 文字顏色 */}
-                <div className="relative">
+              {/* 新增元素 */}
+              {!isPreview && (
+                <div className="flex items-center gap-2">
                   <button
-                    className="p-1 hover:bg-gray-100 rounded transition-colors relative"
-                    title="文字顏色"
+                    onClick={addTextBlock}
+                    className="flex items-center gap-2 px-3 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
                   >
-                    <Palette className="w-4 h-4 text-gray-600" />
-                    <input
-                      type="color"
-                      value={(selectedBlock as any).color || "#000000"}
-                      onChange={(e) => updateBlock(selectedBlock.id, { color: e.target.value })}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
+                    <Type className="w-4 h-4" />
+                    <span className="text-sm font-medium">文字</span>
+                  </button>
+                  <button
+                    onClick={addTableBlock}
+                    className="flex items-center gap-2 px-3 py-2 bg-purple-100 text-purple-700 rounded-md hover:bg-purple-200 transition-colors"
+                  >
+                    <Table className="w-4 h-4" />
+                    <span className="text-sm font-medium">表格</span>
                   </button>
                 </div>
-              </>
-            )}
-
-            {/* 表格工具 */}
-            {selectedBlock.type === "table" && (
-              <>
-                <button
-                  onClick={() => {
-                    const tableBlock = selectedBlock as TableBlock;
-                    updateBlock(selectedBlock.id, { showBorders: !tableBlock.showBorders });
-                  }}
-                  className="p-1 hover:bg-gray-100 rounded"
-                  title="切換邊框顯示"
-                >
-                  <Table className={`w-4 h-4 ${(selectedBlock as TableBlock).showBorders !== false ? 'text-blue-600' : 'text-gray-400'}`} />
-                </button>
-
-                <button
-                  onClick={() => addTableRow(selectedBlock.id)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                  title="新增列"
-                >
-                  <Rows className="w-4 h-4 text-green-600" />
-                </button>
-                <button
-                  onClick={() => removeTableRow(selectedBlock.id)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                  title="刪除列"
-                  disabled={(selectedBlock as TableBlock).rows.length <= 1}
-                >
-                  <Minus className="w-4 h-4 text-red-600" />
-                </button>
-                <button
-                  onClick={() => addTableColumn(selectedBlock.id)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                  title="新增欄"
-                >
-                  <Columns className="w-4 h-4 text-blue-600" />
-                </button>
-                <button
-                  onClick={() => removeTableColumn(selectedBlock.id)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                  title="刪除欄"
-                  disabled={(selectedBlock as TableBlock).headers.length <= 1}
-                >
-                  <Minus className="w-4 h-4 text-orange-600" />
-                </button>
-              </>
-            )}
-
-            {/* 分隔線 */}
-            <div className="w-px h-6 bg-gray-300 mx-2" />
-
-            {/* 通用操作 */}
-            <button
-              onClick={() => duplicateBlock(selectedBlock.id)}
-              className="p-1 hover:bg-gray-100 rounded"
-              title="複製區塊"
-            >
-              <Copy className="w-4 h-4 text-purple-600" />
-            </button>
-
-            <button
-              onClick={() => updateBlock(selectedBlock.id, { locked: !selectedBlock.locked })}
-              className="p-1 hover:bg-gray-100 rounded"
-              title={selectedBlock.locked ? "解除鎖定" : "鎖定元素"}
-            >
-              {selectedBlock.locked ? (
-                <Lock className="w-4 h-4 text-red-600" />
-              ) : (
-                <Unlock className="w-4 h-4 text-gray-600" />
               )}
-            </button>
 
-            <button
-              onClick={() => removeBlock(selectedBlock.id)}
-              className="p-1 hover:bg-gray-100 rounded"
-              title="刪除區塊"
-            >
-              <Trash2 className="w-4 h-4 text-red-600" />
-            </button>
+              {/* 變數面板切換 */}
+              {!showVariablePanel && (
+                <button
+                  onClick={() => setShowVariablePanel(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+                >
+                  <Tag className="w-4 h-4" />
+                  <span className="text-sm font-medium">變數</span>
+                </button>
+              )}
+            </div>
+
+            {/* 中間：格式化工具（根據選中元素顯示） */}
+            {selectedBlock && !isPreview && (
+              <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg">
+                {/* 文字格式化工具 */}
+                {isTextSelected && (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => updateTextFormat('bold', !(selectedBlock as TextBlock).bold)}
+                        className={`p-2 rounded ${(selectedBlock as TextBlock).bold ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+                      >
+                        <Bold className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => updateTextFormat('italic', !(selectedBlock as TextBlock).italic)}
+                        className={`p-2 rounded ${(selectedBlock as TextBlock).italic ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+                      >
+                        <Italic className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => updateTextFormat('underline', !(selectedBlock as TextBlock).underline)}
+                        className={`p-2 rounded ${(selectedBlock as TextBlock).underline ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+                      >
+                        <Underline className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="w-px h-6 bg-gray-300" />
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => updateTextFormat('align', 'left')}
+                        className={`p-2 rounded ${(selectedBlock as TextBlock).align === 'left' ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+                      >
+                        <AlignLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => updateTextFormat('align', 'center')}
+                        className={`p-2 rounded ${(selectedBlock as TextBlock).align === 'center' ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+                      >
+                        <AlignCenter className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => updateTextFormat('align', 'right')}
+                        className={`p-2 rounded ${(selectedBlock as TextBlock).align === 'right' ? 'bg-gray-300' : 'hover:bg-gray-200'}`}
+                      >
+                        <AlignRight className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="w-px h-6 bg-gray-300" />
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={(selectedBlock as TextBlock).fontSize || 14}
+                        onChange={(e) => updateTextFormat('fontSize', parseInt(e.target.value))}
+                        className="w-16 px-2 py-1 border border-gray-300 rounded text-sm"
+                        min="8"
+                        max="72"
+                      />
+                      <input
+                        type="color"
+                        value={(selectedBlock as TextBlock).color || '#000000'}
+                        onChange={(e) => updateTextFormat('color', e.target.value)}
+                        className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+                        title="文字顏色"
+                      />
+                      <input
+                        type="color"
+                        value={(selectedBlock as TextBlock).backgroundColor || '#ffffff'}
+                        onChange={(e) => updateTextFormat('backgroundColor', e.target.value)}
+                        className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+                        title="背景顏色"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* 表格工具 */}
+                {isTableSelected && (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={addTableRow}
+                        className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span className="text-xs">列</span>
+                      </button>
+                      <button
+                        onClick={removeTableRow}
+                        className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                      >
+                        <Minus className="w-3 h-3" />
+                        <span className="text-xs">列</span>
+                      </button>
+                      <button
+                        onClick={addTableColumn}
+                        className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span className="text-xs">欄</span>
+                      </button>
+                      <button
+                        onClick={removeTableColumn}
+                        className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                      >
+                        <Minus className="w-3 h-3" />
+                        <span className="text-xs">欄</span>
+                      </button>
+                    </div>
+
+                    {selectedCellId && (
+                      <>
+                        <div className="w-px h-6 bg-gray-300" />
+                        <input
+                          type="color"
+                          value="#ffffff"
+                          onChange={(e) => {
+                            // TODO: 實現儲存格背景色
+                            console.log('設定儲存格背景色:', e.target.value);
+                          }}
+                          className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+                          title="儲存格背景色"
+                        />
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* 右側：模板和匯出工具 */}
+            <div className="flex items-center gap-3">
+              {/* 模板選擇 */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="text-sm">模板</span>
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+
+                {showTemplateDropdown && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setShowTemplateDropdown(false)}
+                    />
+                    <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                      <div className="p-3 border-b border-gray-200">
+                        <input
+                          type="text"
+                          placeholder="模板名稱"
+                          value={templateName}
+                          onChange={(e) => setTemplateName(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={handleSaveTemplate}
+                            disabled={loading}
+                            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm disabled:opacity-50"
+                          >
+                            {currentTemplateId ? '更新' : '儲存'}
+                          </button>
+                          {currentTemplateId && (
+                            <button
+                              onClick={handleRemoveTemplate}
+                              disabled={loading}
+                              className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
+                            >
+                              刪除
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="max-h-48 overflow-y-auto">
+                        {templates.length === 0 ? (
+                          <div className="p-4 text-center text-gray-500 text-sm">
+                            尚無模板
+                          </div>
+                        ) : (
+                          templates.map((template) => (
+                            <button
+                              key={template.id}
+                              onClick={() => loadTemplate(template)}
+                              className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
+                                currentTemplateId === template.id ? 'bg-blue-50 text-blue-700' : ''
+                              }`}
+                            >
+                              <div className="font-medium text-sm">{template.name}</div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {new Date(template.created_at).toLocaleDateString('zh-TW')}
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* 匯出按鈕 */}
+              <button
+                onClick={() => onExport(value)}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50"
+              >
+                <Download className="w-4 h-4" />
+                <span className="text-sm font-medium">匯出</span>
+              </button>
+            </div>
           </div>
-        )}
+        </div>
 
-        {/* 畫布容器 */}
-        <div className="flex-1 overflow-auto bg-gray-100 p-4">
+        {/* 畫布區域 */}
+        <div className="flex-1 overflow-auto bg-gray-100 p-8">
           <div
             ref={canvasRef}
-            className="relative bg-white border rounded shadow-lg mx-auto"
+            className="relative mx-auto bg-white shadow-lg"
             style={{
               width: value.page.width,
               height: value.page.height,
-              backgroundImage: showGrid
-                ? `linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
-                   linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px)`
-                : undefined,
-              backgroundSize: showGrid ? `${gridSize}px ${gridSize}px` : undefined,
+              backgroundImage: value.showGrid 
+                ? `radial-gradient(circle, #ddd 1px, transparent 1px)`
+                : 'none',
+              backgroundSize: value.showGrid ? `${value.gridSize}px ${value.gridSize}px` : 'auto'
             }}
             onClick={() => {
               setSelectedBlockId(null);
               setSelectedCellId(null);
-              setSelectedCells([]);
             }}
           >
             {/* 中心線輔助 */}
-            {showGrid && (
+            {!isPreview && (
               <>
-                <div
-                  className="absolute bg-red-300 opacity-50"
-                  style={{
-                    left: value.page.width / 2 - 0.5,
-                    top: 0,
-                    width: 1,
-                    height: value.page.height,
-                    pointerEvents: "none",
-                  }}
+                <div 
+                  className="absolute border-l border-blue-300 border-dashed opacity-30"
+                  style={{ left: value.page.width / 2, top: 0, height: '100%' }}
                 />
-                <div
-                  className="absolute bg-red-300 opacity-50"
-                  style={{
-                    left: 0,
-                    top: value.page.height / 2 - 0.5,
-                    width: value.page.width,
-                    height: 1,
-                    pointerEvents: "none",
-                  }}
+                <div 
+                  className="absolute border-t border-blue-300 border-dashed opacity-30"
+                  style={{ top: value.page.height / 2, left: 0, width: '100%' }}
                 />
               </>
             )}
 
             {/* 渲染所有區塊 */}
-            {value.blocks
-              .sort((a, b) => (a.z || 0) - (b.z || 0))
-              .map((block) => (
+            {value.blocks.map((block) => (
               <Rnd
                 key={block.id}
-                size={{ width: block.w, height: block.h || "auto" }}
+                size={{ width: block.w, height: block.h || 'auto' }}
                 position={{ x: block.x, y: block.y }}
-                disableDragging={block.locked || previewMode}
-                enableResizing={
-                  block.locked || previewMode
-                    ? false
-                    : {
-                        top: true,
-                        right: true,
-                        bottom: true,
-                        left: true,
-                        topRight: true,
-                        bottomRight: true,
-                        bottomLeft: true,
-                        topLeft: true,
-                      }
-                }
-                onDragStop={(_, d) => {
-                  const newX = snapToGridHelper(d.x);
-                  const newY = snapToGridHelper(d.y);
-                  updateBlock(block.id, { x: newX, y: newY });
+                onDragStop={(e, d) => {
+                  updateBlock(block.id, { x: d.x, y: d.y });
                 }}
-                onResizeStop={(_, __, ref, ___, pos) => {
-                  const newW = snapToGridHelper(ref.offsetWidth);
-                  const newH = snapToGridHelper(ref.offsetHeight);
-                  const newX = snapToGridHelper(pos.x);
-                  const newY = snapToGridHelper(pos.y);
-                  updateBlock(block.id, { w: newW, h: newH, x: newX, y: newY });
+                onResizeStop={(e, direction, ref, delta, position) => {
+                  updateBlock(block.id, {
+                    w: ref.offsetWidth,
+                    h: ref.offsetHeight,
+                    x: position.x,
+                    y: position.y
+                  });
                 }}
-                style={{ zIndex: block.z || 1 }}
-                className={`group ${selectedBlockId === block.id ? 'ring-2 ring-blue-500' : ''}`}
+                disableDragging={isPreview || block.locked}
+                enableResizing={!isPreview && !block.locked}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedBlockId(block.id);
+                  if (block.type === 'text') {
+                    setSelectedCellId(null);
+                  }
+                }}
+                className={`${selectedBlockId === block.id ? 'ring-2 ring-blue-500' : ''} ${
+                  block.locked ? 'opacity-75' : ''
+                }`}
               >
-                <div
-                  data-block-id={block.id}
-                  className={`w-full h-full ${
-                    previewMode
-                      ? ''
-                      : 'border border-dashed border-gray-300 hover:border-gray-400 bg-white'
-                  } rounded p-2 cursor-pointer relative`}
-                  style={{
-                    backgroundColor: previewMode ? 'transparent' : 'white'
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!previewMode) {
-                      selectBlock(block.id);
-                    }
-                  }}
-                >
-                  <BlockRenderer
-                    block={block}
-                    previewMode={previewMode}
-                    selectedCellId={selectedCellId}
-                    selectedCells={selectedCells}
-                    hoveredCellId={hoveredCellId}
-                    vars={vars}
-                    onUpdate={(patch) => updateBlock(block.id, patch)}
-                    onCellSelect={(cellId, isMultiSelect) => {
-                      if (isMultiSelect && selectedCells.includes(cellId)) {
-                        setSelectedCells(prev => prev.filter(id => id !== cellId));
-                      } else if (isMultiSelect) {
-                        setSelectedCells(prev => [...prev, cellId]);
-                      } else {
-                        setSelectedCellId(cellId);
-                        setSelectedCells([cellId]);
-                      }
+                {/* 浮動操作工具列 */}
+                {selectedBlockId === block.id && !isPreview && (
+                  <div className="absolute -top-10 right-0 flex items-center gap-1 bg-gray-800 text-white px-2 py-1 rounded-md shadow-lg z-10">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyBlock();
+                      }}
+                      className="p-1 hover:bg-gray-700 rounded"
+                      title="複製"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleLock();
+                      }}
+                      className="p-1 hover:bg-gray-700 rounded"
+                      title={block.locked ? "解鎖" : "鎖定"}
+                    >
+                      {block.locked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeBlock();
+                      }}
+                      className="p-1 hover:bg-red-600 rounded"
+                      title="移除"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+
+                {/* 渲染區塊內容 */}
+                {block.type === 'text' && (
+                  <RichTextEditor
+                    content={(block as TextBlock).text}
+                    onChange={(text) => updateBlock(block.id, { text })}
+                    style={{
+                      fontSize: (block as TextBlock).fontSize || 14,
+                      fontWeight: (block as TextBlock).bold ? 'bold' : 'normal',
+                      fontStyle: (block as TextBlock).italic ? 'italic' : 'normal',
+                      textDecoration: (block as TextBlock).underline ? 'underline' : 'none',
+                      textAlign: (block as TextBlock).align || 'left',
+                      color: (block as TextBlock).color || '#000000',
+                      backgroundColor: (block as TextBlock).backgroundColor || 'transparent',
+                      width: '100%',
+                      height: '100%'
                     }}
-                    onCellHover={(cellId) => setHoveredCellId(cellId)}
-                    onColumnResizeStart={(colIndex) => {
-                      setResizingColumn({ blockId: block.id, colIndex });
-                    }}
+                    vars={variables}
+                    isPreview={isPreview}
                   />
-                </div>
+                )}
+
+                {block.type === 'table' && (
+                  <div className="w-full h-full overflow-auto">
+                    <table className="w-full h-full border-collapse">
+                      <thead>
+                        <tr>
+                          {(block as TableBlock).headers.map((header, colIndex) => (
+                            <th
+                              key={colIndex}
+                              className="border border-gray-300 bg-gray-50 p-2 text-sm font-medium text-left relative"
+                              style={{
+                                width: `${(block as TableBlock).columnWidths?.[colIndex] || 25}%`
+                              }}
+                            >
+                              <TableCell
+                                content={header}
+                                onChange={(newContent) => {
+                                  const newHeaders = [...(block as TableBlock).headers];
+                                  newHeaders[colIndex] = newContent;
+                                  updateBlock(block.id, { headers: newHeaders });
+                                }}
+                                style={{
+                                  border: 'none',
+                                  padding: 0,
+                                  backgroundColor: 'transparent'
+                                }}
+                                vars={variables}
+                                isPreview={isPreview}
+                                isSelected={selectedCellId === `header-${colIndex}`}
+                                onClick={() => {
+                                  setSelectedCellId(`header-${colIndex}`);
+                                  setSelectedBlockId(block.id);
+                                }}
+                              />
+                              
+                              {/* 欄位調整手柄 */}
+                              {!isPreview && colIndex < (block as TableBlock).headers.length - 1 && (
+                                <div
+                                  className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400 transition-colors"
+                                  onMouseDown={(e) => {
+                                    // TODO: 實現欄位寬度調整
+                                    console.log('開始調整欄位寬度');
+                                  }}
+                                />
+                              )}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(block as TableBlock).rows.map((row, rowIndex) => (
+                          <tr key={rowIndex}>
+                            {row.map((cell, colIndex) => (
+                              <TableCell
+                                key={`${rowIndex}-${colIndex}`}
+                                content={cell}
+                                onChange={(newContent) => {
+                                  const newRows = [...(block as TableBlock).rows];
+                                  newRows[rowIndex][colIndex] = newContent;
+                                  updateBlock(block.id, { rows: newRows });
+                                }}
+                                style={{
+                                  width: `${(block as TableBlock).columnWidths?.[colIndex] || 25}%`
+                                }}
+                                vars={variables}
+                                isPreview={isPreview}
+                                isSelected={selectedCellId === `${rowIndex}-${colIndex}`}
+                                onClick={() => {
+                                  setSelectedCellId(`${rowIndex}-${colIndex}`);
+                                  setSelectedBlockId(block.id);
+                                }}
+                              />
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </Rnd>
             ))}
           </div>
@@ -1289,119 +1026,4 @@ export default function QuoteCanvas({
       </div>
     </div>
   );
-}
-
-// 區塊渲染器
-function BlockRenderer({
-  block,
-  previewMode,
-  selectedCellId,
-  selectedCells,
-  hoveredCellId,
-  vars,
-  onUpdate,
-  onCellSelect,
-  onCellHover,
-  onColumnResizeStart
-}: {
-  block: CanvasBlock;
-  previewMode: boolean;
-  selectedCellId: string | null;
-  selectedCells: string[];
-  hoveredCellId: string | null;
-  vars: VariableDef[];
-  onUpdate: (patch: Partial<CanvasBlock>) => void;
-  onCellSelect: (cellId: string, isMultiSelect?: boolean) => void;
-  onCellHover: (cellId: string | null) => void;
-  onColumnResizeStart: (colIndex: number) => void;
-}) {
-  if (block.type === "text") {
-    const textBlock = block as TextBlock;
-
-    return (
-      <RichTextEditor
-        value={textBlock.text}
-        onChange={(text) => onUpdate({ text })}
-        vars={vars}
-        previewMode={previewMode}
-        showVariablePanel={false}
-        style={{
-          fontSize: textBlock.fontSize || 14,
-          fontWeight: textBlock.bold ? "bold" : "normal",
-          fontStyle: textBlock.italic ? "italic" : "normal",
-          textDecoration: textBlock.underline ? "underline" : "none",
-          textAlign: textBlock.align || "left",
-          color: textBlock.color || "#000000",
-          backgroundColor: textBlock.backgroundColor || "transparent",
-          fontFamily: textBlock.fontFamily || "Noto Sans TC",
-        }}
-      />
-    );
-  }
-
-  if (block.type === "table") {
-    const tableBlock = block as TableBlock;
-
-    return (
-      <div className="relative w-full h-full overflow-auto">
-        <table
-          className="w-full h-full text-xs relative"
-          style={{
-            borderCollapse: "collapse",
-            border: tableBlock.showBorders !== false ? "1px solid #d1d5db" : "none",
-            fontFamily: (tableBlock.cellStyle as any)?.fontFamily || "Noto Sans TC",
-            fontSize: (tableBlock.cellStyle as any)?.fontSize || 12,
-          }}
-        >
-          <tbody>
-            {tableBlock.rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {row.map((cell, colIndex) => {
-                  const cellId = `${rowIndex}-${colIndex}`;
-                  const isSelected = selectedCells.includes(cellId);
-                  const isHovered = hoveredCellId === cellId;
-                  const columnWidth = tableBlock.columnWidths?.[colIndex];
-
-                  return (
-                    <TableCell
-                      key={colIndex}
-                      value={cell}
-                      onChange={(newValue) => {
-                        const newRows = [...tableBlock.rows];
-                        newRows[rowIndex][colIndex] = newValue;
-                        onUpdate({ rows: newRows });
-                      }}
-                      isSelected={isSelected}
-                      onSelect={() => {
-                        const isMultiSelect = false; // 暫時簡化
-                        onCellSelect(cellId, isMultiSelect);
-                      }}
-                      onMouseEnter={() => onCellHover(cellId)}
-                      onMouseLeave={() => onCellHover(null)}
-                      showResizeHandle={isHovered && colIndex < row.length - 1 && !previewMode}
-                      onResizeStart={(e) => {
-                        e.preventDefault();
-                        onColumnResizeStart(colIndex);
-                      }}
-                      style={{
-                        width: columnWidth ? `${columnWidth}%` : 'auto',
-                        textAlign: (tableBlock.cellStyle as any)?.textAlign || "left",
-                        padding: tableBlock.cellStyle?.padding || 4,
-                        fontFamily: (tableBlock.cellStyle as any)?.fontFamily || "Noto Sans TC",
-                        fontSize: (tableBlock.cellStyle as any)?.fontSize || 12,
-                        color: (tableBlock.cellStyle as any)?.color || "#000000",
-                        border: tableBlock.showBorders !== false ? "1px solid #d1d5db" : "none",
-                      }}
-                    />
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
-  return null;
 }
