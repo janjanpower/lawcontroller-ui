@@ -45,10 +45,12 @@ export interface TableBlock extends CanvasBlockBase {
     bold?: boolean;
     backgroundColor?: string;
     textAlign?: "left" | "center" | "right";
+    fontSize?: number;
   };
   cellStyle?: {
     padding?: number;
     textAlign?: "left" | "center" | "right";
+    fontSize?: number;
   };
 }
 

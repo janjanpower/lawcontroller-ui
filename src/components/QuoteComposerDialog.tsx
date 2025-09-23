@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import QuoteCanvas from "../modules/quotes/editor/canvas/QuoteCanvas";
 import type { QuoteCanvasSchema } from "../modules/quotes/editor/canvas/schema";
 import { getFirmCodeOrThrow, apiFetch } from "../utils/api";
-import { X, Eye, Save, Download, Trash2 } from "lucide-react";
+import { X, Save, Download, Trash2 } from "lucide-react";
 
 const A4PX = { width: 794, height: 1123, margin: 40 }; // 96dpi A4 約略尺寸
 
@@ -83,6 +83,52 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
         const data = await reload.json();
         setTemplates(data || []);
       }
+    } catch (e: any) {
+      alert("發生錯誤：" + (e.message || "未知錯誤"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /** 更新當前模板 */
+  const handleUpdateTemplate = async () => {
+    try {
+      const firmCode = getFirmCodeOrThrow();
+
+      if (!currentTemplateId) {
+        // 如果沒有當前模板，直接呼叫另存新模板
+        await handleSaveAsTemplate();
+        return;
+      }
+
+      const currentTemplate = templates.find(t => t.id === currentTemplateId);
+      if (!currentTemplate) {
+        alert("找不到當前模板");
+        return;
+      }
+
+      if (!confirm(`確定要更新模板「${currentTemplate.name}」嗎？`)) {
+        return;
+      }
+
+      setLoading(true);
+      const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: currentTemplate.name,
+          description: currentTemplate.description,
+          content_json: schema,
+          is_default: currentTemplate.is_default,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err?.detail || "更新模板失敗");
+        return;
+      }
+
+      alert("模板已更新！");
     } catch (e: any) {
       alert("發生錯誤：" + (e.message || "未知錯誤"));
     } finally {
@@ -215,7 +261,7 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
             value={schema}
             onChange={setSchema}
             onExport={handleExport}
-            onSaveTemplate={handleSaveAsTemplate}
+            onSaveTemplate={handleUpdateTemplate}
             onRemoveTemplate={handleRemoveTemplate}
             caseId={caseId}
           />
@@ -238,7 +284,15 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
               disabled={loading}
             >
               <Save className="w-4 h-4" />
-              儲存模板
+              另存新模板
+            </button>
+            <button
+              onClick={handleUpdateTemplate}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center gap-2"
+              disabled={loading}
+            >
+              <Save className="w-4 h-4" />
+              {currentTemplateId ? "更新模板" : "儲存模板"}
             </button>
             <button
               onClick={handleRemoveTemplate}
