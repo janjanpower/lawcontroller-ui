@@ -36,19 +36,21 @@ export interface MergedCell {
 // 表格區塊（增強版）
 export interface TableBlock extends CanvasBlockBase {
   type: "table";
+  headers: string[];
   rows: string[][];
   showBorders?: boolean;
   columnWidths?: number[]; // 欄寬百分比
   mergedCells?: MergedCell[]; // 合併儲存格
+  headerStyle?: {
+    bold?: boolean;
+    backgroundColor?: string;
+    textAlign?: "left" | "center" | "right";
+    fontSize?: number;
+  };
   cellStyle?: {
     padding?: number;
     textAlign?: "left" | "center" | "right";
     fontSize?: number;
-    bold?: boolean;
-    italic?: boolean;
-    underline?: boolean;
-    color?: string;
-    backgroundColor?: string;
   };
 }
 

@@ -26,7 +26,7 @@ export const SYS_VARS: VariableDef[] = [
 export const BASE_VARS = [...CASE_VARS, ...FIRM_VARS, ...SYS_VARS];
 
 export function insertVar(template: string, varKey: string, cursorPos?: number): string {
-  const varTag = `{{${varKey}|color:#ADD8E6}}`;
+  const varTag = `{{${varKey}}}`;
   if (cursorPos !== undefined) {
     return template.slice(0, cursorPos) + varTag + template.slice(cursorPos);
   }
@@ -34,9 +34,6 @@ export function insertVar(template: string, varKey: string, cursorPos?: number):
 }
 
 export function parseVariables(text: string): string[] {
-  const matches = text.match(/\{\{([^}|]+)(?:\|color:[^}]+)?\}\}/g);
-  return matches ? matches.map(m => {
-    const inner = m.slice(2, -2);
-    return inner.split('|')[0]; // 只返回變數名，不包含顏色資訊
-  }) : [];
+  const matches = text.match(/\{\{([^}]+)\}\}/g);
+  return matches ? matches.map(m => m.slice(2, -2)) : [];
 }

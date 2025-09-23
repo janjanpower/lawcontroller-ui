@@ -22,30 +22,27 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
-  const [templateName, setTemplateName] = useState('');
 
   if (!isOpen) return null;
 
   /** 讀取模板清單 */
-  const loadTemplates = async () => {
-    try {
-      setLoading(true);
-      const firmCode = getFirmCodeOrThrow();
-      const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
-      if (res.ok) {
-        const data = await res.json();
-        setTemplates(data || []);
-      }
-    } catch (err) {
-      console.error("載入模板失敗", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (!isOpen) return;
-    loadTemplates();
+    (async () => {
+      try {
+        setLoading(true);
+        const firmCode = getFirmCodeOrThrow();
+        const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
+        if (res.ok) {
+          const data = await res.json();
+          setTemplates(data || []);
+        }
+      } catch (err) {
+        console.error("載入模板失敗", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [isOpen]);
 
   /** 套用模板 */
@@ -53,68 +50,85 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
     if (tpl?.content_json) {
       setSchema(tpl.content_json);
       setCurrentTemplateId(tpl.id);
-      setTemplateName(tpl.name);
     }
   };
 
-  /** 儲存模板（新增或更新） */
-  const handleSaveTemplate = async () => {
+  /** 儲存模板 */
+  const handleSaveAsTemplate = async () => {
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const name = prompt("請輸入模板名稱：", "自訂報價單模板");
+      if (!name) return;
+
+      setLoading(true);
+      const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`, {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          description: `由案件 ${caseId} 建立的自訂模板`,
+          content_json: schema,
+          is_default: false,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err?.detail || "儲存模板失敗");
+        return;
+      }
+
+      alert("模板已儲存！");
+      const reload = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
+      if (reload.ok) {
+        const data = await reload.json();
+        setTemplates(data || []);
+      }
+    } catch (e: any) {
+      alert("發生錯誤：" + (e.message || "未知錯誤"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /** 更新當前模板 */
+  const handleUpdateTemplate = async () => {
     try {
       const firmCode = getFirmCodeOrThrow();
       
       if (!currentTemplateId) {
-        // 新增模板
-        const name = prompt("請輸入模板名稱：", templateName || "自訂報價單模板");
-        if (!name) return;
-
-        setLoading(true);
-        const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`, {
-          method: "POST",
-          body: JSON.stringify({
-            name,
-            description: `由案件 ${caseId} 建立的自訂模板`,
-            content_json: schema,
-            is_default: false,
-          }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          alert(err?.detail || "儲存模板失敗");
-          return;
-        }
-
-        const newTemplate = await res.json();
-        setCurrentTemplateId(newTemplate.id);
-        setTemplateName(name);
-        alert("模板已儲存！");
-      } else {
-        // 更新現有模板
-        if (!confirm(`確定要更新模板「${templateName}」嗎？`)) {
-          return;
-        }
-
-        setLoading(true);
-        const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            name: templateName,
-            description: `由案件 ${caseId} 更新的模板`,
-            content_json: schema,
-            is_default: false,
-          }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          alert(err?.detail || "更新模板失敗");
-          return;
-        }
-
-        alert("模板已更新！");
+        // 如果沒有當前模板，直接呼叫另存新模板
+        await handleSaveAsTemplate();
+        return;
       }
-      
-      await loadTemplates();
+
+      const currentTemplate = templates.find(t => t.id === currentTemplateId);
+      if (!currentTemplate) {
+        alert("找不到當前模板");
+        return;
+      }
+
+      if (!confirm(`確定要更新模板「${currentTemplate.name}」嗎？`)) {
+        return;
+      }
+
+      setLoading(true);
+      const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: currentTemplate.name,
+          description: currentTemplate.description,
+          content_json: schema,
+          is_default: currentTemplate.is_default,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err?.detail || "更新模板失敗");
+        return;
+      }
+
+      alert("模板已更新！");
     } catch (e: any) {
       alert("發生錯誤：" + (e.message || "未知錯誤"));
     } finally {
@@ -124,15 +138,20 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
 
   /** 移除模板 */
   const handleRemoveTemplate = async () => {
+    if (!currentTemplateId) {
+      alert("請先選擇一個模板");
+      return;
+    }
+
     try {
       const firmCode = getFirmCodeOrThrow();
-      
-      if (!currentTemplateId) {
-        alert("請先選擇一個模板");
+      const template = templates.find(t => t.id === currentTemplateId);
+      if (!template) {
+        alert("找不到當前模板");
         return;
       }
 
-      if (!confirm(`確定要刪除模板「${templateName}」嗎？此操作無法復原。`)) {
+      if (!confirm(`確定要刪除模板「${template.name}」嗎？此操作無法復原。`)) {
         return;
       }
 
@@ -148,19 +167,25 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
       }
 
       alert("模板已移除！");
-      
-      // 清空當前模板並重置為預設
+
+      // 重新載入模板列表
+      const reload = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
+      if (reload.ok) {
+        const data = await reload.json();
+        setTemplates(data || []);
+      }
+
+      // 清空當前模板並使用預設模板
       setCurrentTemplateId(null);
-      setTemplateName('');
       setSchema({ page: A4PX, blocks: [], gridSize: 10, showGrid: true });
-      
-      await loadTemplates();
+
     } catch (e: any) {
       alert("發生錯誤：" + (e.message || "未知錯誤"));
     } finally {
       setLoading(false);
     }
   };
+
   /** 匯出 PDF → 直接下載 */
   const handleExport = async (current: QuoteCanvasSchema) => {
     try {
@@ -222,40 +247,6 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
 
         {/* 工具列 */}
         <div className="px-6 py-3 border-b bg-gray-50">
-          {/* 模板選擇和操作 */}
-          <div className="flex items-center space-x-3 mb-3">
-            <select
-              value={currentTemplateId || ''}
-              onChange={(e) => {
-                const templateId = e.target.value;
-                if (templateId) {
-                  const template = templates.find(t => t.id === templateId);
-                  if (template) {
-                    applyTemplate(template);
-                  }
-                } else {
-                  setCurrentTemplateId(null);
-                  setTemplateName('');
-                  setSchema({ page: A4PX, blocks: [], gridSize: 10, showGrid: true });
-                }
-              }}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
-            >
-              <option value="">選擇模板...</option>
-              {templates.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-            
-            <button
-              onClick={handleRemoveTemplate}
-              disabled={!currentTemplateId || loading}
-              className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              移除模板
-            </button>
-          </div>
-          
           {loading && (
             <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#334d6d]"></div>
@@ -270,7 +261,7 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
             value={schema}
             onChange={setSchema}
             onExport={handleExport}
-            onSaveTemplate={handleSaveTemplate}
+            onSaveTemplate={handleUpdateTemplate}
             onRemoveTemplate={handleRemoveTemplate}
             caseId={caseId}
           />
@@ -288,12 +279,34 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
 
           <div className="flex gap-3">
             <button
-              onClick={handleSaveTemplate}
+              onClick={async () => {
+                await handleSaveAsTemplate();
+                await loadTemplates(); // 刷新模板選單
+              }}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors flex items-center gap-2"
+              disabled={loading}
+            >
+              <Save className="w-4 h-4" />
+              另存新模板
+            </button>
+            <button
+              onClick={handleUpdateCurrentTemplate}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center gap-2"
               disabled={loading}
             >
               <Save className="w-4 h-4" />
-              儲存模板
+              {currentTemplateId ? "更新當前模板" : "儲存模板"}
+            </button>
+            <button
+              onClick={async () => {
+                await handleRemoveCurrentTemplate();
+                await loadTemplates(); // 刷新模板選單
+              }}
+              className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors flex items-center gap-2"
+              disabled={loading || !currentTemplateId}
+            >
+              <Trash2 className="w-4 h-4" />
+              移除模板
             </button>
             <button
               onClick={() => handleExport(schema)}
@@ -308,4 +321,87 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
       </div>
     </div>
   );
+
+  // 移除當前模板
+  const handleRemoveCurrentTemplate = async () => {
+    if (!currentTemplateId) {
+      alert("請先選擇一個模板");
+      return;
+    }
+
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const template = templates.find(t => t.id === currentTemplateId);
+      if (!template) {
+        alert("找不到當前模板");
+        return;
+      }
+
+      if (!confirm(`確定要刪除模板「${template.name}」嗎？此操作無法復原。`)) {
+        return;
+      }
+
+      const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err?.detail || "移除模板失敗");
+        return;
+      }
+
+      alert("模板已移除！");
+
+      // 清空當前模板
+      setCurrentTemplateId(null);
+
+    } catch (e: any) {
+      alert("發生錯誤：" + (e.message || "未知錯誤"));
+    }
+  };
+
+  // 更新當前模板
+  const handleUpdateCurrentTemplate = async () => {
+    if (!currentTemplateId) {
+      // 如果沒有當前模板，直接呼叫另存新模板
+      await handleSaveAsTemplate();
+      await loadTemplates();
+      return;
+    }
+
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const currentTemplate = templates.find(t => t.id === currentTemplateId);
+      
+      if (!currentTemplate) {
+        alert("找不到當前模板");
+        return;
+      }
+
+      if (!confirm(`確定要更新模板「${currentTemplate.name}」嗎？`)) {
+        return;
+      }
+
+      const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: currentTemplate.name,
+          description: currentTemplate.description,
+          content_json: schema,
+          is_default: currentTemplate.is_default,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err?.detail || "更新模板失敗");
+        return;
+      }
+
+      alert("模板已更新！");
+    } catch (e: any) {
+      alert("發生錯誤：" + (e.message || "未知錯誤"));
+    }
+  };
 }
