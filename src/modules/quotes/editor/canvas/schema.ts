@@ -23,6 +23,7 @@ export interface TextBlock extends CanvasBlockBase {
   fontSize?: number;
   color?: string;
   backgroundColor?: string;
+  fontFamily?: string;
 }
 
 // 合併儲存格資訊
@@ -41,16 +42,21 @@ export interface TableBlock extends CanvasBlockBase {
   showBorders?: boolean;
   columnWidths?: number[]; // 欄寬百分比
   mergedCells?: MergedCell[]; // 合併儲存格
+  hasFixedHeader?: boolean; // 是否有固定標題行
   headerStyle?: {
     bold?: boolean;
     backgroundColor?: string;
     textAlign?: "left" | "center" | "right";
-    fontSize?: number;
   };
   cellStyle?: {
     padding?: number;
     textAlign?: "left" | "center" | "right";
+    fontFamily?: string;
     fontSize?: number;
+    color?: string;
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
   };
 }
 
