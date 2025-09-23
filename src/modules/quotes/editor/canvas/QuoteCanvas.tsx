@@ -7,7 +7,7 @@ import {
   Type, Table, Plus, Minus, Trash2,
   Eye, EyeOff, Copy, Columns, Rows, Merge, Split, Lock, Unlock,
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Palette,
-  Save, Download
+  Save, Download, Link
 } from "lucide-react";
 import { apiFetch, getFirmCodeOrThrow } from "../../../../utils/api";
 import { renderString } from "../../../../utils/templateEngine";
@@ -44,19 +44,21 @@ export default function QuoteCanvas({
   const gridSize = value.gridSize || 10;
 
   // 載入模板列表
-  useEffect(() => {
-    (async () => {
-      try {
-        const firmCode = getFirmCodeOrThrow();
-        const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
-        if (res.ok) {
-          const data = await res.json();
-          setTemplates(data || []);
-        }
-      } catch (err) {
-        console.error("載入模板失敗", err);
+  const loadTemplates = async () => {
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTemplates(data || []);
       }
-    })();
+    } catch (err) {
+      console.error("載入模板失敗", err);
+    }
+  };
+
+  useEffect(() => {
+    loadTemplates();
   }, []);
 
   // 載入案件變數和上下文
@@ -267,11 +269,7 @@ export default function QuoteCanvas({
       alert("新模板已儲存！");
 
       // 重新載入模板列表
-      const reload = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`);
-      if (reload.ok) {
-        const data = await reload.json();
-        setTemplates(data || []);
-      }
+      await loadTemplates();
     } catch (e: any) {
       alert("發生錯誤：" + (e.message || "未知錯誤"));
     }
@@ -315,6 +313,49 @@ export default function QuoteCanvas({
       }
 
       alert("模板已更新！");
+    } catch (e: any) {
+      alert("發生錯誤：" + (e.message || "未知錯誤"));
+    }
+  };
+
+  // 移除當前模板
+  const handleRemoveCurrentTemplate = async () => {
+    if (!currentTemplateId) {
+      alert("請先選擇一個模板");
+      return;
+    }
+
+    try {
+      const firmCode = getFirmCodeOrThrow();
+      const template = templates.find(t => t.id === currentTemplateId);
+      if (!template) {
+        alert("找不到當前模板");
+        return;
+      }
+
+      if (!confirm(`確定要刪除模板「${template.name}」嗎？此操作無法復原。`)) {
+        return;
+      }
+
+      const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err?.detail || "移除模板失敗");
+        return;
+      }
+
+      alert("模板已移除！");
+
+      // 重新載入模板列表
+      await loadTemplates();
+
+      // 清空當前模板並使用預設模板
+      setCurrentTemplateId(null);
+      setSchema({ page: A4PX, blocks: [], gridSize: 10, showGrid: true });
+
     } catch (e: any) {
       alert("發生錯誤：" + (e.message || "未知錯誤"));
     }
@@ -394,6 +435,35 @@ export default function QuoteCanvas({
     setSelectedCells([]);
   };
 
+  // 重置儲存格合併
+  const resetCellMerges = (blockId: string) => {
+    updateBlock(blockId, { mergedCells: [] });
+    setSelectedCells([]);
+  };
+
+  // 檢查兩個表格是否相鄰
+  const findAdjacentTable = (currentBlock: TableBlock) => {
+    const threshold = 20; // 相鄰判斷閾值
+
+    return value.blocks.find(block => {
+      if (block.id === currentBlock.id || block.type !== "table") return false;
+
+      const otherTable = block as TableBlock;
+
+      // 檢查垂直相鄰（上下相連）
+      const isVerticallyAdjacent =
+        Math.abs((currentBlock.y + (currentBlock.h || 0)) - otherTable.y) < threshold ||
+        Math.abs((otherTable.y + (otherTable.h || 0)) - currentBlock.y) < threshold;
+
+      // 檢查水平重疊
+      const hasHorizontalOverlap =
+        !(currentBlock.x + currentBlock.w < otherTable.x ||
+          otherTable.x + otherTable.w < currentBlock.x);
+
+      return isVerticallyAdjacent && hasHorizontalOverlap;
+    }) as TableBlock | undefined;
+  };
+
   // 合併兩個相鄰的表格
   const mergeTables = (blockId1: string, blockId2: string) => {
     const block1 = value.blocks.find(b => b.id === blockId1) as TableBlock;
@@ -401,32 +471,33 @@ export default function QuoteCanvas({
 
     if (!block1 || !block2 || block1.type !== "table" || block2.type !== "table") return;
 
-    // 檢查是否相鄰（垂直相鄰）
-    const isAdjacent = Math.abs((block1.y + (block1.h || 0)) - block2.y) < 10 ||
-                      Math.abs((block2.y + (block2.h || 0)) - block1.y) < 10;
-
-    if (!isAdjacent) {
-      alert("只能合併相鄰的表格");
-      return;
-    }
+    // 確定哪個表格在上方
+    const upperTable = block1.y < block2.y ? block1 : block2;
+    const lowerTable = block1.y < block2.y ? block2 : block1;
+    const upperBlockId = block1.y < block2.y ? blockId1 : blockId2;
+    const lowerBlockId = block1.y < block2.y ? blockId2 : blockId1;
 
     // 合併表格內容
-    const mergedHeaders = block1.headers;
-    const mergedRows = [...block1.rows, ...block2.rows];
-    const newHeight = (block1.h || 120) + (block2.h || 120);
+    const mergedHeaders = upperTable.headers;
+    const mergedRows = [...upperTable.rows, ...lowerTable.rows];
+    const newHeight = (upperTable.h || 120) + (lowerTable.h || 120);
 
-    // 更新第一個表格
-    updateBlock(blockId1, {
+    // 更新上方表格
+    updateBlock(upperBlockId, {
       headers: mergedHeaders,
       rows: mergedRows,
       h: newHeight
     });
 
-    // 刪除第二個表格
-    removeBlock(blockId2);
+    // 刪除下方表格
+    removeBlock(lowerBlockId);
+
+    // 選中合併後的表格
+    setSelectedBlockId(upperBlockId);
   };
 
   const selectedBlock = value.blocks.find(b => b.id === selectedBlockId);
+  const adjacentTable = selectedBlock?.type === "table" ? findAdjacentTable(selectedBlock as TableBlock) : null;
 
   return (
     <div className="flex gap-4 h-full">
@@ -436,9 +507,14 @@ export default function QuoteCanvas({
         <div className="mb-6">
           <h3 className="text-sm font-semibold mb-3 text-gray-700">模板選單</h3>
           <select
+            value={currentTemplateId || ""}
             onChange={(e) => {
               const tpl = templates.find((t) => t.id === e.target.value);
-              if (tpl) applyTemplate(tpl);
+              if (tpl) {
+                applyTemplate(tpl);
+              } else {
+                setCurrentTemplateId(null);
+              }
             }}
             className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
           >
@@ -447,27 +523,6 @@ export default function QuoteCanvas({
               <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
             ))}
           </select>
-        </div>
-
-        {/* 模板操作 */}
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold mb-3 text-gray-700">模板操作</h3>
-          <div className="space-y-2">
-            <button
-              onClick={handleUpdateCurrentTemplate}
-              className="w-full flex items-center gap-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 rounded-md text-sm transition-colors"
-            >
-              <Save className="w-4 h-4" />
-              {currentTemplateId ? "更新當前模板" : "另存新模板"}
-            </button>
-            <button
-              onClick={handleSaveAsNewTemplate}
-              className="w-full flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 rounded-md text-sm transition-colors"
-            >
-              <Copy className="w-4 h-4" />
-              另存新模板
-            </button>
-          </div>
         </div>
 
         {/* 預覽模式 */}
@@ -528,26 +583,6 @@ export default function QuoteCanvas({
           </div>
         </div>
 
-        {/* 表格合併工具 */}
-        {selectedBlock?.type === "table" && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-3 text-gray-700">表格操作</h3>
-            <div className="space-y-2">
-              <button
-                onClick={() => mergeSelectedCells(selectedBlockId!)}
-                disabled={selectedCells.length < 2}
-                className="w-full flex items-center gap-2 px-3 py-2 bg-purple-100 hover:bg-purple-200 rounded-md text-sm transition-colors disabled:opacity-50"
-              >
-                <Merge className="w-4 h-4" />
-                合併選中儲存格 ({selectedCells.length})
-              </button>
-              <div className="text-xs text-gray-500">
-                按住 Ctrl 點擊多個儲存格來選擇
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* 可用變數 */}
         {vars.length > 0 && (
           <div className="mb-6">
@@ -564,7 +599,7 @@ export default function QuoteCanvas({
                       : 'bg-gray-100 cursor-not-allowed opacity-50'
                   }`}
                 >
-                  <div className="font-mono text-blue-600">{`{{${v.key}}}`}</div>
+                  <div className="font-mono text-blue-600 bg-blue-100 px-1 rounded">{`{{${v.key}}}`}</div>
                   <div className="text-gray-600">{v.label}</div>
                 </button>
               ))}
@@ -659,7 +694,7 @@ export default function QuoteCanvas({
                     const newY = snapToGridHelper(pos.y);
                     updateBlock(block.id, { w: newW, h: newH, x: newX, y: newY });
                   }}
-                  style={{ zIndex: block.z || 1 }}
+                  style={{ zIndex: selectedBlockId === block.id ? 9999 : (block.z || 1) }}
                   className={`group ${selectedBlockId === block.id ? 'ring-2 ring-blue-500' : ''}`}
                 >
                   <div
@@ -704,8 +739,8 @@ export default function QuoteCanvas({
                       <div
                         className="absolute -top-12 left-0 bg-white border rounded shadow-sm p-1 flex items-center justify-between"
                         style={{
-                          width: `${Math.max(300, block.w * 0.8)}px`,
-                          zIndex: 9999
+                          width: `${Math.max(400, block.w * 0.9)}px`,
+                          zIndex: 10000
                         }}
                       >
                         {/* 左側：功能控制項 */}
@@ -804,14 +839,13 @@ export default function QuoteCanvas({
                           {/* 表格區塊的操作 */}
                           {block.type === "table" && (
                             <>
-                              {/* 文字格式工具（與文字區塊相同） */}
+                              {/* 文字格式工具（左側） */}
                               <input
                                 type="number"
                                 min="8"
                                 max="72"
                                 value={14}
                                 onChange={(e) => {
-                                  // 更新表格的字體大小樣式
                                   const tableBlock = block as TableBlock;
                                   updateBlock(block.id, {
                                     cellStyle: {
@@ -825,6 +859,54 @@ export default function QuoteCanvas({
                                 onClick={(e) => e.stopPropagation()}
                               />
 
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const tableBlock = block as TableBlock;
+                                  updateBlock(block.id, {
+                                    headerStyle: {
+                                      ...tableBlock.headerStyle,
+                                      bold: !tableBlock.headerStyle?.bold
+                                    }
+                                  });
+                                }}
+                                className={`p-1 hover:bg-gray-100 rounded transition-colors ${
+                                  (block as TableBlock).headerStyle?.bold ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                                }`}
+                                title="粗體"
+                              >
+                                <Bold className="w-3 h-3" />
+                              </button>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const tableBlock = block as TableBlock;
+                                  const currentAlign = tableBlock.cellStyle?.textAlign || "left";
+                                  const nextAlign = currentAlign === "left" ? "center" : currentAlign === "center" ? "right" : "left";
+                                  updateBlock(block.id, {
+                                    cellStyle: {
+                                      ...tableBlock.cellStyle,
+                                      textAlign: nextAlign
+                                    }
+                                  });
+                                }}
+                                className="p-1 hover:bg-gray-100 rounded transition-colors text-gray-600"
+                                title={`對齊方式: ${(block as TableBlock).cellStyle?.textAlign === "center" ? "置中" : (block as TableBlock).cellStyle?.textAlign === "right" ? "靠右" : "靠左"}`}
+                              >
+                                {(block as TableBlock).cellStyle?.textAlign === "center" ? (
+                                  <AlignCenter className="w-3 h-3" />
+                                ) : (block as TableBlock).cellStyle?.textAlign === "right" ? (
+                                  <AlignRight className="w-3 h-3" />
+                                ) : (
+                                  <AlignLeft className="w-3 h-3" />
+                                )}
+                              </button>
+
+                              {/* 分隔線 */}
+                              <div className="w-px h-6 bg-gray-300 mx-1"></div>
+
+                              {/* 表格操作工具（右側） */}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -882,6 +964,46 @@ export default function QuoteCanvas({
                               >
                                 <Minus className="w-3 h-3 text-orange-600" />
                               </button>
+
+                              {/* 合併儲存格工具 */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  mergeSelectedCells(block.id);
+                                }}
+                                disabled={selectedCells.length < 2}
+                                className={`p-1 hover:bg-gray-100 rounded transition-colors ${
+                                  selectedCells.length >= 2 ? 'text-purple-600' : 'text-gray-400'
+                                }`}
+                                title={`合併選中儲存格 (${selectedCells.length})`}
+                              >
+                                <Merge className="w-3 h-3" />
+                              </button>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  resetCellMerges(block.id);
+                                }}
+                                className="p-1 hover:bg-gray-100 rounded"
+                                title="重置所有合併"
+                              >
+                                <Split className="w-3 h-3 text-orange-600" />
+                              </button>
+
+                              {/* 表格合併工具 */}
+                              {adjacentTable && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    mergeTables(block.id, adjacentTable.id);
+                                  }}
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                  title="合併相鄰表格"
+                                >
+                                  <Link className="w-3 h-3 text-green-600" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
@@ -1085,15 +1207,56 @@ function VariableAwareTextarea({
     }
   };
 
+  // 渲染帶有變數標籤高亮的文字
+  const renderHighlightedText = () => {
+    const parts = value.split(/(\{\{[^}]*\}\})/);
+    return parts.map((part, index) => {
+      if (part.match(/^\{\{.*\}\}$/)) {
+        return (
+          <span
+            key={index}
+            className="bg-blue-100 border border-blue-300 rounded px-1 mx-0.5"
+            style={{ backgroundColor: '#dbeafe', borderColor: '#93c5fd' }}
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
   return (
-    <textarea
-      ref={textareaRef}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onKeyDown={handleKeyDown}
-      style={style}
-      placeholder={placeholder}
-    />
+    <div className="relative w-full h-full">
+      {/* 背景顯示高亮的變數標籤 */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          ...style,
+          color: 'transparent',
+          whiteSpace: 'pre-wrap',
+          overflow: 'hidden',
+          zIndex: 1,
+        }}
+      >
+        {renderHighlightedText()}
+      </div>
+
+      {/* 實際的輸入框 */}
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        style={{
+          ...style,
+          backgroundColor: 'transparent',
+          position: 'relative',
+          zIndex: 2,
+        }}
+        placeholder={placeholder}
+      />
+    </div>
   );
 }
 
@@ -1350,16 +1513,59 @@ function VariableAwareInput({
     }
   };
 
+  // 渲染帶有變數標籤高亮的文字
+  const renderHighlightedText = () => {
+    const parts = value.split(/(\{\{[^}]*\}\})/);
+    return parts.map((part, index) => {
+      if (part.match(/^\{\{.*\}\}$/)) {
+        return (
+          <span
+            key={index}
+            className="bg-blue-100 border border-blue-300 rounded px-1 mx-0.5"
+            style={{ backgroundColor: '#dbeafe', borderColor: '#93c5fd' }}
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
   return (
-    <input
-      ref={inputRef}
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onKeyDown={handleKeyDown}
-      onFocus={onFocus}
-      className={className}
-      placeholder={placeholder}
-    />
+    <div className="relative w-full h-full">
+      {/* 背景顯示高亮的變數標籤 */}
+      <div
+        className="absolute inset-0 pointer-events-none flex items-center"
+        style={{
+          color: 'transparent',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          zIndex: 1,
+          fontSize: 'inherit',
+          fontFamily: 'inherit',
+          padding: '2px 4px',
+        }}
+      >
+        {renderHighlightedText()}
+      </div>
+
+      {/* 實際的輸入框 */}
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onFocus={onFocus}
+        className={className}
+        placeholder={placeholder}
+        style={{
+          backgroundColor: 'transparent',
+          position: 'relative',
+          zIndex: 2,
+        }}
+      />
+    </div>
   );
 }
