@@ -68,7 +68,7 @@ export default function QuoteCanvas({
     (async () => {
       try {
         const firmCode = getFirmCodeOrThrow();
-        
+
         // 載入變數定義
         const varsRes = await apiFetch(`/api/cases/${caseId}/variables?firm_code=${firmCode}`);
         if (varsRes.ok) {
@@ -267,7 +267,7 @@ export default function QuoteCanvas({
       }
 
       alert("新模板已儲存！");
-      
+
       // 重新載入模板列表
       await loadTemplates();
     } catch (e: any) {
@@ -286,7 +286,7 @@ export default function QuoteCanvas({
     try {
       const firmCode = getFirmCodeOrThrow();
       const currentTemplate = templates.find(t => t.id === currentTemplateId);
-      
+
       if (!currentTemplate) {
         alert("找不到當前模板");
         return;
@@ -447,19 +447,19 @@ export default function QuoteCanvas({
 
     return value.blocks.find(block => {
       if (block.id === currentBlock.id || block.type !== "table") return false;
-      
+
       const otherTable = block as TableBlock;
-      
+
       // 檢查垂直相鄰（上下相連）
-      const isVerticallyAdjacent = 
+      const isVerticallyAdjacent =
         Math.abs((currentBlock.y + (currentBlock.h || 0)) - otherTable.y) < threshold ||
         Math.abs((otherTable.y + (otherTable.h || 0)) - currentBlock.y) < threshold;
-      
+
       // 檢查水平重疊
-      const hasHorizontalOverlap = 
-        !(currentBlock.x + currentBlock.w < otherTable.x || 
+      const hasHorizontalOverlap =
+        !(currentBlock.x + currentBlock.w < otherTable.x ||
           otherTable.x + otherTable.w < currentBlock.x);
-      
+
       return isVerticallyAdjacent && hasHorizontalOverlap;
     }) as TableBlock | undefined;
   };
@@ -468,7 +468,7 @@ export default function QuoteCanvas({
   const mergeTables = (blockId1: string, blockId2: string) => {
     const block1 = value.blocks.find(b => b.id === blockId1) as TableBlock;
     const block2 = value.blocks.find(b => b.id === blockId2) as TableBlock;
-    
+
     if (!block1 || !block2 || block1.type !== "table" || block2.type !== "table") return;
 
     // 確定哪個表格在上方
@@ -491,7 +491,7 @@ export default function QuoteCanvas({
 
     // 刪除下方表格
     removeBlock(lowerBlockId);
-    
+
     // 選中合併後的表格
     setSelectedBlockId(upperBlockId);
   };
@@ -722,8 +722,8 @@ export default function QuoteCanvas({
                       onUpdate={(patch) => updateBlock(block.id, patch)}
                       onCellSelect={(cellId, isMultiSelect) => {
                         if (isMultiSelect) {
-                          setSelectedCells(prev => 
-                            prev.includes(cellId) 
+                          setSelectedCells(prev =>
+                            prev.includes(cellId)
                               ? prev.filter(id => id !== cellId)
                               : [...prev, cellId]
                           );
@@ -736,9 +736,9 @@ export default function QuoteCanvas({
 
                     {/* 區塊控制按鈕 - 固定寬度比例 */}
                     {!previewMode && selectedBlockId === block.id && (
-                      <div 
+                      <div
                         className="absolute -top-12 left-0 bg-white border rounded shadow-sm p-1 flex items-center justify-between"
-                        style={{ 
+                        style={{
                           width: `${Math.max(400, block.w * 0.9)}px`,
                           zIndex: 10000
                         }}
@@ -1083,7 +1083,7 @@ function BlockRenderer({
     if (previewMode) {
       // 在預覽模式下渲染變數
       const renderedText = renderString(textBlock.text, caseContext);
-      
+
       return (
         <div
           style={{
@@ -1177,12 +1177,12 @@ function VariableAwareTextarea({
     if (e.key === 'Backspace' || e.key === 'Delete') {
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
-      
+
       if (start === end) {
         // 檢查是否在變數標籤內
         const beforeCursor = value.substring(0, start);
         const afterCursor = value.substring(start);
-        
+
         // 查找最近的變數標籤
         const varMatch = beforeCursor.match(/\{\{[^}]*$/);
         if (varMatch) {
@@ -1191,11 +1191,11 @@ function VariableAwareTextarea({
           if (varEndMatch) {
             const varEnd = start + varEndMatch[0].length;
             e.preventDefault();
-            
+
             // 刪除整個變數標籤
             const newValue = value.substring(0, varStart) + value.substring(varEnd);
             onChange(newValue);
-            
+
             // 設置游標位置
             setTimeout(() => {
               textarea.setSelectionRange(varStart, varStart);
@@ -1241,7 +1241,7 @@ function VariableAwareTextarea({
       >
         {renderHighlightedText()}
       </div>
-      
+
       {/* 實際的輸入框 */}
       <textarea
         ref={textareaRef}
@@ -1487,11 +1487,11 @@ function VariableAwareInput({
     if (e.key === 'Backspace' || e.key === 'Delete') {
       const start = input.selectionStart || 0;
       const end = input.selectionEnd || 0;
-      
+
       if (start === end) {
         const beforeCursor = value.substring(0, start);
         const afterCursor = value.substring(start);
-        
+
         const varMatch = beforeCursor.match(/\{\{[^}]*$/);
         if (varMatch) {
           const varStart = start - varMatch[0].length;
@@ -1499,10 +1499,10 @@ function VariableAwareInput({
           if (varEndMatch) {
             const varEnd = start + varEndMatch[0].length;
             e.preventDefault();
-            
+
             const newValue = value.substring(0, varStart) + value.substring(varEnd);
             onChange(newValue);
-            
+
             setTimeout(() => {
               input.setSelectionRange(varStart, varStart);
             }, 0);
@@ -1549,7 +1549,7 @@ function VariableAwareInput({
       >
         {renderHighlightedText()}
       </div>
-      
+
       {/* 實際的輸入框 */}
       <input
         ref={inputRef}
