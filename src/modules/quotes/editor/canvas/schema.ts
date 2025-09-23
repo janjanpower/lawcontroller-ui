@@ -17,6 +17,7 @@ export interface TextBlock extends CanvasBlockBase {
   type: "text";
   text: string;
   align?: "left" | "center" | "right";
+  fontFamily?: string;
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
@@ -41,16 +42,21 @@ export interface TableBlock extends CanvasBlockBase {
   showBorders?: boolean;
   columnWidths?: number[]; // 欄寬百分比
   mergedCells?: MergedCell[]; // 合併儲存格
+  fontFamily?: string;
+  fontSize?: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  color?: string;
+  textAlign?: "left" | "center" | "right";
   headerStyle?: {
     bold?: boolean;
     backgroundColor?: string;
     textAlign?: "left" | "center" | "right";
-    fontSize?: number;
   };
   cellStyle?: {
     padding?: number;
     textAlign?: "left" | "center" | "right";
-    fontSize?: number;
   };
 }
 
