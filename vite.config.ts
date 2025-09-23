@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -9,7 +8,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8000', // 你的 FastAPI API
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '/api'),
@@ -17,14 +16,29 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['xlsx'],          // ✅ 讓 Vite 預先處理 xlsx，避免解析失敗
-    exclude: ['lucide-react'],  // 你原本的設定保留
+    include: [
+      'react',
+      'react-dom',
+      'react/jsx-runtime', // ✅ 確保 runtime 不會被 tree-shaking
+      'xlsx',
+    ],
+    exclude: ['lucide-react'], // 保留動態 ESM 載入
   },
-  // 如果你有 SSR（通常沒有），遇到 xlsx 被外部化問題可打開這行：
-  // ssr: { noExternal: ['xlsx'] },
-
-  // 若還是有 CJS/ESM 解析問題，可再加這段保險（通常不需要）：
-  // build: {
-  //   commonjsOptions: { include: [/node_modules/] },
-  // },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react/jsx-runtime'],
+          'vendor-xlsx': ['xlsx'],
+        },
+      },
+    },
+    target: 'es2019', // ✅ 確保壓縮後語法不會過度優化
+    sourcemap: true,  // 建議開啟方便除錯
+    minify: 'terser', // ✅ 使用 terser 避免 esbuild mangle runtime 名稱
+    terserOptions: {
+      mangle: { keep_fnames: true, keep_classnames: true },
+      compress: { passes: 2 },
+    },
+  },
 });
