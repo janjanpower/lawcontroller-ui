@@ -258,20 +258,12 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
 
           <div className="flex gap-3">
             <button
-              onClick={handleSaveAsTemplate}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors flex items-center gap-2"
-              disabled={loading}
-            >
-              <Save className="w-4 h-4" />
-              另存新模板
-            </button>
-            <button
               onClick={handleUpdateTemplate}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center gap-2"
               disabled={loading}
             >
               <Save className="w-4 h-4" />
-              {currentTemplateId ? "更新當前模板" : "儲存模板"}
+              儲存模板
             </button>
             <button
               onClick={handleRemoveTemplate}

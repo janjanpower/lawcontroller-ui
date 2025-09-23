@@ -23,6 +23,7 @@ export interface TextBlock extends CanvasBlockBase {
   fontSize?: number;
   color?: string;
   backgroundColor?: string;
+  variableColors?: Record<string, string>;
 }
 
 // 合併儲存格資訊
