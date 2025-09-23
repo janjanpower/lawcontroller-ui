@@ -22,10 +22,11 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
+  const [templateName, setTemplateName] = useState('');
 
   if (!isOpen) return null;
 
-  /** 載入模板清單 */
+  /** 讀取模板清單 */
   const loadTemplates = async () => {
     try {
       setLoading(true);
@@ -43,7 +44,8 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
   };
 
   useEffect(() => {
-    if (isOpen) loadTemplates();
+    if (!isOpen) return;
+    loadTemplates();
   }, [isOpen]);
 
   /** 套用模板 */
@@ -51,77 +53,68 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
     if (tpl?.content_json) {
       setSchema(tpl.content_json);
       setCurrentTemplateId(tpl.id);
+      setTemplateName(tpl.name);
     }
   };
 
-  /** 另存新模板 */
-  const handleSaveAsTemplate = async () => {
+  /** 儲存模板（新增或更新） */
+  const handleSaveTemplate = async () => {
     try {
       const firmCode = getFirmCodeOrThrow();
-      const name = prompt("請輸入模板名稱：", "自訂報價單模板");
-      if (!name) return;
+      
+      if (!currentTemplateId) {
+        // 新增模板
+        const name = prompt("請輸入模板名稱：", templateName || "自訂報價單模板");
+        if (!name) return;
 
-      setLoading(true);
-      const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`, {
-        method: "POST",
-        body: JSON.stringify({
-          name,
-          description: `由案件 ${caseId} 建立的自訂模板`,
-          content_json: schema,
-          is_default: false,
-        }),
-      });
+        setLoading(true);
+        const res = await apiFetch(`/api/quote-templates?firm_code=${firmCode}`, {
+          method: "POST",
+          body: JSON.stringify({
+            name,
+            description: `由案件 ${caseId} 建立的自訂模板`,
+            content_json: schema,
+            is_default: false,
+          }),
+        });
 
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err?.detail || "儲存模板失敗");
-        return;
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err?.detail || "儲存模板失敗");
+          return;
+        }
+
+        const newTemplate = await res.json();
+        setCurrentTemplateId(newTemplate.id);
+        setTemplateName(name);
+        alert("模板已儲存！");
+      } else {
+        // 更新現有模板
+        if (!confirm(`確定要更新模板「${templateName}」嗎？`)) {
+          return;
+        }
+
+        setLoading(true);
+        const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            name: templateName,
+            description: `由案件 ${caseId} 更新的模板`,
+            content_json: schema,
+            is_default: false,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err?.detail || "更新模板失敗");
+          return;
+        }
+
+        alert("模板已更新！");
       }
-
-      alert("模板已儲存！");
+      
       await loadTemplates();
-    } catch (e: any) {
-      alert("發生錯誤：" + (e.message || "未知錯誤"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /** 更新當前模板 */
-  const handleUpdateTemplate = async () => {
-    if (!currentTemplateId) {
-      await handleSaveAsTemplate();
-      return;
-    }
-
-    try {
-      const firmCode = getFirmCodeOrThrow();
-      const currentTemplate = templates.find(t => t.id === currentTemplateId);
-      if (!currentTemplate) {
-        alert("找不到當前模板");
-        return;
-      }
-
-      if (!confirm(`確定要更新模板「${currentTemplate.name}」嗎？`)) return;
-
-      setLoading(true);
-      const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          name: currentTemplate.name,
-          description: currentTemplate.description,
-          content_json: schema,
-          is_default: currentTemplate.is_default,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err?.detail || "更新模板失敗");
-        return;
-      }
-
-      alert("模板已更新！");
     } catch (e: any) {
       alert("發生錯誤：" + (e.message || "未知錯誤"));
     } finally {
@@ -131,20 +124,17 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
 
   /** 移除模板 */
   const handleRemoveTemplate = async () => {
-    if (!currentTemplateId) {
-      alert("請先選擇一個模板");
-      return;
-    }
-
     try {
       const firmCode = getFirmCodeOrThrow();
-      const template = templates.find(t => t.id === currentTemplateId);
-      if (!template) {
-        alert("找不到當前模板");
+      
+      if (!currentTemplateId) {
+        alert("請先選擇一個模板");
         return;
       }
 
-      if (!confirm(`確定要刪除模板「${template.name}」嗎？此操作無法復原。`)) return;
+      if (!confirm(`確定要刪除模板「${templateName}」嗎？此操作無法復原。`)) {
+        return;
+      }
 
       setLoading(true);
       const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${firmCode}`, {
@@ -158,8 +148,12 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
       }
 
       alert("模板已移除！");
+      
+      // 清空當前模板並重置為預設
       setCurrentTemplateId(null);
+      setTemplateName('');
       setSchema({ page: A4PX, blocks: [], gridSize: 10, showGrid: true });
+      
       await loadTemplates();
     } catch (e: any) {
       alert("發生錯誤：" + (e.message || "未知錯誤"));
@@ -167,8 +161,7 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
       setLoading(false);
     }
   };
-
-  /** 匯出 PDF */
+  /** 匯出 PDF → 直接下載 */
   const handleExport = async (current: QuoteCanvasSchema) => {
     try {
       const firmCode = getFirmCodeOrThrow();
@@ -187,17 +180,17 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
         return;
       }
 
+      // 後端回傳 PDF bytes
       const blob = await res.blob();
       if (blob.type !== "application/pdf") {
         const text = await blob.text();
         alert("匯出失敗：" + text);
         return;
       }
-
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `報價單_${caseId}_${new Date().toISOString().split("T")[0]}.pdf`;
+      a.download = `報價單_${caseId}_${new Date().toISOString().split('T')[0]}.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
 
@@ -219,13 +212,50 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
             <Save className="w-5 h-5" />
             建立報價單
           </h2>
-          <button onClick={onClose} className="text-white hover:text-gray-300 transition-colors">
+          <button
+            onClick={onClose}
+            className="text-white hover:text-gray-300 transition-colors"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* 工具列 */}
         <div className="px-6 py-3 border-b bg-gray-50">
+          {/* 模板選擇和操作 */}
+          <div className="flex items-center space-x-3 mb-3">
+            <select
+              value={currentTemplateId || ''}
+              onChange={(e) => {
+                const templateId = e.target.value;
+                if (templateId) {
+                  const template = templates.find(t => t.id === templateId);
+                  if (template) {
+                    applyTemplate(template);
+                  }
+                } else {
+                  setCurrentTemplateId(null);
+                  setTemplateName('');
+                  setSchema({ page: A4PX, blocks: [], gridSize: 10, showGrid: true });
+                }
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#334d6d] focus:border-[#334d6d] outline-none"
+            >
+              <option value="">選擇模板...</option>
+              {templates.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            
+            <button
+              onClick={handleRemoveTemplate}
+              disabled={!currentTemplateId || loading}
+              className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              移除模板
+            </button>
+          </div>
+          
           {loading && (
             <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#334d6d]"></div>
@@ -240,7 +270,7 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
             value={schema}
             onChange={setSchema}
             onExport={handleExport}
-            onSaveTemplate={handleUpdateTemplate}
+            onSaveTemplate={handleSaveTemplate}
             onRemoveTemplate={handleRemoveTemplate}
             caseId={caseId}
           />
@@ -258,20 +288,12 @@ export default function QuoteComposerDialog({ isOpen, onClose, caseId }: Props) 
 
           <div className="flex gap-3">
             <button
-              onClick={handleUpdateTemplate}
+              onClick={handleSaveTemplate}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center gap-2"
               disabled={loading}
             >
               <Save className="w-4 h-4" />
               儲存模板
-            </button>
-            <button
-              onClick={handleRemoveTemplate}
-              className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors flex items-center gap-2"
-              disabled={loading || !currentTemplateId}
-            >
-              <Trash2 className="w-4 h-4" />
-              移除模板
             </button>
             <button
               onClick={() => handleExport(schema)}
