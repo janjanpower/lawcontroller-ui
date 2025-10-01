@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Rnd } from 'react-rnd';
-import { 
-  Type, 
-  Table, 
-  Eye, 
-  EyeOff, 
-  Grid, 
-  Download, 
-  Save, 
-  Trash2, 
-  Copy, 
-  Lock, 
+import {
+  Type,
+  Table,
+  Eye,
+  EyeOff,
+  Download,
+  Trash2,
+  Copy,
+  Lock,
   Unlock,
   Bold,
   Italic,
@@ -20,7 +18,6 @@ import {
   AlignRight,
   Plus,
   Minus,
-  Palette,
   Settings,
   ChevronDown,
   X,
@@ -38,116 +35,283 @@ interface QuoteCanvasProps {
   caseId: string;
 }
 
-interface VariableTag {
+interface VariableDef {
   key: string;
   label: string;
   value: string;
 }
 
-// Rich Text Editor Component
-const RichTextEditor: React.FC<{
-  content: string;
-  onChange: (content: string) => void;
-  style: React.CSSProperties;
-  vars: VariableTag[];
-  isPreview: boolean;
-}> = ({ content, onChange, style, vars, isPreview }) => {
-  const editorRef = useRef<HTMLDivElement>(null);
 
-  const renderContent = () => {
-    if (isPreview) {
-      // 在預覽模式中替換變數標籤為實際值
-      let rendered = content;
-      vars.forEach(v => {
-        const regex = new RegExp(`{{${v.key}}}`, 'g');
-        rendered = rendered.replace(regex, v.value || v.label);
-      });
-      return rendered;
+
+// ===== 半受控 contentEditable（處理 IME 與 caret） =====
+type EditableContentProps = {
+  html: string;
+  onCommit: (html: string) => void;
+  readOnly?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+  placeholder?: string;
+  onFocusIn?: () => void;   // 👈 新增
+  onFocusOut?: () => void;  // 👈 新增
+};
+
+
+function getTextNodesIn(node: Node): Text[] {
+  const out: Text[] = [];
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null);
+  let cur = walker.nextNode();
+  while (cur) { out.push(cur as Text); cur = walker.nextNode(); }
+  return out;
+}
+
+function saveSelection(root: HTMLElement) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  const texts = getTextNodesIn(root);
+  let start = 0, end = 0, passed = 0;
+  for (const tn of texts) {
+    const len = tn.nodeValue?.length ?? 0;
+    if (tn === range.startContainer) start = passed + range.startOffset;
+    if (tn === range.endContainer)   end   = passed + range.endOffset;
+    passed += len;
+  }
+  return { start, end };
+}
+
+function restoreSelection(root: HTMLElement, selInfo: { start: number; end: number } | null) {
+  if (!selInfo) return;
+  const texts = getTextNodesIn(root);
+  const sel = window.getSelection();
+  if (!sel) return;
+
+  let startNode: Text | null = null, endNode: Text | null = null;
+  let startOffset = 0, endOffset = 0, passed = 0;
+
+  for (const tn of texts) {
+    const len = tn.nodeValue?.length ?? 0;
+    if (!startNode && passed + len >= selInfo.start) {
+      startNode = tn; startOffset = selInfo.start - passed;
     }
-    return content;
-  };
+    if (!endNode && passed + len >= selInfo.end) {
+      endNode = tn; endOffset = selInfo.end - passed; break;
+    }
+    passed += len;
+  }
+  if (!startNode) startNode = texts[texts.length - 1] || null;
+  if (!endNode)   endNode   = startNode;
 
-  const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
-    const newContent = e.currentTarget.innerHTML;
-    onChange(newContent);
-  };
+  if (startNode && endNode) {
+    const range = document.createRange();
+    range.setStart(startNode, Math.max(0, Math.min(startNode.nodeValue?.length ?? 0, startOffset)));
+    range.setEnd(endNode,   Math.max(0, Math.min(endNode.nodeValue?.length ?? 0, endOffset)));
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+
+// ===== 在目前選取（caret）插入 HTML（成功回 true；不在 contentEditable 時回 false） =====
+function insertHtmlAtCaret(html: string): boolean {
+  const sel = window.getSelection?.();
+  if (!sel || sel.rangeCount === 0) return false;
+  const range = sel.getRangeAt(0);
+
+  // 確保選取在 contentEditable 內
+  const container = range.commonAncestorContainer as HTMLElement | Text;
+  const host = (container.nodeType === 1 ? container : container.parentElement) as HTMLElement | null;
+  if (!host) return false;
+  if (!host.closest('[contenteditable="true"]')) return false;
+
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  const frag = document.createDocumentFragment();
+  let node: ChildNode | null;
+  let lastNode: ChildNode | null = null;
+  // 將 temp 內容移入片段
+  // eslint-disable-next-line no-cond-assign
+  while ((node = temp.firstChild)) {
+    lastNode = frag.appendChild(node);
+  }
+  range.deleteContents();
+  range.insertNode(frag);
+
+  // 把 caret 放到插入內容之後
+  if (lastNode) {
+    const newRange = document.createRange();
+    newRange.setStartAfter(lastNode);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+  }
+  return true;
+}
+
+
+const EditableContent: React.FC<EditableContentProps> = ({
+  html,
+  onCommit,
+  readOnly,
+  className,
+  style,
+  placeholder,
+  onFocusIn,
+  onFocusOut
+}) => {
+
+  const ref = useRef<HTMLDivElement>(null);
+  const [isComposing, setIsComposing] = useState(false);
+  const lastCommitted = useRef(html);
+
+  // 外部 html 變更時：非聚焦或唯讀才覆寫 DOM（避免 caret 跳）
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const focused = document.activeElement === el;
+    if (focused && !readOnly) return;
+    if (lastCommitted.current !== html) {
+      el.innerHTML = html || "";
+      lastCommitted.current = html || "";
+    }
+  }, [html, readOnly]);
+
+  const commit = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const newHtml = el.innerHTML;
+    if (newHtml !== lastCommitted.current) {
+      lastCommitted.current = newHtml;
+      onCommit(newHtml);
+    }
+  }, [onCommit]);
+
+  const onInput = useCallback(() => {
+    // 半受控：打字不回寫（避免每鍵重繪與 caret 丟失）
+    if (isComposing) return;
+  }, [isComposing]);
+
+  const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      const el = ref.current;
+      const saved = el ? saveSelection(el) : null;
+      commit();
+      requestAnimationFrame(() => {
+        if (el) restoreSelection(el, saved);
+      });
+      e.preventDefault();
+    }
+  }, [commit]);
 
   return (
     <div
-      ref={editorRef}
-      contentEditable={!isPreview}
-      onInput={handleInput}
+      ref={ref}
+      contentEditable={!readOnly}
+      className={className}
       style={{
-        ...style,
-        minHeight: '40px',
-        padding: '8px',
-        border: isPreview ? 'none' : '1px dashed #ccc',
-        outline: 'none',
-        whiteSpace: 'pre-wrap',
-        wordWrap: 'break-word',
-        lineHeight: '1.5'
+        outline: "none",
+        minHeight: 20,
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word",
+        ...style
       }}
-      dangerouslySetInnerHTML={{ __html: renderContent() }}
-      suppressContentEditableWarning={true}
+      data-placeholder={placeholder || ""}
+      onInput={onInput}
+      onKeyDown={onKeyDown}
+      onFocus={() => onFocusIn?.()}
+      onBlur={(e) => { commit(); onFocusOut?.(); }}
+      onCompositionStart={() => setIsComposing(true)}
+      onCompositionEnd={() => { setIsComposing(false); commit(); }}
+      // 初次掛載使用外部值
+      dangerouslySetInnerHTML={{ __html: lastCommitted.current || html || "" }}
+      suppressContentEditableWarning
     />
   );
 };
 
-// Table Cell Component
+
+// ===== Rich Text Editor（改為半受控 + 預覽替換） =====
+const RichTextEditor: React.FC<{
+  content: string;
+  onChange: (content: string) => void;
+  style: React.CSSProperties;
+  vars: VariableDef[];
+  isPreview: boolean;
+}> = ({ content, onChange, style, vars, isPreview }) => {
+  // 預覽時才替換變數；編輯時維持原字串（避免把 {{}} 寫回）
+  const previewHtml = React.useMemo(() => {
+    if (!isPreview) return content;
+    let rendered = content || "";
+    for (const v of vars) {
+      const re = new RegExp(`{{${v.key}}}`, "g");
+      rendered = rendered.replace(re, v.value || v.label || "");
+    }
+    return rendered;
+  }, [content, vars, isPreview]);
+
+  return (
+    <EditableContent
+      html={isPreview ? previewHtml : content}
+      readOnly={isPreview}
+      onCommit={(html) => onChange(html)}
+      onFocusIn={() => setIsEditing(true)}
+      onFocusOut={() => setIsEditing(false)}
+      style={{
+        minHeight: "40px",
+        padding: "8px",
+        border: isPreview ? "none" : "1px dashed #ccc",
+        lineHeight: "1.5",
+        ...style
+      }}
+    />
+  );
+};
+
+
+// ===== Table Cell（改為半受控；僅選中且非預覽時可編輯） =====
 const TableCell: React.FC<{
   content: string;
   onChange: (content: string) => void;
   style: React.CSSProperties;
-  vars: VariableTag[];
+  vars: VariableDef[];
   isPreview: boolean;
   isSelected: boolean;
   onClick: () => void;
 }> = ({ content, onChange, style, vars, isPreview, isSelected, onClick }) => {
-  const renderContent = () => {
-    if (isPreview) {
-      let rendered = content;
-      vars.forEach(v => {
-        const regex = new RegExp(`{{${v.key}}}`, 'g');
-        rendered = rendered.replace(regex, v.value || v.label);
-      });
-      return rendered;
+  const previewHtml = React.useMemo(() => {
+    if (!isPreview) return content;
+    let rendered = content || "";
+    for (const v of vars) {
+      const re = new RegExp(`{{${v.key}}}`, "g");
+      rendered = rendered.replace(re, v.value || v.label || "");
     }
-    return content;
-  };
-
-  const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
-    const newContent = e.currentTarget.innerHTML;
-    onChange(newContent);
-  };
+    return rendered;
+  }, [content, vars, isPreview]);
 
   return (
     <td
       style={{
-        ...style,
-        border: '1px solid #ddd',
-        padding: '8px',
-        minHeight: '30px',
-        backgroundColor: isSelected ? '#e3f2fd' : style.backgroundColor,
-        cursor: isPreview ? 'default' : 'pointer'
+        border: "1px solid #ddd",
+        padding: "8px",
+        minHeight: "30px",
+        cursor: isPreview ? "default" : "pointer",
+        ...style, // 先套用外部樣式
+        backgroundColor: isSelected ? "#e3f2fd" : (style?.backgroundColor as any) // 再以選取狀態覆蓋
       }}
       onClick={onClick}
     >
-      <div
-        contentEditable={!isPreview && isSelected}
-        onInput={handleInput}
-        style={{
-          outline: 'none',
-          minHeight: '20px',
-          whiteSpace: 'pre-wrap',
-          wordWrap: 'break-word',
-          lineHeight: '1.4'
-        }}
-        dangerouslySetInnerHTML={{ __html: renderContent() }}
-        suppressContentEditableWarning={true}
+
+      <EditableContent
+        html={isPreview ? previewHtml : content}
+        readOnly={isPreview || !isSelected}
+        onCommit={(html) => onChange(html)}
+        onFocusIn={() => setIsEditing(true)}
+        onFocusOut={() => setIsEditing(false)}
+        style={{ lineHeight: "1.4", minHeight: 20 }}
       />
+
     </td>
   );
 };
+
 
 // Variable Tag Component
 const VariableTag: React.FC<{
@@ -184,13 +348,14 @@ export default function QuoteCanvas({
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
   const [isPreview, setIsPreview] = useState(false);
-  const [variables, setVariables] = useState<VariableTag[]>([]);
+  const [variables, setVariables] = useState<VariableDef[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState('');
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const [showVariablePanel, setShowVariablePanel] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -243,7 +408,7 @@ export default function QuoteCanvas({
       fontSize: 14,
       align: 'left'
     };
-    
+
     onChange({
       ...value,
       blocks: [...value.blocks, newBlock]
@@ -268,7 +433,7 @@ export default function QuoteCanvas({
       showBorders: true,
       columnWidths: [40, 15, 20, 25]
     };
-    
+
     onChange({
       ...value,
       blocks: [...value.blocks, newBlock]
@@ -279,14 +444,14 @@ export default function QuoteCanvas({
   // 複製區塊
   const copyBlock = () => {
     if (!selectedBlock) return;
-    
+
     const newBlock = {
       ...selectedBlock,
       id: `${selectedBlock.type}-${Date.now()}`,
       x: selectedBlock.x + 20,
       y: selectedBlock.y + 20
     };
-    
+
     onChange({
       ...value,
       blocks: [...value.blocks, newBlock]
@@ -297,13 +462,13 @@ export default function QuoteCanvas({
   // 鎖定/解鎖區塊
   const toggleLock = () => {
     if (!selectedBlock) return;
-    
+
     const updatedBlocks = value.blocks.map(block =>
       block.id === selectedBlockId
         ? { ...block, locked: !block.locked }
         : block
     );
-    
+
     onChange({
       ...value,
       blocks: updatedBlocks
@@ -313,7 +478,7 @@ export default function QuoteCanvas({
   // 移除區塊
   const removeBlock = () => {
     if (!selectedBlock) return;
-    
+
     const updatedBlocks = value.blocks.filter(block => block.id !== selectedBlockId);
     onChange({
       ...value,
@@ -328,37 +493,56 @@ export default function QuoteCanvas({
     const updatedBlocks = value.blocks.map(block =>
       block.id === blockId ? { ...block, ...updates } : block
     );
-    
+
     onChange({
       ...value,
       blocks: updatedBlocks
     });
   };
 
-  // 插入變數到區塊
+  // 插入變數到目前選取（支援 Text、Table 的儲存格與表頭），若無聚焦則附加到選中元素尾端
   const insertVariableToBlock = (varKey: string) => {
-    if (!selectedBlock) return;
-
     const varTag = `{{${varKey}}}`;
+
+    // 1) 優先嘗試在目前 caret 插入
+    const ok = insertHtmlAtCaret(varTag);
+    if (ok) return;
+
+    // 2) 沒有聚焦 caret 時：走選中元素的後備策略
+    if (!selectedBlock) return;
 
     if (selectedBlock.type === 'text') {
       const textBlock = selectedBlock as TextBlock;
-      updateBlock(selectedBlock.id, {
-        text: textBlock.text + varTag
-      });
-    } else if (selectedBlock.type === 'table' && selectedCellId) {
+      updateBlock(selectedBlock.id, { text: (textBlock.text || '') + varTag });
+      return;
+    }
+
+    if (selectedBlock.type === 'table' && selectedCellId) {
       const tableBlock = selectedBlock as TableBlock;
-      const [rowIndex, colIndex] = selectedCellId.split('-').map(Number);
-      
-      if (rowIndex >= 0 && colIndex >= 0) {
-        const newRows = [...tableBlock.rows];
-        if (newRows[rowIndex] && newRows[rowIndex][colIndex] !== undefined) {
-          newRows[rowIndex][colIndex] += varTag;
-          updateBlock(selectedBlock.id, { rows: newRows });
+
+      // header-<colIndex>
+      if (selectedCellId.startsWith('header-')) {
+        const colIndex = Number(selectedCellId.split('-')[1]);
+        if (!Number.isNaN(colIndex)) {
+          const newHeaders = [...tableBlock.headers];
+          newHeaders[colIndex] = (newHeaders[colIndex] || '') + varTag;
+          updateBlock(selectedBlock.id, { headers: newHeaders });
         }
+        return;
+      }
+
+      // row-col
+      const [rStr, cStr] = selectedCellId.split('-');
+      const r = Number(rStr);
+      const c = Number(cStr);
+      if (!Number.isNaN(r) && !Number.isNaN(c)) {
+        const newRows = tableBlock.rows.map((row) => [...row]);
+        newRows[r][c] = (newRows[r][c] || '') + varTag;
+        updateBlock(selectedBlock.id, { rows: newRows });
       }
     }
   };
+
 
   // 格式化工具函數
   const updateTextFormat = (property: keyof TextBlock, value: any) => {
@@ -389,7 +573,7 @@ export default function QuoteCanvas({
   const addTableColumn = () => {
     if (!selectedBlock || selectedBlock.type !== 'table') return;
     const tableBlock = selectedBlock as TableBlock;
-    
+
     updateBlock(selectedBlock.id, {
       headers: [...tableBlock.headers, '新欄位'],
       rows: tableBlock.rows.map(row => [...row, '']),
@@ -419,7 +603,7 @@ export default function QuoteCanvas({
     try {
       setLoading(true);
       const firmCode = getFirmCodeOrThrow();
-      
+
       const payload = {
         name: templateName,
         description: '',
@@ -461,13 +645,13 @@ export default function QuoteCanvas({
 
   const handleRemoveTemplate = async () => {
     if (!currentTemplateId) return;
-    
+
     if (!confirm('確定要刪除此模板嗎？')) return;
 
     try {
       setLoading(true);
       const firmCode = getFirmCodeOrThrow();
-      
+
       const res = await apiFetch(`/api/quote-templates/${currentTemplateId}?firm_code=${encodeURIComponent(firmCode)}`, {
         method: 'DELETE'
       });
@@ -525,7 +709,7 @@ export default function QuoteCanvas({
               點擊插入變數到選中的元素
             </p>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto p-4">
             <div className="space-y-3">
               {variables.length === 0 ? (
@@ -558,8 +742,8 @@ export default function QuoteCanvas({
               <button
                 onClick={() => setIsPreview(!isPreview)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
-                  isPreview 
-                    ? 'bg-blue-100 text-blue-700' 
+                  isPreview
+                    ? 'bg-blue-100 text-blue-700'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -749,8 +933,8 @@ export default function QuoteCanvas({
 
                 {showTemplateDropdown && (
                   <>
-                    <div 
-                      className="fixed inset-0 z-10" 
+                    <div
+                      className="fixed inset-0 z-10"
                       onClick={() => setShowTemplateDropdown(false)}
                     />
                     <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
@@ -781,7 +965,7 @@ export default function QuoteCanvas({
                           )}
                         </div>
                       </div>
-                      
+
                       <div className="max-h-48 overflow-y-auto">
                         {templates.length === 0 ? (
                           <div className="p-4 text-center text-gray-500 text-sm">
@@ -830,7 +1014,7 @@ export default function QuoteCanvas({
             style={{
               width: value.page.width,
               height: value.page.height,
-              backgroundImage: value.showGrid 
+              backgroundImage: value.showGrid
                 ? `radial-gradient(circle, #ddd 1px, transparent 1px)`
                 : 'none',
               backgroundSize: value.showGrid ? `${value.gridSize}px ${value.gridSize}px` : 'auto'
@@ -843,11 +1027,11 @@ export default function QuoteCanvas({
             {/* 中心線輔助 */}
             {!isPreview && (
               <>
-                <div 
+                <div
                   className="absolute border-l border-blue-300 border-dashed opacity-30"
                   style={{ left: value.page.width / 2, top: 0, height: '100%' }}
                 />
-                <div 
+                <div
                   className="absolute border-t border-blue-300 border-dashed opacity-30"
                   style={{ top: value.page.height / 2, left: 0, width: '100%' }}
                 />
@@ -871,8 +1055,8 @@ export default function QuoteCanvas({
                     y: position.y
                   });
                 }}
-                disableDragging={isPreview || block.locked}
-                enableResizing={!isPreview && !block.locked}
+                disableDragging={isPreview || block.locked || isEditing}
+                enableResizing={!isPreview && !block.locked && !isEditing}
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedBlockId(block.id);
@@ -974,15 +1158,55 @@ export default function QuoteCanvas({
                                   setSelectedBlockId(block.id);
                                 }}
                               />
-                              
+
                               {/* 欄位調整手柄 */}
                               {!isPreview && colIndex < (block as TableBlock).headers.length - 1 && (
                                 <div
                                   className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400 transition-colors"
                                   onMouseDown={(e) => {
-                                    // TODO: 實現欄位寬度調整
-                                    console.log('開始調整欄位寬度');
-                                  }}
+                                  e.preventDefault();
+                                  e.stopPropagation();
+
+                                  const startX = e.clientX;
+                                  const table = block as TableBlock;
+                                  const startWidths = (table.columnWidths && table.columnWidths.length === table.headers.length)
+                                    ? [...table.columnWidths]
+                                    : new Array(table.headers.length).fill(100 / table.headers.length);
+
+                                  const thisIndex = colIndex;
+                                  const nextIndex = colIndex + 1;
+
+                                  const onMouseMove = (moveEvt: MouseEvent) => {
+                                    const delta = moveEvt.clientX - startX; // px
+                                    // 以容器寬度換算百分比
+                                    const container = (e.currentTarget as HTMLElement).closest('table') as HTMLTableElement | null;
+                                    const totalPx = container?.getBoundingClientRect().width || 1;
+                                    const deltaPct = (delta / totalPx) * 100;
+
+                                    let newW = startWidths[thisIndex] + deltaPct;
+                                    let nextW = startWidths[nextIndex] - deltaPct;
+
+                                    // 最小寬度限制，避免負值或太窄
+                                    const MIN = 5;
+                                    if (newW < MIN) { nextW -= (MIN - newW); newW = MIN; }
+                                    if (nextW < MIN) { newW -= (MIN - nextW); nextW = MIN; }
+
+                                    const newWidths = [...startWidths];
+                                    newWidths[thisIndex] = newW;
+                                    newWidths[nextIndex] = nextW;
+
+                                    updateBlock(block.id, { columnWidths: newWidths });
+                                  };
+
+                                  const onMouseUp = () => {
+                                    document.removeEventListener('mousemove', onMouseMove);
+                                    document.removeEventListener('mouseup', onMouseUp);
+                                  };
+
+                                  document.addEventListener('mousemove', onMouseMove);
+                                  document.addEventListener('mouseup', onMouseUp);
+                                }}
+
                                 />
                               )}
                             </th>
