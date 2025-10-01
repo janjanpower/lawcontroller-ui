@@ -148,27 +148,18 @@ function renderWithVariables(html: string, vars: VariableDef[]) {
   wrap.innerHTML = html || "";
 
   const dict = new Map<string, string>();
-  vars.forEach(v => dict.set(v.key, v.value || v.label || ""));
+  vars.forEach(v => dict.set(v.key, v.value ?? v.label ?? ""));
 
   wrap.querySelectorAll('span.var-chip').forEach((chip) => {
     const el = chip as HTMLElement;
-    const kind = el.dataset.varKind || "case-var";
-    let text = el.innerText || "";
-
-    if (kind === "case-var") {
-      const key = el.dataset.varKey || "";
-      text = dict.get(key) ?? text;
-    } else if (kind === "today-day") {
-      // 當日 day（無前導 0）
-      text = String(new Date().getDate());
-    }
-    // 用純文字替換 chip
-    const tn = document.createTextNode(text);
-    el.replaceWith(tn);
+    const key = el.dataset.varKey || "";
+    const text = dict.get(key) ?? el.innerText ?? "";
+    el.replaceWith(document.createTextNode(text));
   });
 
   return wrap.innerHTML;
 }
+
 
 const EditableContent: React.FC<EditableContentProps> = ({
   html,
@@ -440,13 +431,22 @@ export default function QuoteCanvas({
       const firmCode = getFirmCodeOrThrow();
       const res = await apiFetch(`/api/cases/${caseId}/variables?firm_code=${encodeURIComponent(firmCode)}`);
       if (res.ok) {
-        const data = await res.json();
-        setVariables(data || []);
+        const data: VariableDef[] = await res.json();
+
+        // 內建「當日」(day，無前導 0) 一起放進變數清單
+        const todayDay: VariableDef = {
+          key: 'today_day',
+          label: '當日',
+          value: String(new Date().getDate())
+        };
+
+        setVariables([...(data || []), todayDay]);
       }
     } catch (error) {
       console.error('載入變數失敗:', error);
     }
   };
+
 
   const loadTemplates = async () => {
     try {
@@ -570,23 +570,14 @@ export default function QuoteCanvas({
     });
   };
 
-  // 插入變數到目前選取（支援 Text、Table 的儲存格與表頭），若無聚焦則附加到選中元素尾端
-  type InsertVarPayload =
-  | { kind: 'case-var'; key: string; label: string }
-  | { kind: 'today-day'; key: ''; label: string };
+  type InsertVarPayload = { key: string; label: string };
 
 const insertVariableToBlock = (payload: InsertVarPayload) => {
-  // 產生 chip HTML（預設底色可改；之後可做選色器）
   const baseStyle = 'padding:2px 6px;border-radius:4px;display:inline-block;background-color:#FFF3BF;';
-  const chipHtml =
-    payload.kind === 'case-var'
-      ? `<span class="var-chip" contenteditable="false" data-var-kind="case-var" data-var-key="${payload.key}" style="${baseStyle}">${payload.label}</span>`
-      : `<span class="var-chip" contenteditable="false" data-var-kind="today-day" style="${baseStyle}">${payload.label}</span>`;
+  // chip 顯示「名稱文字」，用 data-var-key 綁定替換用 key
+  const chipHtml = `<span class="var-chip" contenteditable="false" data-var-key="${payload.key}" style="${baseStyle}">${payload.label}</span>`;
 
-  // 1) 先嘗試插在目前 caret
   if (insertHtmlAtCaret(chipHtml)) return;
-
-  // 2) 若無聚焦：附加到選中元素尾端
   if (!selectedBlock) return;
 
   const appendToHtml = (html: string) => (html || '') + chipHtml;
@@ -620,8 +611,6 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
     }
   }
 };
-
-
 
   // 格式化工具函數
   const updateTextFormat = (property: keyof TextBlock, value: any) => {
@@ -792,30 +781,18 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
           <div className="flex-1 overflow-y-auto p-4">
             <div className="space-y-3">
               {variables.length === 0 ? (
-                <div className="text-center text-gray-500 text-sm py-8">
-                  載入變數中...
-                </div>
-              ) : (
-                <>
-                  {/* 只保留「階段名稱」 */}
-                  {variables
-                    .filter(v => v.label === '階段名稱')
-                    .map((v) => (
+                  <div className="text-center text-gray-500 text-sm py-8">載入變數中...</div>
+                ) : (
+                  <>
+                    {variables.map((v) => (
                       <VariableTag
                         key={v.key}
-                        label={v.label}
-                        onInsert={() => insertVariableToBlock({ kind: 'case-var', key: v.key, label: v.label })}
+                        label={v.label} // 僅顯示名稱，不會出現 {{...}}
+                        onInsert={() => insertVariableToBlock({ key: v.key, label: v.label })}
                       />
                     ))}
-
-                  {/* 額外加入「當日」day（無前導 0） */}
-                  <VariableTag
-                    key="__today_day__"
-                    label="當日"
-                    onInsert={() => insertVariableToBlock({ kind: 'today-day', key: '', label: '當日' })}
-                  />
-                </>
-              )}
+                  </>
+                )}
             </div>
           </div>
         </div>
