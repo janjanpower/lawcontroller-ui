@@ -163,15 +163,21 @@ function renderWithVariables(html: string, vars: VariableDef[]) {
 }
 
 function extractCellBg(html: string): string | null {
-  // data-cell-bg 的 inline style（你目前 color picker 寫入的結構）
-  const m1 = html.match(/data-cell-bg[^>]*style="[^"]*background(?:-color)?\s*:\s*([^;"']+)/i);
-  // 退而求其次，掃一般 style
-  const m2 = html.match(/style="[^"]*background(?:-color)?\s*:\s*([^;"']+)/i);
-  const raw = (m1?.[1] || m2?.[1] || '').trim();
+  if (!html) return null;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  // 只認 data-cell-bg 容器，不掃其他內層元素
+  const holder = wrap.querySelector('[data-cell-bg]') as HTMLElement | null;
+  if (!holder) return null;
+
+  const inline = holder.getAttribute('style') || '';
+  const m = inline.match(/background-color\s*:\s*([^;]+)/i);
+  const raw = m?.[1]?.trim() || '';
   if (!raw) return null;
   if (raw.startsWith('#')) return raw;
   return cssColorToHex(raw);
 }
+
 
 // 把 'red'、'rgb(255,0,0)' 之類轉成 '#rrggbb'（提供給 <input type="color">）
 function cssColorToHex(input: string): string {
@@ -731,7 +737,7 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
     let h1 = (init[rowIndex] ?? 32) + dy;
     let h2 = sumPair - h1;
 
-    const MIN = 12;
+    const MIN = 5;
     if (h1 < MIN) { h2 -= (MIN - h1); h1 = MIN; }
     if (h2 < MIN) { h1 -= (MIN - h2); h2 = MIN; }
 
@@ -760,13 +766,14 @@ const recolorHtmlForKey = useCallback((html: string, key: string, color: string)
   wrap.querySelectorAll(`span.var-chip[data-var-key="${key}"]`).forEach((el) => {
     const node = el as HTMLElement;
     const prev = node.getAttribute('style') || '';
-    const next = /background[^:]*:\s*[^;]+/i.test(prev)
-      ? prev.replace(/background[^:]*:\s*[^;]+/i, `background:${color}`)
-      : `${prev};background:${color}`;
+    const next = /background-color\s*:\s*[^;]+/i.test(prev)
+      ? prev.replace(/background-color\s*:\s*[^;]+/i, `background-color:${color}`)
+      : `${prev};background-color:${color}`;
     node.setAttribute('style', next);
   });
   return wrap.innerHTML;
 }, []);
+
 
 const handleVarColorChange = useCallback((key: string, color: string) => {
   setVarColors(s => ({ ...s, [key]: color }));
@@ -792,6 +799,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
   const color = (varColors && varColors[payload.key]) || '#e6f0ff';
   const baseStyle = 'padding:2px 6px;border-radius:4px;display:inline-block;';
   const chipHtml = `<span class="var-chip" contenteditable="false" data-var-key="${payload.key}" style="${baseStyle}background-color:${color};">${payload.label}</span>`;
+
 
   if (insertHtmlAtCaret(chipHtml)) return;
   if (!selectedBlock) return;
@@ -1342,20 +1350,6 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                             />
                           </div>
 
-                          {/* 文字體色（深藍底容器，方塊顯示目前字色） */}
-                          <div className="relative inline-flex items-center ml-1 rounded bg-[#334d6d] p-0.5" title="文字體色">
-                            <div
-                              className="w-5 h-5 rounded border border-white/30"
-                              style={{ background: (block as TextBlock).color || '#000000' }}
-                            />
-                            <input
-                              type="color"
-                              className="absolute inset-0 opacity-0 cursor-pointer"
-                              value={(block as TextBlock).color || '#000000'}
-                              onChange={(e) => { e.stopPropagation(); updateTextFormat('color', e.target.value); }}
-                            />
-                          </div>
-
                         {/* 字體大小 */}
                         <select
                           onChange={(e) => { e.stopPropagation(); updateTextFormat('fontSize', Number(e.target.value)); }}
@@ -1432,11 +1426,12 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                               if (!canPaint) return;
                               const rows = tb.rows.map(row => [...row]);
                               const cur = rows[selR][selC] || '';
-                              // 移除舊的 data-cell-bg wrapper，再包一次（你原本的策略）
+                              // 移除舊的 data-cell-bg wrapper，再包一次
                               const inner = cur.replace(/<div data-cell-bg[^>]*>([\s\S]*?)<\/div>/, '$1');
-                              rows[selR][selC] = `<div data-cell-bg style="background:${hex};padding:6px;">${inner}</div>`;
+                              rows[selR][selC] = `<div data-cell-bg style="background-color:${hex};padding:6px;">${inner}</div>`;
                               updateBlock(block.id, { rows });
                             };
+
 
                             return (
                               <>
@@ -1501,19 +1496,23 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                                 {/* 儲存格底色（跟著目前 cell 顏色同步顯示／修改） */}
                                 <div className="flex items-center gap-1 ml-2">
-
-                                  <div className="relative inline-flex items-center ml-2 rounded bg-[#334d6d] p-0.5 border border-white/20">
+                                  <div
+                                    className="relative inline-flex items-center rounded bg-[#334d6d] p-0.5 border border-white/20"
+                                    title={canPaint ? '儲存格底色' : '請先選取一個儲存格'}
+                                  >
+                                    <div
+                                      className="w-5 h-5 rounded border border-white/30"
+                                      style={{ background: cellBgHex }}
+                                    />
                                     <input
                                       type="color"
-                                      className="w-5 h-5 block border-0 p-0 bg-transparent cursor-pointer"
+                                      className="absolute inset-0 opacity-0 cursor-pointer"
                                       value={cellBgHex}
                                       disabled={!canPaint}
-                                      title={canPaint ? '儲存格底色' : '請先選取一個儲存格'}
                                       onChange={(evt) => applyCellBg(evt.target.value)}
                                       onMouseDown={preventBlur}
                                     />
                                   </div>
-
                                 </div>
                               </>
                             );
