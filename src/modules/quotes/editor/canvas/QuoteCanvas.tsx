@@ -116,7 +116,6 @@ function insertHtmlAtCaret(html: string): boolean {
   if (!sel || sel.rangeCount === 0) return false;
   const range = sel.getRangeAt(0);
 
-  // 確保選取在 contentEditable 內
   const container = range.commonAncestorContainer as HTMLElement | Text;
   const host = (container.nodeType === 1 ? container : container.parentElement) as HTMLElement | null;
   if (!host) return false;
@@ -127,7 +126,6 @@ function insertHtmlAtCaret(html: string): boolean {
   const frag = document.createDocumentFragment();
   let node: ChildNode | null;
   let lastNode: ChildNode | null = null;
-  // 將 temp 內容移入片段
   // eslint-disable-next-line no-cond-assign
   while ((node = temp.firstChild)) {
     lastNode = frag.appendChild(node);
@@ -135,7 +133,6 @@ function insertHtmlAtCaret(html: string): boolean {
   range.deleteContents();
   range.insertNode(frag);
 
-  // 把 caret 放到插入內容之後
   if (lastNode) {
     const newRange = document.createRange();
     newRange.setStartAfter(lastNode);
@@ -146,6 +143,32 @@ function insertHtmlAtCaret(html: string): boolean {
   return true;
 }
 
+function renderWithVariables(html: string, vars: VariableDef[]) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html || "";
+
+  const dict = new Map<string, string>();
+  vars.forEach(v => dict.set(v.key, v.value || v.label || ""));
+
+  wrap.querySelectorAll('span.var-chip').forEach((chip) => {
+    const el = chip as HTMLElement;
+    const kind = el.dataset.varKind || "case-var";
+    let text = el.innerText || "";
+
+    if (kind === "case-var") {
+      const key = el.dataset.varKey || "";
+      text = dict.get(key) ?? text;
+    } else if (kind === "today-day") {
+      // 當日 day（無前導 0）
+      text = String(new Date().getDate());
+    }
+    // 用純文字替換 chip
+    const tn = document.createTextNode(text);
+    el.replaceWith(tn);
+  });
+
+  return wrap.innerHTML;
+}
 
 const EditableContent: React.FC<EditableContentProps> = ({
   html,
@@ -190,16 +213,67 @@ const EditableContent: React.FC<EditableContentProps> = ({
   }, [isComposing]);
 
   const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      const el = ref.current;
-      const saved = el ? saveSelection(el) : null;
-      commit();
-      requestAnimationFrame(() => {
-        if (el) restoreSelection(el, saved);
-      });
-      e.preventDefault();
+  // IME 組字中按 Enter：只確認選字，不插入段落也不提交，避免 caret 亂跳
+  if (isComposing && e.key === "Enter") {
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+
+  // Ctrl/Cmd + Enter：提交但保存/還原 caret
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+    const el = ref.current;
+    const saved = el ? saveSelection(el) : null;
+    commit();
+    requestAnimationFrame(() => {
+      if (el) restoreSelection(el, saved);
+    });
+    e.preventDefault();
+    return;
+  }
+
+  // 原子刪除：在 chip 前按 Backspace 或在 chip 後按 Delete → 一次刪整顆
+  if (e.key === "Backspace" || e.key === "Delete") {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    const node = range.startContainer;
+    const offset = range.startOffset;
+
+    const host = ref.current;
+    if (!host) return;
+
+    const isChip = (el: Node | null) =>
+      el instanceof HTMLElement && el.classList.contains("var-chip");
+
+    // 找到光標左右節點
+    let left: Node | null = null;
+    let right: Node | null = null;
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      // 文字節點情況
+      left = (node as Text).splitText ? (offset === 0 ? node.previousSibling : null) : null;
+      right = (node as Text).splitText ? (offset === (node.nodeValue?.length ?? 0) ? node.nextSibling : null) : null;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as Element;
+      left = el.childNodes[offset - 1] ?? el.previousSibling;
+      right = el.childNodes[offset] ?? el.nextSibling;
     }
-  }, [commit]);
+
+    // Backspace：若左邊是 chip → 刪除 chip
+    if (e.key === "Backspace" && isChip(left)) {
+      (left as HTMLElement).remove();
+      e.preventDefault();
+      return;
+    }
+    // Delete：若右邊是 chip → 刪除 chip
+    if (e.key === "Delete" && isChip(right)) {
+      (right as HTMLElement).remove();
+      e.preventDefault();
+      return;
+    }
+  }
+}, [commit, isComposing]);
 
   return (
     <div
@@ -219,7 +293,15 @@ const EditableContent: React.FC<EditableContentProps> = ({
       onFocus={() => onFocusIn?.()}
       onBlur={(e) => { commit(); onFocusOut?.(); }}
       onCompositionStart={() => setIsComposing(true)}
-      onCompositionEnd={() => { setIsComposing(false); commit(); }}
+      onCompositionEnd={() => {
+        const el = ref.current;
+        const saved = el ? saveSelection(el) : null;
+        setIsComposing(false);
+        commit();
+        requestAnimationFrame(() => {
+          if (el) restoreSelection(el, saved);
+        });
+      }}
       // 初次掛載使用外部值
       dangerouslySetInnerHTML={{ __html: lastCommitted.current || html || "" }}
       suppressContentEditableWarning
@@ -235,25 +317,22 @@ const RichTextEditor: React.FC<{
   style: React.CSSProperties;
   vars: VariableDef[];
   isPreview: boolean;
-}> = ({ content, onChange, style, vars, isPreview }) => {
+  onFocusIn?: () => void;   // 新增
+  onFocusOut?: () => void;  // 新增
+}> = ({ content, onChange, style, vars, isPreview, onFocusIn, onFocusOut }) => {
+
   // 預覽時才替換變數；編輯時維持原字串（避免把 {{}} 寫回）
   const previewHtml = React.useMemo(() => {
-    if (!isPreview) return content;
-    let rendered = content || "";
-    for (const v of vars) {
-      const re = new RegExp(`{{${v.key}}}`, "g");
-      rendered = rendered.replace(re, v.value || v.label || "");
-    }
-    return rendered;
-  }, [content, vars, isPreview]);
+  return isPreview ? renderWithVariables(content, vars) : content;
+}, [content, vars, isPreview]);
 
   return (
     <EditableContent
       html={isPreview ? previewHtml : content}
       readOnly={isPreview}
       onCommit={(html) => onChange(html)}
-      onFocusIn={() => setIsEditing(true)}
-      onFocusOut={() => setIsEditing(false)}
+      onFocusIn={onFocusIn}     // ← 改這裡
+      onFocusOut={onFocusOut}   // ← 改這裡
       style={{
         minHeight: "40px",
         padding: "8px",
@@ -275,15 +354,12 @@ const TableCell: React.FC<{
   isPreview: boolean;
   isSelected: boolean;
   onClick: () => void;
-}> = ({ content, onChange, style, vars, isPreview, isSelected, onClick }) => {
+  onFocusIn?: () => void;   // 新增
+  onFocusOut?: () => void;  // 新增
+}> = ({ content, onChange, style, vars, isPreview, isSelected, onClick, onFocusIn, onFocusOut }) => {
+
   const previewHtml = React.useMemo(() => {
-    if (!isPreview) return content;
-    let rendered = content || "";
-    for (const v of vars) {
-      const re = new RegExp(`{{${v.key}}}`, "g");
-      rendered = rendered.replace(re, v.value || v.label || "");
-    }
-    return rendered;
+    return isPreview ? renderWithVariables(content, vars) : content;
   }, [content, vars, isPreview]);
 
   return (
@@ -303,11 +379,10 @@ const TableCell: React.FC<{
         html={isPreview ? previewHtml : content}
         readOnly={isPreview || !isSelected}
         onCommit={(html) => onChange(html)}
-        onFocusIn={() => setIsEditing(true)}
-        onFocusOut={() => setIsEditing(false)}
+        onFocusIn={onFocusIn}     // ← 改這裡
+        onFocusOut={onFocusOut}   // ← 改這裡
         style={{ lineHeight: "1.4", minHeight: 20 }}
       />
-
     </td>
   );
 };
@@ -315,18 +390,12 @@ const TableCell: React.FC<{
 
 // Variable Tag Component
 const VariableTag: React.FC<{
-  varKey: string;
   label: string;
   onInsert: () => void;
-}> = ({ varKey, label, onInsert }) => (
+}> = ({ label, onInsert }) => (
   <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-md p-2 hover:bg-blue-100 transition-colors">
     <div className="flex-1 min-w-0">
-      <div className="text-xs font-mono text-blue-700 truncate">
-        {`{{${varKey}}}`}
-      </div>
-      <div className="text-xs text-gray-600 truncate">
-        {label}
-      </div>
+      <div className="text-sm text-blue-700 truncate">{label}</div>
     </div>
     <button
       onClick={onInsert}
@@ -336,6 +405,7 @@ const VariableTag: React.FC<{
     </button>
   </div>
 );
+
 
 export default function QuoteCanvas({
   value,
@@ -501,47 +571,56 @@ export default function QuoteCanvas({
   };
 
   // 插入變數到目前選取（支援 Text、Table 的儲存格與表頭），若無聚焦則附加到選中元素尾端
-  const insertVariableToBlock = (varKey: string) => {
-    const varTag = `{{${varKey}}}`;
+  type InsertVarPayload =
+  | { kind: 'case-var'; key: string; label: string }
+  | { kind: 'today-day'; key: ''; label: string };
 
-    // 1) 優先嘗試在目前 caret 插入
-    const ok = insertHtmlAtCaret(varTag);
-    if (ok) return;
+const insertVariableToBlock = (payload: InsertVarPayload) => {
+  // 產生 chip HTML（預設底色可改；之後可做選色器）
+  const baseStyle = 'padding:2px 6px;border-radius:4px;display:inline-block;background-color:#FFF3BF;';
+  const chipHtml =
+    payload.kind === 'case-var'
+      ? `<span class="var-chip" contenteditable="false" data-var-kind="case-var" data-var-key="${payload.key}" style="${baseStyle}">${payload.label}</span>`
+      : `<span class="var-chip" contenteditable="false" data-var-kind="today-day" style="${baseStyle}">${payload.label}</span>`;
 
-    // 2) 沒有聚焦 caret 時：走選中元素的後備策略
-    if (!selectedBlock) return;
+  // 1) 先嘗試插在目前 caret
+  if (insertHtmlAtCaret(chipHtml)) return;
 
-    if (selectedBlock.type === 'text') {
-      const textBlock = selectedBlock as TextBlock;
-      updateBlock(selectedBlock.id, { text: (textBlock.text || '') + varTag });
+  // 2) 若無聚焦：附加到選中元素尾端
+  if (!selectedBlock) return;
+
+  const appendToHtml = (html: string) => (html || '') + chipHtml;
+
+  if (selectedBlock.type === 'text') {
+    const tb = selectedBlock as TextBlock;
+    updateBlock(selectedBlock.id, { text: appendToHtml(tb.text) });
+    return;
+  }
+
+  if (selectedBlock.type === 'table' && selectedCellId) {
+    const tb = selectedBlock as TableBlock;
+
+    if (selectedCellId.startsWith('header-')) {
+      const colIndex = Number(selectedCellId.split('-')[1]);
+      if (!Number.isNaN(colIndex)) {
+        const headers = [...tb.headers];
+        headers[colIndex] = appendToHtml(headers[colIndex] || '');
+        updateBlock(selectedBlock.id, { headers });
+      }
       return;
     }
 
-    if (selectedBlock.type === 'table' && selectedCellId) {
-      const tableBlock = selectedBlock as TableBlock;
-
-      // header-<colIndex>
-      if (selectedCellId.startsWith('header-')) {
-        const colIndex = Number(selectedCellId.split('-')[1]);
-        if (!Number.isNaN(colIndex)) {
-          const newHeaders = [...tableBlock.headers];
-          newHeaders[colIndex] = (newHeaders[colIndex] || '') + varTag;
-          updateBlock(selectedBlock.id, { headers: newHeaders });
-        }
-        return;
-      }
-
-      // row-col
-      const [rStr, cStr] = selectedCellId.split('-');
-      const r = Number(rStr);
-      const c = Number(cStr);
-      if (!Number.isNaN(r) && !Number.isNaN(c)) {
-        const newRows = tableBlock.rows.map((row) => [...row]);
-        newRows[r][c] = (newRows[r][c] || '') + varTag;
-        updateBlock(selectedBlock.id, { rows: newRows });
-      }
+    const [rStr, cStr] = selectedCellId.split('-');
+    const r = Number(rStr);
+    const c = Number(cStr);
+    if (!Number.isNaN(r) && !Number.isNaN(c)) {
+      const rows = tb.rows.map(row => [...row]);
+      rows[r][c] = appendToHtml(rows[r][c] || '');
+      updateBlock(selectedBlock.id, { rows });
     }
-  };
+  }
+};
+
 
 
   // 格式化工具函數
@@ -717,14 +796,25 @@ export default function QuoteCanvas({
                   載入變數中...
                 </div>
               ) : (
-                variables.map((variable) => (
+                <>
+                  {/* 只保留「階段名稱」 */}
+                  {variables
+                    .filter(v => v.label === '階段名稱')
+                    .map((v) => (
+                      <VariableTag
+                        key={v.key}
+                        label={v.label}
+                        onInsert={() => insertVariableToBlock({ kind: 'case-var', key: v.key, label: v.label })}
+                      />
+                    ))}
+
+                  {/* 額外加入「當日」day（無前導 0） */}
                   <VariableTag
-                    key={variable.key}
-                    varKey={variable.key}
-                    label={variable.label}
-                    onInsert={() => insertVariableToBlock(variable.key)}
+                    key="__today_day__"
+                    label="當日"
+                    onInsert={() => insertVariableToBlock({ kind: 'today-day', key: '', label: '當日' })}
                   />
-                ))
+                </>
               )}
             </div>
           </div>
@@ -966,7 +1056,16 @@ export default function QuoteCanvas({
                         </div>
                       </div>
 
-                      <div className="max-h-48 overflow-y-auto">
+                      <div className="max-h-64 overflow-y-auto">
+                        {/* 新增模板項目（含 ICON） */}
+                        <button
+                          onClick={() => { setCurrentTemplateId(null); setTemplateName(''); }}
+                          className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 flex items-center gap-2"
+                        >
+                          <Plus className="w-4 h-4 text-green-600" />
+                          <span className="text-sm text-green-700">新增模板</span>
+                        </button>
+
                         {templates.length === 0 ? (
                           <div className="p-4 text-center text-gray-500 text-sm">
                             尚無模板
@@ -988,6 +1087,7 @@ export default function QuoteCanvas({
                           ))
                         )}
                       </div>
+
                     </div>
                   </>
                 )}
@@ -1122,6 +1222,8 @@ export default function QuoteCanvas({
                     }}
                     vars={variables}
                     isPreview={isPreview}
+                    onFocusIn={() => setIsEditing(true)}     // 新增
+                    onFocusOut={() => setIsEditing(false)}   // 新增
                   />
                 )}
 
@@ -1152,6 +1254,8 @@ export default function QuoteCanvas({
                                 }}
                                 vars={variables}
                                 isPreview={isPreview}
+                                onFocusIn={() => setIsEditing(true)}     // 新增
+                                onFocusOut={() => setIsEditing(false)}   // 新增
                                 isSelected={selectedCellId === `header-${colIndex}`}
                                 onClick={() => {
                                   setSelectedCellId(`header-${colIndex}`);
@@ -1235,7 +1339,10 @@ export default function QuoteCanvas({
                                   setSelectedCellId(`${rowIndex}-${colIndex}`);
                                   setSelectedBlockId(block.id);
                                 }}
+                                onFocusIn={() => setIsEditing(true)}      // ★ 新增
+                                onFocusOut={() => setIsEditing(false)}    // ★ 新增
                               />
+
                             ))}
                           </tr>
                         ))}
