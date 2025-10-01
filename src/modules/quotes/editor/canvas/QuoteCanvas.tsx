@@ -439,15 +439,14 @@ export default function QuoteCanvas({
       const res = await apiFetch(`/api/cases/${caseId}/variables?firm_code=${encodeURIComponent(firmCode)}`);
       if (res.ok) {
         const data: VariableDef[] = await res.json();
-
-        // 內建「當日」(day，無前導 0) 一起放進變數清單
-        const filtered = (data || []).filter(v => ['階段名稱', '階段日期'].includes(v.label));
-        setVariables(filtered);
+        setVariables(data || []);   // ← 不再過濾
       }
     } catch (error) {
       console.error('載入變數失敗:', error);
     }
   };
+
+
 
 
   const loadTemplates = async () => {
@@ -676,6 +675,14 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
     updateBlock(selectedBlock.id, { [property]: value });
   };
 
+  const getCellBgHex = (html: string | undefined) => {
+    if (!html) return '#ffffff';
+    const m = html.match(/data-cell-bg[^>]*style="[^"]*background:\s*([^;"]+)/i);
+    const color = m?.[1]?.trim() || '';
+    // 如果不是 hex（例如空字串／rgb／transparent），給白色
+    return /^#([0-9a-f]{3}){1,2}$/i.test(color) ? color : '#ffffff';
+  };
+
   // 表格操作函數
   const addTableRow = () => {
     if (!selectedBlock || selectedBlock.type !== 'table') return;
@@ -888,8 +895,8 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                 .map(v => (
                   <VariableTag
                     key={v.key}
-                    label={v.label}
-                    onInsert={() => insertVariableToBlock({ key: v.key, label: v.label })}
+                    label={v.label || v.key}
+                    onInsert={() => insertVariableToBlock({ key: v.key, label: v.label || v.key })}
                   />
                 ))}
             </div>
@@ -1151,6 +1158,26 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                     {block.type === 'text' && (
                       <>
                         <div className="w-px h-4 bg-gray-600 mx-1" />
+
+                        {/* 文字背景色 */}
+                        <input
+                          type="color"
+                          className="w-5 h-5"
+                          title="文字底色"
+                          value={(block as TextBlock).backgroundColor || '#ffffff'}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            updateTextFormat('backgroundColor', e.target.value); // hex
+                          }}
+                        />
+                        {/* 字體大小 */}
+                        <select
+                          onChange={(e) => { e.stopPropagation(); updateTextFormat('fontSize', Number(e.target.value)); }}
+                          value={(block as TextBlock).fontSize || 14}
+                          className="text-xs bg-gray-700/50 rounded px-1 py-1"
+                        >
+                          {[10,12,14,16,18,20,24,28,32].map(s => <option key={s} value={s}>{s}px</option>)}
+                        </select>
                         <button
                           onClick={(e)=>{ e.stopPropagation(); updateTextFormat('bold', !(block as TextBlock).bold); }}
                           className="p-1 hover:bg-gray-700 rounded" title="粗體"
@@ -1223,14 +1250,20 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                         {selectedCellId && (
                           <>
                             <div className="w-px h-4 bg-gray-600 mx-1" />
-                            {/* 儲存格底色（針對 body cell；header 不套） */}
                             {!selectedCellId.startsWith('header-') && (
                               <input
                                 type="color"
                                 className="w-5 h-5"
                                 title="儲存格底色"
+                                value={(() => {
+                                  const tb = (selectedBlock as TableBlock);
+                                  const [rStr, cStr] = selectedCellId.split('-');
+                                  const r = Number(rStr), c = Number(cStr);
+                                  if (Number.isNaN(r) || Number.isNaN(c)) return '#ffffff';
+                                  return getCellBgHex(tb.rows?.[r]?.[c]);
+                                })()}
                                 onChange={(evt) => {
-                                  const color = evt.target.value;
+                                  const color = evt.target.value; // hex
                                   const tb = (selectedBlock as TableBlock);
                                   const [rStr, cStr] = selectedCellId.split('-');
                                   const r = Number(rStr), c = Number(cStr);
@@ -1238,7 +1271,6 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                                   const rows = tb.rows.map(row => [...row]);
                                   const current = rows[r][c] || '';
-                                  // 用一個 div wrapper 記錄背景色；再次變更會覆蓋舊 wrapper
                                   const inner = current.replace(/<div data-cell-bg[^>]*>([\s\S]*?)<\/div>/, '$1');
                                   rows[r][c] = `<div data-cell-bg style="background:${color};padding:6px;">${inner}</div>`;
                                   updateBlock(block.id, { rows });
@@ -1298,90 +1330,63 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                 {block.type === 'table' && (
                   <div className="w-full h-full overflow-auto">
-                    <table className="w-full h-full border-collapse">
-                      {(block as TableBlock).headers.length > 0 && (
-                        <thead>
-                          <tr>
-                            {(block as TableBlock).headers.map((header, colIndex) => (
-                              <th
-                                key={colIndex}
-                                className="border border-gray-300 bg-gray-50 p-2 text-sm font-medium text-left relative"
-                                style={{
-                                  width: `${(block as TableBlock).columnWidths?.[colIndex] ?? (100 / (block as TableBlock).headers.length)}%`
-                                }}
-                              >
-                                <TableCell
-                                  content={header}
-                                  onChange={(newContent) => {
-                                    const newHeaders = [...(block as TableBlock).headers];
-                                    newHeaders[colIndex] = newContent;
-                                    updateBlock(block.id, { headers: newHeaders });
-                                  }}
-                                  style={{ border: 'none', padding: 0, backgroundColor: 'transparent' }}
-                                  vars={variables}
-                                  isPreview={isPreview}
-                                  isSelected={selectedCellId === `header-${colIndex}`}
-                                  onClick={() => { setSelectedCellId(`header-${colIndex}`); setSelectedBlockId(block.id); }}
-                                  onFocusIn={() => setIsEditing(true)}
-                                  onFocusOut={() => setIsEditing(false)}
-                                />
+                    {(() => {
+                      const tb = block as TableBlock;
+                      const borders = tb.showBorders;
+                      return (
+                        <table className={`w-full h-full border-collapse ${borders ? 'border border-gray-300' : ''}`}>
+                          {tb.headers.length > 0 && (
+                            <thead>
+                              <tr>
+                                {tb.headers.map((header, colIndex) => (
+                                  <th
+                                    key={colIndex}
+                                    className={`${borders ? 'border border-gray-300' : ''} bg-gray-50 p-2 text-sm font-medium text-left relative`}
+                                    style={{ width: `${tb.columnWidths?.[colIndex] ?? (100 / tb.headers.length)}%` }}
+                                  >
+                                    {/* 原本的 TableCell... */}
+                                    {!isPreview && colIndex < tb.headers.length - 1 && (
+                                      <div
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400 transition-colors select-none"
+                                        onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
+                                      />
+                                    )}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                          )}
 
-                                {!isPreview && colIndex < (block as TableBlock).headers.length - 1 && (
-                                  <div
-                                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400 transition-colors"
-                                    onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
-                                  />
-                                )}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                      )}
-
-                      <tbody>
-                        {(block as TableBlock).rows.map((row, rowIndex) => {
-                          const colCount = row.length;
-                          return (
-                            <tr key={rowIndex}>
-                              {row.map((cell, colIndex) => (
-                                <td
-                                  key={`${rowIndex}-${colIndex}`}
-                                  className="relative"
-                                  style={{ width: `${(block as TableBlock).columnWidths?.[colIndex] ?? (100 / colCount)}%` }}
-                                >
-                                  <TableCell
-                                    content={cell}
-                                    onChange={(newContent) => {
-                                      const newRows = [...(block as TableBlock).rows];
-                                      newRows[rowIndex][colIndex] = newContent;
-                                      updateBlock(block.id, { rows: newRows });
-                                    }}
-                                    style={{}}
-                                    vars={variables}
-                                    isPreview={isPreview}
-                                    isSelected={selectedCellId === `${rowIndex}-${colIndex}`}
-                                    onClick={() => { setSelectedCellId(`${rowIndex}-${colIndex}`); setSelectedBlockId(block.id); }}
-                                    onFocusIn={() => setIsEditing(true)}
-                                    onFocusOut={() => setIsEditing(false)}
-                                  />
-
-                                  {/* 無表頭：第一列掛欄寬拖移手柄 */}
-                                  {!isPreview && (block as TableBlock).headers.length === 0 && rowIndex === 0 && colIndex < row.length - 1 && (
-                                    <div
-                                      className="absolute top-0 right-0 w-2 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
-                                      onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
-                                    />
-                                  )}
-                                </td>
-                              ))}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-
+                          <tbody>
+                            {tb.rows.map((row, rowIndex) => {
+                              const colCount = row.length;
+                              return (
+                                <tr key={rowIndex}>
+                                  {row.map((cell, colIndex) => (
+                                    <td
+                                      key={`${rowIndex}-${colIndex}`}
+                                      className={`relative ${borders ? 'border border-gray-300' : ''}`}
+                                      style={{ width: `${tb.columnWidths?.[colIndex] ?? (100 / colCount)}%` }}
+                                    >
+                                      {/* 原本的 TableCell... */}
+                                      {!isPreview && tb.headers.length === 0 && rowIndex === 0 && colIndex < row.length - 1 && (
+                                        <div
+                                          className="absolute top-0 right-0 w-2 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
+                                          onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
+                                        />
+                                      )}
+                                    </td>
+                                  ))}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
                   </div>
                 )}
+
               </Rnd>
             ))}
           </div>
