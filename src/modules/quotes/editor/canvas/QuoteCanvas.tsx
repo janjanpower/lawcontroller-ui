@@ -22,10 +22,6 @@ import {
   ChevronDown,
   X,
   Tag,
-  SplitSquareVertical,
-  SplitSquareHorizontal,
-  PlusSquare,
-  MinusSquare,
 } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow } from '../../../../utils/api';
 import type { QuoteCanvasSchema, CanvasBlock, TextBlock, TableBlock } from './schema';
@@ -164,6 +160,41 @@ function renderWithVariables(html: string, vars: VariableDef[]) {
   return wrap.innerHTML;
 }
 
+function extractCellBg(html: string): string | null {
+  // data-cell-bg 的 inline style（你目前 color picker 寫入的結構）
+  const m1 = html.match(/data-cell-bg[^>]*style="[^"]*background(?:-color)?\s*:\s*([^;"']+)/i);
+  // 退而求其次，掃一般 style
+  const m2 = html.match(/style="[^"]*background(?:-color)?\s*:\s*([^;"']+)/i);
+  const raw = (m1?.[1] || m2?.[1] || '').trim();
+  if (!raw) return null;
+  if (raw.startsWith('#')) return raw;
+  return cssColorToHex(raw);
+}
+
+// 把 'red'、'rgb(255,0,0)' 之類轉成 '#rrggbb'（提供給 <input type="color">）
+function cssColorToHex(input: string): string {
+  const probe = document.createElement('div');
+  probe.style.color = input;
+  document.body.appendChild(probe);
+  const rgb = getComputedStyle(probe).color; // e.g. "rgb(255, 0, 0)"
+  document.body.removeChild(probe);
+  const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (!m) return '#000000';
+  const r = Number(m[1]).toString(16).padStart(2, '0');
+  const g = Number(m[2]).toString(16).padStart(2, '0');
+  const b = Number(m[3]).toString(16).padStart(2, '0');
+  return `#${r}${g}${b}`;
+}
+
+function isDark(hex: string) {
+  const h = hex.replace('#','');
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  const n = parseInt(full, 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const l = (0.299*r + 0.587*g + 0.114*b) / 255; // 0~1
+  return l < 0.5;
+}
+
 
 const EditableContent = React.forwardRef<HTMLDivElement, EditableContentProps>(({
   html,
@@ -263,7 +294,7 @@ const EditableContent = React.forwardRef<HTMLDivElement, EditableContentProps>((
         minHeight: 20,
         height: "100%",
         maxHeight: "100%",
-        overflow: "auto",
+        overflow: "visible",              // ← 不要卷軸，讓內容撐開
         whiteSpace: "pre-wrap",
         wordBreak: "break-word",
         ...style
@@ -286,6 +317,8 @@ const EditableContent = React.forwardRef<HTMLDivElement, EditableContentProps>((
     />
   );
 });
+
+
 
 
 // ===== Rich Text Editor（改為半受控 + 預覽替換） =====
@@ -313,11 +346,11 @@ const RichTextEditor: React.FC<{
       onFocusOut={onFocusOut}   // ← 改這裡
       style={{
         minHeight: "40px",
-        height: "100%",
-        maxHeight: "100%",
+        height: "auto",
+        maxHeight: "none",
         padding: "8px",
         border: "none",          // 移除虛線
-        overflow: "auto",        // 超出時滾動
+        overflow: "visible",        // 超出時滾動
         wordBreak: "break-word",
         whiteSpace: "pre-wrap",
         lineHeight: "1.5",
@@ -337,7 +370,7 @@ const TableCell: React.FC<{
   vars: VariableDef[];
   isPreview: boolean;
   isSelected: boolean;
-  onSelect: () => void;       // ← 改成 onSelect
+  onSelect: () => void;
 }> = ({ content, onChange, style, vars, isPreview, isSelected, onSelect }) => {
   const previewHtml = React.useMemo(
     () => (isPreview ? renderWithVariables(content, vars) : content),
@@ -345,28 +378,46 @@ const TableCell: React.FC<{
   );
 
   const ecRef = useRef<HTMLDivElement>(null);
+  const start = useRef<{x:number;y:number}|null>(null);
+  const moved = useRef(false);
 
-  // 單擊即選中＋聚焦
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onSelect();
-    requestAnimationFrame(() => ecRef.current?.focus());
+  const onMouseDown = (e: React.MouseEvent) => {
+    // 不阻止冒泡 → Rnd 若有拖動會接手；若沒拖動，mouseUp 再聚焦編輯
+    start.current = { x: e.clientX, y: e.clientY };
+    moved.current = false;
+  };
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!start.current) return;
+    const dx = Math.abs(e.clientX - start.current.x);
+    const dy = Math.abs(e.clientY - start.current.y);
+    if (dx > 3 || dy > 3) moved.current = true; // 3px 閾值
+  };
+  const onMouseUp = () => {
+    if (!moved.current && !isPreview) {
+      onSelect();
+      requestAnimationFrame(() => ecRef.current?.focus());
+    }
+    start.current = null;
   };
 
   return (
     <div
-      onMouseDown={handleMouseDown}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
       style={{
         padding: "4px",
         minHeight: 24,
         height: "100%",
         cursor: isPreview ? "default" : "text",
         ...style,
-        backgroundColor: isSelected ? "#e3f2fd" : (style?.backgroundColor as any)
+        backgroundColor: 'transparent',
+        outline: isSelected ? '2px solid #90caf9' : 'none',
+        outlineOffset: 0,
       }}
     >
       <EditableContent
-        ref={ecRef}
+        ref={ecRef as any}
         html={isPreview ? previewHtml : content}
         readOnly={isPreview || !isSelected}
         onCommit={(html) => onChange(html)}
@@ -376,23 +427,44 @@ const TableCell: React.FC<{
   );
 };
 
-
-
 // Variable Tag Component
-const VariableTag: React.FC<{ label: string; onInsert: () => void; }> = ({ label, onInsert }) => (
-  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-md p-2 hover:bg-blue-100 transition-colors">
-    <div className="flex-1 min-w-0">
-      <div className="text-sm text-blue-700 truncate">{label}</div>
-    </div>
-    <button
-      onMouseDown={(e) => e.preventDefault()} // ← 保持原本的 selection/caret
-      onClick={onInsert}
-      className="ml-2 px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors flex-shrink-0"
+const VariableTag: React.FC<{
+  label: string;
+  color: string;
+  onColorChange: (c:string)=>void;
+  onInsert: () => void;
+}> = ({ label, color, onColorChange, onInsert }) => {
+  const dark = isDark(color);
+  return (
+    <div
+      className="flex items-center justify-between border rounded-md p-2 transition-colors"
+      style={{ backgroundColor: color, borderColor: '#00000022' }}
     >
-      插入
-    </button>
-  </div>
-);
+      <div className="flex items-center gap-2 min-w-0">
+        {/* 小色票（可改色） */}
+        <div className="relative inline-flex items-center">
+          <div className="w-5 h-5 rounded border border-white/50 overflow-hidden" />
+          <input
+            type="color"
+            className="absolute inset-0 opacity-0 cursor-pointer"
+            value={color}
+            onChange={(e)=>onColorChange(e.target.value)}
+            title="標籤底色"
+          />
+        </div>
+        <div className={`text-sm truncate ${dark ? 'text-white' : 'text-gray-800'}`}>{label}</div>
+      </div>
+      <button
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={onInsert}
+        className={`ml-2 px-2 py-1 rounded text-xs transition-colors flex-shrink-0 ${dark ? 'bg-white text-gray-800' : 'bg-gray-800 text-white'}`}
+      >
+        插入
+      </button>
+    </div>
+  );
+};
+
 
 
 
@@ -415,6 +487,7 @@ export default function QuoteCanvas({
   const [showVariablePanel, setShowVariablePanel] = useState(true);
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [varColors, setVarColors] = useState<Record<string,string>>({});
 
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -429,13 +502,20 @@ export default function QuoteCanvas({
       const firmCode = getFirmCodeOrThrow();
       const res = await apiFetch(`/api/cases/${caseId}/variables?firm_code=${encodeURIComponent(firmCode)}`);
       if (res.ok) {
-        const data: VariableDef[] = await res.json();
-        setVariables(data || []);   // ← 不再過濾
+        let data: VariableDef[] = await res.json();
+        // 排除
+        data = (data || []).filter(v => !['階段狀態','階段順序'].includes(v.label));
+        // 加入「當日」
+        const today = new Date();
+        const d = today.getDate(); // 無前導 0
+        data.unshift({ key: 'today_day', label: '當日', value: String(d) });
+        setVariables(data);
       }
     } catch (error) {
       console.error('載入變數失敗:', error);
     }
   };
+
 
 
 
@@ -618,59 +698,55 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
 
 
 const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number) => {
-  e.preventDefault(); e.stopPropagation();
+  e.preventDefault();
+  e.stopPropagation();
   if (blk.type !== 'table') return;
-  const tb = blk as TableBlock;
 
-  const containerTable = (e.currentTarget as HTMLElement).closest('table') as HTMLTableElement | null;
-  const totalPx = containerTable?.getBoundingClientRect().height || 1;
-
-  const rowsCount = tb.rows.length;
+  const t = blk as TableBlock;
   const startY = e.clientY;
 
-  // 以 px 存 row 高（不存在就平均）
-  const startHeights: number[] = (tb as any).rowHeightsPx && (tb as any).rowHeightsPx.length === rowsCount
-    ? [...(tb as any).rowHeightsPx]
-    : new Array(rowsCount).fill(totalPx / rowsCount);
+  // 目前各列高度（px）。若還沒建，先用每列 32px
+  const rows = t.rows || [];
+  const init = ((t as any).rowHeights as number[] | undefined) ?? new Array(rows.length).fill(32);
 
-  const nextIndex = rowIndex + 1;
-  if (nextIndex >= rowsCount) return;
+  const next = rowIndex + 1;
+  let live = init.slice();
 
-  let liveHeights = startHeights.slice();
+  // 以目前這兩列的總和來分配，確保拉一個、另一個跟著反向變化
+  const sumPair = (init[rowIndex] ?? 32) + (init[next] ?? 32);
 
-  const onMouseMove = (moveEvt: MouseEvent) => {
-    const deltaPx = moveEvt.clientY - startY;
-
-    let h1 = startHeights[rowIndex] + deltaPx;
-    let h2 = startHeights[nextIndex] - deltaPx;
+  const onMove = (mv: MouseEvent) => {
+    const dy = mv.clientY - startY;
+    let h1 = (init[rowIndex] ?? 32) + dy;
+    let h2 = sumPair - h1;
 
     const MIN = 20;
     if (h1 < MIN) { h2 -= (MIN - h1); h1 = MIN; }
     if (h2 < MIN) { h1 -= (MIN - h2); h2 = MIN; }
 
-    liveHeights = [...startHeights];
-    liveHeights[rowIndex] = h1;
-    liveHeights[nextIndex] = h2;
+    live = init.slice();
+    live[rowIndex] = h1;
+    live[next] = h2;
 
-    updateBlock(blk.id, { ...(tb as any), rowHeightsPx: liveHeights } as any);
+    updateBlock(blk.id, { ...(blk as any), rowHeights: live } as any);
   };
 
-  const onMouseUp = () => {
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
-    updateBlock(blk.id, { ...(tb as any), rowHeightsPx: liveHeights } as any);
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    updateBlock(blk.id, { ...(blk as any), rowHeights: live } as any);
   };
 
-  document.addEventListener('mousemove', onMouseMove);
-  document.addEventListener('mouseup', onMouseUp);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 };
 
 
 
 const insertVariableToBlock = (payload: InsertVarPayload) => {
-  const baseStyle = 'padding:2px 6px;border-radius:4px;display:inline-block;background-color:#FFF3BF;';
-  // chip 顯示「名稱文字」，用 data-var-key 綁定替換用 key
-  const chipHtml = `<span class="var-chip" contenteditable="false" data-var-key="${payload.key}" style="${baseStyle}">${payload.label}</span>`;
+  const color = (varColors && varColors[payload.key]) || '#FFF3BF';
+  const baseStyle = 'padding:2px 6px;border-radius:4px;display:inline-block;';
+  const chipHtml = `<span class="var-chip" contenteditable="false" data-var-key="${payload.key}" style="${baseStyle}background-color:${color};">${payload.label}</span>`;
 
   if (insertHtmlAtCaret(chipHtml)) return;
   if (!selectedBlock) return;
@@ -713,13 +789,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
     updateBlock(selectedBlock.id, { [property]: value });
   };
 
-  const getCellBgHex = (html: string | undefined) => {
-    if (!html) return '#ffffff';
-    const m = html.match(/data-cell-bg[^>]*style="[^"]*background:\s*([^;"]+)/i);
-    const color = m?.[1]?.trim() || '';
-    // 如果不是 hex（例如空字串／rgb／transparent），給白色
-    return /^#([0-9a-f]{3}){1,2}$/i.test(color) ? color : '#ffffff';
-  };
+
 
   // 表格操作函數
   const addTableRow = () => {
@@ -939,13 +1009,18 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
               </div>
             ) : (
               <div className="space-y-3">
-                {variables.map(v => (
-                  <VariableTag
-                    key={v.key}
-                    label={v.label || v.key}
-                    onInsert={() => insertVariableToBlock({ key: v.key, label: v.label || v.key })}
-                  />
-                ))}
+                {variables.map(v => {
+                  const color = varColors[v.key] || '#e6f0ff'; // 預設淡藍
+                  return (
+                    <VariableTag
+                      key={v.key}
+                      label={v.label || v.key}
+                      color={color}
+                      onColorChange={(c)=> setVarColors(s => ({...s, [v.key]: c}))}
+                      onInsert={() => insertVariableToBlock({ key: v.key, label: v.label || v.key })}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1208,19 +1283,33 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                       <>
                         <div className="w-px h-4 bg-gray-600 mx-1" />
 
-                        {/* 文字底色（深藍底的色票按鈕） */}
-                        <div className="relative inline-flex items-center" title="文字底色">
-                          <div className="w-5 h-5 rounded bg-[#334d6d] border border-white/30" />
-                          <input
-                            type="color"
-                            className="absolute inset-0 opacity-0 cursor-pointer"
-                            value={(block as TextBlock).backgroundColor || '#ffffff'}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              updateTextFormat('backgroundColor', e.target.value);
-                            }}
-                          />
-                        </div>
+                        {/* 文字底色（深藍底容器，方塊顯示目前底色） */}
+                          <div className="relative inline-flex items-center ml-1 rounded bg-[#334d6d] p-0.5" title="文字底色">
+                            <div
+                              className="w-5 h-5 rounded border border-white/30"
+                              style={{ background: (block as TextBlock).backgroundColor || '#ffffff' }}
+                            />
+                            <input
+                              type="color"
+                              className="absolute inset-0 opacity-0 cursor-pointer"
+                              value={(block as TextBlock).backgroundColor || '#ffffff'}
+                              onChange={(e) => { e.stopPropagation(); updateTextFormat('backgroundColor', e.target.value); }}
+                            />
+                          </div>
+
+                          {/* 文字體色（深藍底容器，方塊顯示目前字色） */}
+                          <div className="relative inline-flex items-center ml-1 rounded bg-[#334d6d] p-0.5" title="文字體色">
+                            <div
+                              className="w-5 h-5 rounded border border-white/30"
+                              style={{ background: (block as TextBlock).color || '#000000' }}
+                            />
+                            <input
+                              type="color"
+                              className="absolute inset-0 opacity-0 cursor-pointer"
+                              value={(block as TextBlock).color || '#000000'}
+                              onChange={(e) => { e.stopPropagation(); updateTextFormat('color', e.target.value); }}
+                            />
+                          </div>
 
                         {/* 字體大小 */}
                         <select
@@ -1269,117 +1358,149 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                       </>
                     )}
 
-                    {/* 表格工具（簡約 ICON） */}
-                    {block.type === 'table' && (
+                    {/* 表格工具列（簡化版：欄/列群組 + 字體大小 + 儲存格底色同步） */}
+                      {block.type === 'table' && (
                         <>
-                          <div className="w-px h-4 bg-gray-600 mx-1" />
+                          <div className="w-px h-4 bg-white/20 mx-1" />
 
-                          {/* 加列 */}
-                          <button
-                            onClick={(e)=>{ e.stopPropagation(); addTableRow(); }}
-                            className="p-1 hover:bg-gray-700 rounded"
-                            title="新增列"
-                          >
-                            <span className="inline-flex items-center gap-0.5">
-                              <SplitSquareHorizontal className="w-3 h-3" />
-                              <Plus className="w-3 h-3" />
-                            </span>
-                          </button>
+                          {(() => {
+                            const tb = selectedBlock as TableBlock;
 
-                          {/* 減列 */}
-                          <button
-                            onClick={(e)=>{ e.stopPropagation(); removeTableRow(); }}
-                            className="p-1 hover:bg-gray-700 rounded"
-                            title="刪除列"
-                          >
-                            <span className="inline-flex items-center gap-0.5">
-                              <SplitSquareHorizontal className="w-3 h-3" />
-                              <Minus className="w-3 h-3" />
-                            </span>
-                          </button>
+                            // 取目前選到的 cell 底色（沒有就白色）
+                            let cellBgHex = '#ffffff';
+                            let canPaint = false;
+                            let selR = -1, selC = -1;
 
-                          {/* 加欄 */}
-                          <button
-                            onClick={(e)=>{ e.stopPropagation(); addTableColumn(); }}
-                            className="p-1 hover:bg-gray-700 rounded"
-                            title="新增欄"
-                          >
-                            <span className="inline-flex items-center gap-0.5">
-                              <SplitSquareVertical className="w-3 h-3" />
-                              <Plus className="w-3 h-3" />
-                            </span>
-                          </button>
+                            if (selectedCellId && !selectedCellId.startsWith('header-')) {
+                              const [rStr, cStr] = selectedCellId.split('-');
+                              selR = Number(rStr);
+                              selC = Number(cStr);
+                              if (!Number.isNaN(selR) && !Number.isNaN(selC)) {
+                                const html = tb.rows?.[selR]?.[selC] ?? '';
+                                const found = extractCellBg(html);
+                                if (found) cellBgHex = found;
+                                canPaint = true;
+                              }
+                            }
 
-                          {/* 減欄 */}
-                          <button
-                            onClick={(e)=>{ e.stopPropagation(); removeTableColumn(); }}
-                            className="p-1 hover:bg-gray-700 rounded"
-                            title="刪除欄"
-                          >
-                            <span className="inline-flex items-center gap-0.5">
-                              <SplitSquareVertical className="w-3 h-3" />
-                              <Minus className="w-3 h-3" />
-                            </span>
-                          </button>
+                            const applyCellBg = (hex: string) => {
+                              if (!canPaint) return;
+                              const rows = tb.rows.map(row => [...row]);
+                              const cur = rows[selR][selC] || '';
+                              // 移除舊的 data-cell-bg wrapper，再包一次（你原本的策略）
+                              const inner = cur.replace(/<div data-cell-bg[^>]*>([\s\S]*?)<\/div>/, '$1');
+                              rows[selR][selC] = `<div data-cell-bg style="background:${hex};padding:6px;">${inner}</div>`;
+                              updateBlock(block.id, { rows });
+                            };
 
-                        {/* 有選中儲存格時，顯示底色與文字工具（作用在該 cell 的當前選取） */}
-                        {selectedCellId && (
+                            return (
+                              <>
+                                {/* 欄位群組：左 [+]｜「欄」字樣｜右 [-] */}
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); addTableColumn(); }}
+                                    className="p-1 hover:bg-white/10 rounded"
+                                    title="加欄"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                  <span className="text-xs opacity-80 px-1 select-none">欄</span>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); removeTableColumn(); }}
+                                    className="p-1 hover:bg-white/10 rounded"
+                                    title="減欄"
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+                                </div>
+
+                                {/* 列群組：左 [+]｜「列」字樣｜右 [-] */}
+                                <div className="flex items-center gap-1 ml-2">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); addTableRow(); }}
+                                    className="p-1 hover:bg-white/10 rounded"
+                                    title="加列"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                  <span className="text-xs opacity-80 px-1 select-none">列</span>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); removeTableRow(); }}
+                                    className="p-1 hover:bg-white/10 rounded"
+                                    title="減列"
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+                                </div>
+
+                                <div className="w-px h-4 bg-white/20 mx-2" />
+
+                                {/* 字體大小（整張表） */}
+                                <label className="flex items-center gap-1 text-xs">
+                                  <span className="opacity-80 select-none">字體</span>
+                                  <select
+                                    value={(tb as any).fontSize ?? 14}
+                                    onChange={(e) => {
+                                      const size = parseInt(e.target.value, 10) || 14;
+                                      updateBlock(block.id, { ...(tb as any), fontSize: size } as any);
+                                    }}
+                                    className="bg-white text-gray-800 rounded px-1 py-0.5 text-xs outline-none"
+                                    onMouseDown={preventBlur}
+                                  >
+                                    {[12, 13, 14, 16, 18, 20, 22, 24].map(sz => (
+                                      <option key={sz} value={sz}>{sz}</option>
+                                    ))}
+                                  </select>
+                                </label>
+
+                                {/* 儲存格底色（跟著目前 cell 顏色同步顯示／修改） */}
+                                <div className="flex items-center gap-1 ml-2">
+                                  <span className="text-xs opacity-80 select-none">底色</span>
+                                  <div
+                                    className="rounded px-1 py-0.5"
+                                    style={{ background: 'rgba(255,255,255,0.1)' }} // 深藍工具列上的淡遮色
+                                  >
+                                    <input
+                                      type="color"
+                                      className="w-5 h-5 block border-0 p-0 bg-transparent cursor-pointer"
+                                      value={cellBgHex}
+                                      disabled={!canPaint}
+                                      title={canPaint ? '儲存格底色' : '請先選取一個儲存格'}
+                                      onChange={(evt) => applyCellBg(evt.target.value)}
+                                      onMouseDown={preventBlur}
+                                    />
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </>
+                      )}
+
+
+                        {block.type === 'table' && selectedCellId && (
                           <>
-                            <div className="w-px h-4 bg-gray-600 mx-1" />
-                            {!selectedCellId.startsWith('header-') && (
-                            <div className="relative inline-flex items-center" title="儲存格底色">
-                              <div className="w-5 h-5 rounded bg-[#334d6d] border border-white/30" />
-                              <input
-                                type="color"
-                                className="absolute inset-0 opacity-0 cursor-pointer"
-                                value={(() => {
-                                  const tb = (selectedBlock as TableBlock);
-                                  const [rStr, cStr] = selectedCellId.split('-');
-                                  const r = Number(rStr), c = Number(cStr);
-                                  if (Number.isNaN(r) || Number.isNaN(c)) return '#ffffff';
-                                  const m = (tb.rows?.[r]?.[c] || '').match(/data-cell-bg[^>]*style="[^"]*background:\s*([^;"]+)/i);
-                                  const color = m?.[1]?.trim() || '';
-                                  return /^#([0-9a-f]{3}){1,2}$/i.test(color) ? color : '#ffffff';
-                                })()}
-                                onChange={(evt) => {
-                                  const color = evt.target.value;
-                                  const tb = (selectedBlock as TableBlock);
-                                  const [rStr, cStr] = selectedCellId.split('-');
-                                  const r = Number(rStr), c = Number(cStr);
-                                  if (Number.isNaN(r) || Number.isNaN(c)) return;
-
-                                  const rows = tb.rows.map(row => [...row]);
-                                  const current = rows[r][c] || '';
-                                  const inner = current.replace(/<div data-cell-bg[^>]*>([\s\S]*?)<\/div>/, '$1');
-                                  rows[r][c] = `<div data-cell-bg style="background:${color};padding:6px;">${inner}</div>`;
-                                  updateBlock(block.id, { rows });
-                                }}
-                              />
-                            </div>
-                          )}
-
-                            {/* 針對儲存格選取範圍的文字工具（使用 execCommand） */}
-                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('bold'); }} className="p-1 hover:bg-gray-700 rounded" title="粗體">
+                            <div className="w-px h-4 bg-white/20 mx-2" />
+                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('bold'); }} className="p-1 hover:bg-white/10 rounded" title="粗體">
                               <Bold className="w-3 h-3" />
                             </button>
-                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('italic'); }} className="p-1 hover:bg-gray-700 rounded" title="斜體">
+                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('italic'); }} className="p-1 hover:bg-white/10 rounded" title="斜體">
                               <Italic className="w-3 h-3" />
                             </button>
-                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('underline'); }} className="p-1 hover:bg-gray-700 rounded" title="底線">
+                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('underline'); }} className="p-1 hover:bg-white/10 rounded" title="底線">
                               <Underline className="w-3 h-3" />
                             </button>
-                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('justifyLeft'); }} className="p-1 hover:bg-gray-700 rounded" title="靠左">
+                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('justifyLeft'); }} className="p-1 hover:bg-white/10 rounded" title="靠左">
                               <AlignLeft className="w-3 h-3" />
                             </button>
-                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('justifyCenter'); }} className="p-1 hover:bg-gray-700 rounded" title="置中">
+                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('justifyCenter'); }} className="p-1 hover:bg-white/10 rounded" title="置中">
                               <AlignCenter className="w-3 h-3" />
                             </button>
-                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('justifyRight'); }} className="p-1 hover:bg-gray-700 rounded" title="靠右">
+                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('justifyRight'); }} className="p-1 hover:bg-white/10 rounded" title="靠右">
                               <AlignRight className="w-3 h-3" />
                             </button>
                           </>
-                        )}
-                      </>
+
                     )}
                   </div>
                 )}
@@ -1409,25 +1530,49 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                 )}
 
                 {block.type === 'table' && (
-                  <div className="w-full h-full overflow-auto">
+                  <div className="w-full h-full overflow-visible">
                     {(() => {
                       const tb = block as TableBlock;
                       const borders = tb.showBorders;
                       return (
-                        <table className={`w-full h-full border-collapse ${borders ? 'border border-gray-300' : ''}`}>
+                        <table
+                            className={`w-full h-full border-collapse ${borders ? 'border border-gray-300' : ''}`}
+                            style={{ fontSize: (tb as any).fontSize ?? 14 }}
+                           >
                           {tb.headers.length > 0 && (
                             <thead>
                               <tr>
                                 {tb.headers.map((header, colIndex) => (
                                   <th
                                     key={colIndex}
-                                    className={`${borders ? 'border border-gray-300' : ''} bg-gray-50 p-2 text-sm font-medium text-left relative`}
-                                    style={{ width: `${tb.columnWidths?.[colIndex] ?? (100 / tb.headers.length)}%` }}
+                                    className={`${borders ? 'border border-gray-300' : ''} p-2 text-sm font-medium text-left relative`}
+                                    style={{
+                                      width: `${tb.columnWidths?.[colIndex] ?? (100 / tb.headers.length)}%`,
+                                      // 讓表頭也能吃整格底色；沒有設定時就不覆蓋
+                                      backgroundColor: extractCellBg(header) || undefined,
+                                    }}
                                   >
-                                    {/* 原本的 TableCell... */}
+                                    <TableCell
+                                      content={header}
+                                      onChange={(newContent) => {
+                                        const newHeaders = [...tb.headers];
+                                        newHeaders[colIndex] = newContent;
+                                        updateBlock(block.id, { headers: newHeaders });
+                                      }}
+                                      style={{}}
+                                      vars={variables}
+                                      isPreview={isPreview}
+                                      isSelected={selectedCellId === `header-${colIndex}`}
+                                      onSelect={() => {
+                                        setSelectedCellId(`header-${colIndex}`);
+                                        setSelectedBlockId(block.id);
+                                        setIsEditing(true);
+                                      }}
+                                    />
+
                                     {!isPreview && colIndex < tb.headers.length - 1 && (
                                       <div
-                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400 transition-colors select-none"
+                                        className="absolute top-0 right-0 w-2 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
                                         onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
                                       />
                                     )}
@@ -1437,10 +1582,11 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                             </thead>
                           )}
 
+
                           <tbody>
                           {tb.rows.map((row, rowIndex) => {
                             const colCount = row.length;
-                            const rowH = (tb as any).rowHeightsPx?.[rowIndex]; // px 或 undefined
+                            const rowH = (tb as any).rowHeights?.[rowIndex]; // px 或 undefined
                             return (
                               <tr key={rowIndex} style={{ height: rowH ? `${rowH}px` : undefined }}>
                                 {row.map((cell, colIndex) => {
@@ -1450,7 +1596,10 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                     <td
                                       key={cellId}
                                       className={`relative ${borders ? 'border border-gray-300' : ''}`}
-                                      style={{ width: `${tb.columnWidths?.[colIndex] ?? (100 / colCount)}%` }}
+                                      style={{
+                                        width: `${tb.columnWidths?.[colIndex] ?? (100 / colCount)}%`,
+                                        backgroundColor: extractCellBg(cell) || undefined,   // ← 整格底色
+                                      }}
                                     >
                                       <TableCell
                                         content={cell}
@@ -1467,7 +1616,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                         onSelect={() => { setSelectedCellId(cellId); setSelectedBlockId(block.id); setIsEditing(true); }}
                                       />
 
-                                      {/* 垂直把手：選中的儲存格一定有；沒選時，第一列（或表頭）也提供 */}
+                                      {/* 垂直把手 */}
                                       {!isPreview && (
                                         (selected || (tb.headers.length === 0 && rowIndex === 0)) && colIndex < row.length - 1 && (
                                           <div
@@ -1477,7 +1626,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                         )
                                       )}
 
-                                      {/* 水平把手：選到該列才顯示；沒選時提供每列左側第一格的把手 */}
+                                      {/* 水平把手 */}
                                       {!isPreview && rowIndex < tb.rows.length - 1 && (
                                         (selected || colIndex === 0) && (
                                           <div
