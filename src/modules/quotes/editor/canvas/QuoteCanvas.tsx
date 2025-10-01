@@ -21,7 +21,11 @@ import {
   Settings,
   ChevronDown,
   X,
-  Tag
+  Tag,
+  SplitSquareVertical,
+  SplitSquareHorizontal,
+  PlusSquare,
+  MinusSquare,
 } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow } from '../../../../utils/api';
 import type { QuoteCanvasSchema, CanvasBlock, TextBlock, TableBlock } from './schema';
@@ -161,7 +165,7 @@ function renderWithVariables(html: string, vars: VariableDef[]) {
 }
 
 
-const EditableContent: React.FC<EditableContentProps> = ({
+const EditableContent = React.forwardRef<HTMLDivElement, EditableContentProps>(({
   html,
   onCommit,
   readOnly,
@@ -170,13 +174,18 @@ const EditableContent: React.FC<EditableContentProps> = ({
   placeholder,
   onFocusIn,
   onFocusOut
-}) => {
-
+}, forwardedRef) => {
   const ref = useRef<HTMLDivElement>(null);
   const [isComposing, setIsComposing] = useState(false);
   const lastCommitted = useRef(html);
 
-  // 外部 html 變更時：非聚焦或唯讀才覆寫 DOM（避免 caret 跳）
+  // 讓外部可以 ref.current?.focus()
+  useEffect(() => {
+    if (!forwardedRef) return;
+    if (typeof forwardedRef === 'function') forwardedRef(ref.current);
+    else (forwardedRef as React.MutableRefObject<HTMLDivElement | null>).current = ref.current;
+  }, [forwardedRef]);
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -199,112 +208,84 @@ const EditableContent: React.FC<EditableContentProps> = ({
   }, [onCommit]);
 
   const onInput = useCallback(() => {
-    // 半受控：打字不回寫（避免每鍵重繪與 caret 丟失）
     if (isComposing) return;
   }, [isComposing]);
 
   const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-  // IME 組字中按 Enter：只確認選字，不插入段落也不提交，避免 caret 亂跳
-  if (isComposing && e.key === "Enter") {
-    e.preventDefault();
-    e.stopPropagation();
-    return;
-  }
-
-  // Ctrl/Cmd + Enter：提交但保存/還原 caret
-  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-    const el = ref.current;
-    const saved = el ? saveSelection(el) : null;
-    commit();
-    requestAnimationFrame(() => {
-      if (el) restoreSelection(el, saved);
-    });
-    e.preventDefault();
-    return;
-  }
-
-  // 原子刪除：在 chip 前按 Backspace 或在 chip 後按 Delete → 一次刪整顆
-  if (e.key === "Backspace" || e.key === "Delete") {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return;
-    const range = sel.getRangeAt(0);
-    const node = range.startContainer;
-    const offset = range.startOffset;
-
-    const host = ref.current;
-    if (!host) return;
-
-    const isChip = (el: Node | null) =>
-      el instanceof HTMLElement && el.classList.contains("var-chip");
-
-    // 找到光標左右節點
-    let left: Node | null = null;
-    let right: Node | null = null;
-
-    if (node.nodeType === Node.TEXT_NODE) {
-      // 文字節點情況
-      left = (node as Text).splitText ? (offset === 0 ? node.previousSibling : null) : null;
-      right = (node as Text).splitText ? (offset === (node.nodeValue?.length ?? 0) ? node.nextSibling : null) : null;
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as Element;
-      left = el.childNodes[offset - 1] ?? el.previousSibling;
-      right = el.childNodes[offset] ?? el.nextSibling;
+    if (isComposing && e.key === "Enter") {
+      e.preventDefault(); e.stopPropagation(); return;
     }
-
-    // Backspace：若左邊是 chip → 刪除 chip
-    if (e.key === "Backspace" && isChip(left)) {
-      (left as HTMLElement).remove();
-      e.preventDefault();
-      return;
-    }
-    // Delete：若右邊是 chip → 刪除 chip
-    if (e.key === "Delete" && isChip(right)) {
-      (right as HTMLElement).remove();
-      e.preventDefault();
-      return;
-    }
-  }
-}, [commit, isComposing]);
-
-  return (
-  <div
-    ref={ref}
-    contentEditable={!readOnly}
-    spellCheck={false}       // 關閉拼字檢查紅底線
-    autoCorrect="off"        // 關閉自動更正（iOS/Chrome）
-    autoCapitalize="off"     // 關閉自動首字大寫
-    className={className}
-    style={{
-      outline: "none",
-      minHeight: 20,
-      height: "100%",
-      maxHeight: "100%",
-      overflow: "auto",
-      whiteSpace: "pre-wrap",
-      wordBreak: "break-word",
-      ...style
-    }}
-    data-placeholder={placeholder || ""}
-    onInput={onInput}
-    onKeyDown={onKeyDown}
-    onFocus={() => onFocusIn?.()}
-    onBlur={(e) => { commit(); onFocusOut?.(); }}
-    onCompositionStart={() => setIsComposing(true)}
-    onCompositionEnd={() => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       const el = ref.current;
       const saved = el ? saveSelection(el) : null;
-      setIsComposing(false);
       commit();
-      requestAnimationFrame(() => {
-        if (el) restoreSelection(el, saved);
-      });
-    }}
-    dangerouslySetInnerHTML={{ __html: lastCommitted.current || html || "" }}
-    suppressContentEditableWarning
-  />
-);
+      requestAnimationFrame(() => { if (el) restoreSelection(el, saved); });
+      e.preventDefault();
+      return;
+    }
+    if (e.key === "Backspace" || e.key === "Delete") {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      const node = range.startContainer;
+      const offset = range.startOffset;
 
-};
+      const isChip = (el: Node | null) => el instanceof HTMLElement && el.classList.contains("var-chip");
+
+      let left: Node | null = null;
+      let right: Node | null = null;
+
+      if (node.nodeType === Node.TEXT_NODE) {
+        left = (offset === 0) ? node.previousSibling : null;
+        right = (offset === (node.nodeValue?.length ?? 0)) ? node.nextSibling : null;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element;
+        left = el.childNodes[offset - 1] ?? el.previousSibling;
+        right = el.childNodes[offset] ?? el.nextSibling;
+      }
+
+      if (e.key === "Backspace" && isChip(left)) { (left as HTMLElement).remove(); e.preventDefault(); return; }
+      if (e.key === "Delete" && isChip(right)) { (right as HTMLElement).remove(); e.preventDefault(); return; }
+    }
+  }, [commit, isComposing]);
+
+  return (
+    <div
+      ref={ref}
+      contentEditable={!readOnly}
+      tabIndex={0}
+      spellCheck={false}
+      autoCorrect="off"
+      autoCapitalize="off"
+      className={className}
+      style={{
+        outline: "none",
+        minHeight: 20,
+        height: "100%",
+        maxHeight: "100%",
+        overflow: "auto",
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word",
+        ...style
+      }}
+      data-placeholder={placeholder || ""}
+      onInput={onInput}
+      onKeyDown={onKeyDown}
+      onFocus={() => onFocusIn?.()}
+      onBlur={() => { commit(); onFocusOut?.(); }}
+      onCompositionStart={() => setIsComposing(true)}
+      onCompositionEnd={() => {
+        const el = ref.current;
+        const saved = el ? saveSelection(el) : null;
+        setIsComposing(false);
+        commit();
+        requestAnimationFrame(() => { if (el) restoreSelection(el, saved); });
+      }}
+      dangerouslySetInnerHTML={{ __html: lastCommitted.current || html || "" }}
+      suppressContentEditableWarning
+    />
+  );
+});
 
 
 // ===== Rich Text Editor（改為半受控 + 預覽替換） =====
@@ -356,29 +337,39 @@ const TableCell: React.FC<{
   vars: VariableDef[];
   isPreview: boolean;
   isSelected: boolean;
-  onClick: () => void;
-  onFocusIn?: () => void;
-  onFocusOut?: () => void;
-}> = ({ content, onChange, style, vars, isPreview, isSelected, onClick, onFocusIn, onFocusOut }) => {
-  const previewHtml = React.useMemo(() => (isPreview ? renderWithVariables(content, vars) : content), [content, vars, isPreview]);
+  onSelect: () => void;       // ← 改成 onSelect
+}> = ({ content, onChange, style, vars, isPreview, isSelected, onSelect }) => {
+  const previewHtml = React.useMemo(
+    () => (isPreview ? renderWithVariables(content, vars) : content),
+    [content, vars, isPreview]
+  );
+
+  const ecRef = useRef<HTMLDivElement>(null);
+
+  // 單擊即選中＋聚焦
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect();
+    requestAnimationFrame(() => ecRef.current?.focus());
+  };
 
   return (
     <div
-      onClick={onClick}
+      onMouseDown={handleMouseDown}
       style={{
         padding: "4px",
         minHeight: 24,
+        height: "100%",
         cursor: isPreview ? "default" : "text",
-        ...style, // ← 先展開外部樣式
-        backgroundColor: isSelected ? "#e3f2fd" : (style?.backgroundColor as any) // ← 最後決定底色
+        ...style,
+        backgroundColor: isSelected ? "#e3f2fd" : (style?.backgroundColor as any)
       }}
     >
       <EditableContent
+        ref={ecRef}
         html={isPreview ? previewHtml : content}
         readOnly={isPreview || !isSelected}
         onCommit={(html) => onChange(html)}
-        onFocusIn={onFocusIn}
-        onFocusOut={onFocusOut}
         style={{ lineHeight: "1.4", minHeight: 20, width: "100%", height: "100%" }}
       />
     </div>
@@ -571,8 +562,7 @@ export default function QuoteCanvas({
 
 
 const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: number) => {
-  e.preventDefault();
-  e.stopPropagation();
+  e.preventDefault(); e.stopPropagation();
   if (blk.type !== 'table') return;
 
   const table = blk as TableBlock;
@@ -591,8 +581,8 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
     : new Array(cols).fill(100 / cols);
 
   const nextIndex = colIndex + 1;
+  if (nextIndex >= cols) return;
 
-  // 用閉包保存最新的 widths，避免 mouseup 讀到舊值
   let liveWidths = startWidths.slice();
 
   const onMouseMove = (moveEvt: MouseEvent) => {
@@ -616,11 +606,59 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
   const onMouseUp = () => {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
-
-    // 正規化到 100%
-    const sum = liveWidths.reduce((a, b) => a + b, 0) || 1;
+    const sum = liveWidths.reduce((a,b)=>a+b,0) || 1;
     const norm = liveWidths.map(w => (w / sum) * 100);
     updateBlock(blk.id, { columnWidths: norm });
+  };
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+};
+
+
+
+const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number) => {
+  e.preventDefault(); e.stopPropagation();
+  if (blk.type !== 'table') return;
+  const tb = blk as TableBlock;
+
+  const containerTable = (e.currentTarget as HTMLElement).closest('table') as HTMLTableElement | null;
+  const totalPx = containerTable?.getBoundingClientRect().height || 1;
+
+  const rowsCount = tb.rows.length;
+  const startY = e.clientY;
+
+  // 以 px 存 row 高（不存在就平均）
+  const startHeights: number[] = (tb as any).rowHeightsPx && (tb as any).rowHeightsPx.length === rowsCount
+    ? [...(tb as any).rowHeightsPx]
+    : new Array(rowsCount).fill(totalPx / rowsCount);
+
+  const nextIndex = rowIndex + 1;
+  if (nextIndex >= rowsCount) return;
+
+  let liveHeights = startHeights.slice();
+
+  const onMouseMove = (moveEvt: MouseEvent) => {
+    const deltaPx = moveEvt.clientY - startY;
+
+    let h1 = startHeights[rowIndex] + deltaPx;
+    let h2 = startHeights[nextIndex] - deltaPx;
+
+    const MIN = 20;
+    if (h1 < MIN) { h2 -= (MIN - h1); h1 = MIN; }
+    if (h2 < MIN) { h1 -= (MIN - h2); h2 = MIN; }
+
+    liveHeights = [...startHeights];
+    liveHeights[rowIndex] = h1;
+    liveHeights[nextIndex] = h2;
+
+    updateBlock(blk.id, { ...(tb as any), rowHeightsPx: liveHeights } as any);
+  };
+
+  const onMouseUp = () => {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    updateBlock(blk.id, { ...(tb as any), rowHeightsPx: liveHeights } as any);
   };
 
   document.addEventListener('mousemove', onMouseMove);
@@ -889,18 +927,29 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
-            <div className="space-y-3">
-              {variables
-                .filter(v => ['階段名稱', '階段日期'].includes(v.label))
-                .map(v => (
+            {variables.length === 0 ? (
+              <div className="text-sm text-gray-500 space-y-2">
+                <div>目前沒有可用的變數。</div>
+                <button
+                  onClick={loadVariables}
+                  className="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
+                >
+                  重新載入
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {variables.map(v => (
                   <VariableTag
                     key={v.key}
                     label={v.label || v.key}
                     onInsert={() => insertVariableToBlock({ key: v.key, label: v.label || v.key })}
                   />
                 ))}
-            </div>
+              </div>
+            )}
           </div>
+
         </div>
       )}
 
@@ -1159,22 +1208,25 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                       <>
                         <div className="w-px h-4 bg-gray-600 mx-1" />
 
-                        {/* 文字背景色 */}
-                        <input
-                          type="color"
-                          className="w-5 h-5"
-                          title="文字底色"
-                          value={(block as TextBlock).backgroundColor || '#ffffff'}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            updateTextFormat('backgroundColor', e.target.value); // hex
-                          }}
-                        />
+                        {/* 文字底色（深藍底的色票按鈕） */}
+                        <div className="relative inline-flex items-center" title="文字底色">
+                          <div className="w-5 h-5 rounded bg-[#334d6d] border border-white/30" />
+                          <input
+                            type="color"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            value={(block as TextBlock).backgroundColor || '#ffffff'}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              updateTextFormat('backgroundColor', e.target.value);
+                            }}
+                          />
+                        </div>
+
                         {/* 字體大小 */}
                         <select
                           onChange={(e) => { e.stopPropagation(); updateTextFormat('fontSize', Number(e.target.value)); }}
                           value={(block as TextBlock).fontSize || 14}
-                          className="text-xs bg-gray-700/50 rounded px-1 py-1"
+                          className="text-xs bg-gray-700/50 rounded px-1 py-1 ml-1"
                         >
                           {[10,12,14,16,18,20,24,28,32].map(s => <option key={s} value={s}>{s}px</option>)}
                         </select>
@@ -1219,51 +1271,78 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                     {/* 表格工具（簡約 ICON） */}
                     {block.type === 'table' && (
-                      <>
-                        <div className="w-px h-4 bg-gray-600 mx-1" />
-                        <button
-                          onClick={(e)=>{ e.stopPropagation(); addTableRow(); }}
-                          className="p-1 hover:bg-gray-700 rounded" title="加列"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={(e)=>{ e.stopPropagation(); removeTableRow(); }}
-                          className="p-1 hover:bg-gray-700 rounded" title="減列"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={(e)=>{ e.stopPropagation(); addTableColumn(); }}
-                          className="p-1 hover:bg-gray-700 rounded" title="加欄"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={(e)=>{ e.stopPropagation(); removeTableColumn(); }}
-                          className="p-1 hover:bg-gray-700 rounded" title="減欄"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
+                        <>
+                          <div className="w-px h-4 bg-gray-600 mx-1" />
+
+                          {/* 加列 */}
+                          <button
+                            onClick={(e)=>{ e.stopPropagation(); addTableRow(); }}
+                            className="p-1 hover:bg-gray-700 rounded"
+                            title="新增列"
+                          >
+                            <span className="inline-flex items-center gap-0.5">
+                              <SplitSquareHorizontal className="w-3 h-3" />
+                              <Plus className="w-3 h-3" />
+                            </span>
+                          </button>
+
+                          {/* 減列 */}
+                          <button
+                            onClick={(e)=>{ e.stopPropagation(); removeTableRow(); }}
+                            className="p-1 hover:bg-gray-700 rounded"
+                            title="刪除列"
+                          >
+                            <span className="inline-flex items-center gap-0.5">
+                              <SplitSquareHorizontal className="w-3 h-3" />
+                              <Minus className="w-3 h-3" />
+                            </span>
+                          </button>
+
+                          {/* 加欄 */}
+                          <button
+                            onClick={(e)=>{ e.stopPropagation(); addTableColumn(); }}
+                            className="p-1 hover:bg-gray-700 rounded"
+                            title="新增欄"
+                          >
+                            <span className="inline-flex items-center gap-0.5">
+                              <SplitSquareVertical className="w-3 h-3" />
+                              <Plus className="w-3 h-3" />
+                            </span>
+                          </button>
+
+                          {/* 減欄 */}
+                          <button
+                            onClick={(e)=>{ e.stopPropagation(); removeTableColumn(); }}
+                            className="p-1 hover:bg-gray-700 rounded"
+                            title="刪除欄"
+                          >
+                            <span className="inline-flex items-center gap-0.5">
+                              <SplitSquareVertical className="w-3 h-3" />
+                              <Minus className="w-3 h-3" />
+                            </span>
+                          </button>
 
                         {/* 有選中儲存格時，顯示底色與文字工具（作用在該 cell 的當前選取） */}
                         {selectedCellId && (
                           <>
                             <div className="w-px h-4 bg-gray-600 mx-1" />
                             {!selectedCellId.startsWith('header-') && (
+                            <div className="relative inline-flex items-center" title="儲存格底色">
+                              <div className="w-5 h-5 rounded bg-[#334d6d] border border-white/30" />
                               <input
                                 type="color"
-                                className="w-5 h-5"
-                                title="儲存格底色"
+                                className="absolute inset-0 opacity-0 cursor-pointer"
                                 value={(() => {
                                   const tb = (selectedBlock as TableBlock);
                                   const [rStr, cStr] = selectedCellId.split('-');
                                   const r = Number(rStr), c = Number(cStr);
                                   if (Number.isNaN(r) || Number.isNaN(c)) return '#ffffff';
-                                  return getCellBgHex(tb.rows?.[r]?.[c]);
+                                  const m = (tb.rows?.[r]?.[c] || '').match(/data-cell-bg[^>]*style="[^"]*background:\s*([^;"]+)/i);
+                                  const color = m?.[1]?.trim() || '';
+                                  return /^#([0-9a-f]{3}){1,2}$/i.test(color) ? color : '#ffffff';
                                 })()}
                                 onChange={(evt) => {
-                                  const color = evt.target.value; // hex
+                                  const color = evt.target.value;
                                   const tb = (selectedBlock as TableBlock);
                                   const [rStr, cStr] = selectedCellId.split('-');
                                   const r = Number(rStr), c = Number(cStr);
@@ -1276,7 +1355,8 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                   updateBlock(block.id, { rows });
                                 }}
                               />
-                            )}
+                            </div>
+                          )}
 
                             {/* 針對儲存格選取範圍的文字工具（使用 execCommand） */}
                             <button onClick={(e)=>{ e.stopPropagation(); cellExec('bold'); }} className="p-1 hover:bg-gray-700 rounded" title="粗體">
@@ -1358,29 +1438,62 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                           )}
 
                           <tbody>
-                            {tb.rows.map((row, rowIndex) => {
-                              const colCount = row.length;
-                              return (
-                                <tr key={rowIndex}>
-                                  {row.map((cell, colIndex) => (
+                          {tb.rows.map((row, rowIndex) => {
+                            const colCount = row.length;
+                            const rowH = (tb as any).rowHeightsPx?.[rowIndex]; // px 或 undefined
+                            return (
+                              <tr key={rowIndex} style={{ height: rowH ? `${rowH}px` : undefined }}>
+                                {row.map((cell, colIndex) => {
+                                  const cellId = `${rowIndex}-${colIndex}`;
+                                  const selected = selectedCellId === cellId;
+                                  return (
                                     <td
-                                      key={`${rowIndex}-${colIndex}`}
+                                      key={cellId}
                                       className={`relative ${borders ? 'border border-gray-300' : ''}`}
                                       style={{ width: `${tb.columnWidths?.[colIndex] ?? (100 / colCount)}%` }}
                                     >
-                                      {/* 原本的 TableCell... */}
-                                      {!isPreview && tb.headers.length === 0 && rowIndex === 0 && colIndex < row.length - 1 && (
-                                        <div
-                                          className="absolute top-0 right-0 w-2 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
-                                          onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
-                                        />
+                                      <TableCell
+                                        content={cell}
+                                        onChange={(newContent) => {
+                                          const newRows = [...tb.rows];
+                                          newRows[rowIndex] = [...newRows[rowIndex]];
+                                          newRows[rowIndex][colIndex] = newContent;
+                                          updateBlock(block.id, { rows: newRows });
+                                        }}
+                                        style={{}}
+                                        vars={variables}
+                                        isPreview={isPreview}
+                                        isSelected={selected}
+                                        onSelect={() => { setSelectedCellId(cellId); setSelectedBlockId(block.id); setIsEditing(true); }}
+                                      />
+
+                                      {/* 垂直把手：選中的儲存格一定有；沒選時，第一列（或表頭）也提供 */}
+                                      {!isPreview && (
+                                        (selected || (tb.headers.length === 0 && rowIndex === 0)) && colIndex < row.length - 1 && (
+                                          <div
+                                            className="absolute top-0 right-0 w-2 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
+                                            onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
+                                          />
+                                        )
+                                      )}
+
+                                      {/* 水平把手：選到該列才顯示；沒選時提供每列左側第一格的把手 */}
+                                      {!isPreview && rowIndex < tb.rows.length - 1 && (
+                                        (selected || colIndex === 0) && (
+                                          <div
+                                            className="absolute bottom-0 left-0 w-full h-2 cursor-row-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
+                                            onMouseDown={(e) => startResizeRow(e, block, rowIndex)}
+                                          />
+                                        )
                                       )}
                                     </td>
-                                  ))}
-                                </tr>
-                              );
-                            })}
-                          </tbody>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+
                         </table>
                       );
                     })()}
