@@ -22,6 +22,8 @@ import {
   ChevronDown,
   X,
   Tag,
+  SplitSquareVertical,
+  SplitSquareHorizontal,
 } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow } from '../../../../utils/api';
 import type { QuoteCanvasSchema, CanvasBlock, TextBlock, TableBlock } from './schema';
@@ -443,7 +445,7 @@ const VariableTag: React.FC<{
       <div className="flex items-center gap-2 min-w-0">
         {/* 小色票（可改色） */}
         <div className="relative inline-flex items-center">
-          <div className="w-5 h-5 rounded border border-white/50 overflow-hidden" />
+          <div className="w-6 h-6 rounded border-2 border-white/70 overflow-hidden" />  {/* 原本 w-5 h-5 border */}
           <input
             type="color"
             className="absolute inset-0 opacity-0 cursor-pointer"
@@ -503,13 +505,22 @@ export default function QuoteCanvas({
       const res = await apiFetch(`/api/cases/${caseId}/variables?firm_code=${encodeURIComponent(firmCode)}`);
       if (res.ok) {
         let data: VariableDef[] = await res.json();
-        // 排除
-        data = (data || []).filter(v => !['階段狀態','階段順序'].includes(v.label));
+
+        // 直接移除任何與「階段」的「狀態 / 順序」變數
+        data = (data || []).filter(v => {
+          const s = `${v.label || ''}${v.key || ''}`;
+          const hasStateOrOrder = /狀態|順序/i.test(v.label || '');
+          const isStage = /階段|stage/i.test(s);
+          return !(hasStateOrOrder && isStage);
+        });
+
         // 加入「當日」
         const today = new Date();
-        const d = today.getDate(); // 無前導 0
+        const d = today.getDate();
         data.unshift({ key: 'today_day', label: '當日', value: String(d) });
+
         setVariables(data);
+
       }
     } catch (error) {
       console.error('載入變數失敗:', error);
@@ -720,7 +731,7 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
     let h1 = (init[rowIndex] ?? 32) + dy;
     let h2 = sumPair - h1;
 
-    const MIN = 20;
+    const MIN = 12;
     if (h1 < MIN) { h2 -= (MIN - h1); h1 = MIN; }
     if (h2 < MIN) { h1 -= (MIN - h2); h2 = MIN; }
 
@@ -742,9 +753,43 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
 };
 
 
+const recolorHtmlForKey = useCallback((html: string, key: string, color: string) => {
+  if (!html) return html;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  wrap.querySelectorAll(`span.var-chip[data-var-key="${key}"]`).forEach((el) => {
+    const node = el as HTMLElement;
+    const prev = node.getAttribute('style') || '';
+    const next = /background[^:]*:\s*[^;]+/i.test(prev)
+      ? prev.replace(/background[^:]*:\s*[^;]+/i, `background:${color}`)
+      : `${prev};background:${color}`;
+    node.setAttribute('style', next);
+  });
+  return wrap.innerHTML;
+}, []);
+
+const handleVarColorChange = useCallback((key: string, color: string) => {
+  setVarColors(s => ({ ...s, [key]: color }));
+
+  const newBlocks = value.blocks.map(b => {
+    if (b.type === 'text') {
+      const t = b as TextBlock;
+      return { ...t, text: recolorHtmlForKey(t.text, key, color) } as CanvasBlock;
+    }
+    if (b.type === 'table') {
+      const t = b as TableBlock;
+      const headers = (t.headers || []).map(h => recolorHtmlForKey(h, key, color));
+      const rows = (t.rows || []).map(row => row.map(cell => recolorHtmlForKey(cell, key, color)));
+      return { ...t, headers, rows } as CanvasBlock;
+    }
+    return b;
+  });
+
+  onChange({ ...value, blocks: newBlocks });
+}, [onChange, recolorHtmlForKey, value]);
 
 const insertVariableToBlock = (payload: InsertVarPayload) => {
-  const color = (varColors && varColors[payload.key]) || '#FFF3BF';
+  const color = (varColors && varColors[payload.key]) || '#e6f0ff';
   const baseStyle = 'padding:2px 6px;border-radius:4px;display:inline-block;';
   const chipHtml = `<span class="var-chip" contenteditable="false" data-var-key="${payload.key}" style="${baseStyle}background-color:${color};">${payload.label}</span>`;
 
@@ -1015,8 +1060,8 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                     <VariableTag
                       key={v.key}
                       label={v.label || v.key}
-                      color={color}
-                      onColorChange={(c)=> setVarColors(s => ({...s, [v.key]: c}))}
+                      color={varColors[v.key] || '#e6f0ff'}
+                      onColorChange={(c)=> handleVarColorChange(v.key, c)}   // ← 改這裡
                       onInsert={() => insertVariableToBlock({ key: v.key, label: v.label || v.key })}
                     />
                   );
@@ -1315,7 +1360,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                         <select
                           onChange={(e) => { e.stopPropagation(); updateTextFormat('fontSize', Number(e.target.value)); }}
                           value={(block as TextBlock).fontSize || 14}
-                          className="text-xs bg-gray-700/50 rounded px-1 py-1 ml-1"
+                          className="text-xs rounded px-1 py-1 ml-1 bg-[#334d6d] text-white border border-white/20"
                         >
                           {[10,12,14,16,18,20,24,28,32].map(s => <option key={s} value={s}>{s}px</option>)}
                         </select>
@@ -1395,56 +1440,57 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                             return (
                               <>
-                                {/* 欄位群組：左 [+]｜「欄」字樣｜右 [-] */}
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); addTableColumn(); }}
-                                    className="p-1 hover:bg-white/10 rounded"
-                                    title="加欄"
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                  </button>
-                                  <span className="text-xs opacity-80 px-1 select-none">欄</span>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); removeTableColumn(); }}
-                                    className="p-1 hover:bg-white/10 rounded"
-                                    title="減欄"
-                                  >
-                                    <Minus className="w-3 h-3" />
-                                  </button>
-                                </div>
+                                {/* 欄操作（ICON） */}
+                                  <div className="flex items-center gap-1">
+                                    <SplitSquareVertical className="w-3 h-3 opacity-80" title="欄" />
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); addTableColumn(); }}
+                                      className="p-1 hover:bg-white/10 rounded"
+                                      title="加欄"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); removeTableColumn(); }}
+                                      className="p-1 hover:bg-white/10 rounded"
+                                      title="減欄"
+                                    >
+                                      <Minus className="w-3 h-3" />
+                                    </button>
+                                  </div>
 
-                                {/* 列群組：左 [+]｜「列」字樣｜右 [-] */}
-                                <div className="flex items-center gap-1 ml-2">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); addTableRow(); }}
-                                    className="p-1 hover:bg-white/10 rounded"
-                                    title="加列"
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                  </button>
-                                  <span className="text-xs opacity-80 px-1 select-none">列</span>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); removeTableRow(); }}
-                                    className="p-1 hover:bg-white/10 rounded"
-                                    title="減列"
-                                  >
-                                    <Minus className="w-3 h-3" />
-                                  </button>
-                                </div>
+                                  {/* 列操作（ICON） */}
+                                  <div className="flex items-center gap-1 ml-2">
+                                    <SplitSquareHorizontal className="w-3 h-3 opacity-80" title="列" />
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); addTableRow(); }}
+                                      className="p-1 hover:bg-white/10 rounded"
+                                      title="加列"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); removeTableRow(); }}
+                                      className="p-1 hover:bg-white/10 rounded"
+                                      title="減列"
+                                    >
+                                      <Minus className="w-3 h-3" />
+                                    </button>
+                                  </div>
+
 
                                 <div className="w-px h-4 bg-white/20 mx-2" />
 
                                 {/* 字體大小（整張表） */}
                                 <label className="flex items-center gap-1 text-xs">
-                                  <span className="opacity-80 select-none">字體</span>
+
                                   <select
                                     value={(tb as any).fontSize ?? 14}
                                     onChange={(e) => {
                                       const size = parseInt(e.target.value, 10) || 14;
                                       updateBlock(block.id, { ...(tb as any), fontSize: size } as any);
                                     }}
-                                    className="bg-white text-gray-800 rounded px-1 py-0.5 text-xs outline-none"
+                                    className="text-xs rounded px-1 py-1 bg-[#334d6d] text-white border border-white/20 outline-none"
                                     onMouseDown={preventBlur}
                                   >
                                     {[12, 13, 14, 16, 18, 20, 22, 24].map(sz => (
@@ -1455,11 +1501,8 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                                 {/* 儲存格底色（跟著目前 cell 顏色同步顯示／修改） */}
                                 <div className="flex items-center gap-1 ml-2">
-                                  <span className="text-xs opacity-80 select-none">底色</span>
-                                  <div
-                                    className="rounded px-1 py-0.5"
-                                    style={{ background: 'rgba(255,255,255,0.1)' }} // 深藍工具列上的淡遮色
-                                  >
+
+                                  <div className="relative inline-flex items-center ml-2 rounded bg-[#334d6d] p-0.5 border border-white/20">
                                     <input
                                       type="color"
                                       className="w-5 h-5 block border-0 p-0 bg-transparent cursor-pointer"
@@ -1470,6 +1513,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                       onMouseDown={preventBlur}
                                     />
                                   </div>
+
                                 </div>
                               </>
                             );
@@ -1572,7 +1616,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                                     {!isPreview && colIndex < tb.headers.length - 1 && (
                                       <div
-                                        className="absolute top-0 right-0 w-2 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
+                                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
                                         onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
                                       />
                                     )}
@@ -1620,7 +1664,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                       {!isPreview && (
                                         (selected || (tb.headers.length === 0 && rowIndex === 0)) && colIndex < row.length - 1 && (
                                           <div
-                                            className="absolute top-0 right-0 w-2 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
+                                            className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
                                             onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
                                           />
                                         )
@@ -1630,7 +1674,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                       {!isPreview && rowIndex < tb.rows.length - 1 && (
                                         (selected || colIndex === 0) && (
                                           <div
-                                            className="absolute bottom-0 left-0 w-full h-2 cursor-row-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
+                                            className="absolute bottom-0 left-0 w-full h-1 cursor-row-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
                                             onMouseDown={(e) => startResizeRow(e, block, rowIndex)}
                                           />
                                         )
