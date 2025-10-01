@@ -212,18 +212,18 @@ export default function QuoteTemplateDialog({ isOpen, onClose, caseId }: Props) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-[90vw] h-[90vh] flex flex-col overflow-hidden">
-        <div className="bg-gradient-to-r from-[#334d6d] to-[#3f5a7d] text-white px-6 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold flex items-center gap-2">
-            <FileText className="w-5 h-5" />
-            報價單模板編輯器
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden">
+        <div className="bg-[#334d6d] text-white px-5 py-3 flex items-center justify-between border-b border-[#2c3e50]">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            報價單編輯器
           </h2>
           <button
             onClick={onClose}
-            className="text-white hover:text-gray-300 transition-all p-2 hover:bg-white/10 rounded-lg"
+            className="text-white/80 hover:text-white transition-colors p-1.5 hover:bg-white/10 rounded"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -254,22 +254,22 @@ export default function QuoteTemplateDialog({ isOpen, onClose, caseId }: Props) 
           />
 
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="border-b border-gray-200 p-4 bg-white">
-              <div className="flex items-center justify-between">
+            <div className="border-b border-gray-200 px-4 py-2.5 bg-white">
+              <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <button
                     onClick={addParagraphBlock}
-                    className="flex items-center gap-2 px-3 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors text-sm"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#334d6d] text-white rounded hover:bg-[#3f5a7d] transition-colors text-xs font-medium"
                   >
-                    <Type className="w-4 h-4" />
-                    新增段落
+                    <Type className="w-3.5 h-3.5" />
+                    段落
                   </button>
                   <button
                     onClick={addTableBlock}
-                    className="flex items-center gap-2 px-3 py-2 bg-[#3498db] text-white rounded-md hover:bg-[#2980b9] transition-colors text-sm"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3498db] text-white rounded hover:bg-[#2980b9] transition-colors text-xs font-medium"
                   >
-                    <TableIcon className="w-4 h-4" />
-                    新增表格
+                    <TableIcon className="w-3.5 h-3.5" />
+                    表格
                   </button>
                 </div>
 
@@ -283,41 +283,41 @@ export default function QuoteTemplateDialog({ isOpen, onClose, caseId }: Props) 
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handlePreview}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors text-sm ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors text-xs font-medium ${
                       isPreview
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
                     }`}
                   >
-                    <Eye className="w-4 h-4" />
+                    <Eye className="w-3.5 h-3.5" />
                     {isPreview ? '編輯' : '預覽'}
                   </button>
                   <button
                     onClick={handleExport}
                     disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors text-sm disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-[#334d6d] text-white rounded hover:bg-[#3f5a7d] transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Download className="w-4 h-4" />
-                    {loading ? '匯出中...' : '匯出 PDF'}
+                    <Download className="w-3.5 h-3.5" />
+                    {loading ? '匯出中...' : '匯出'}
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto bg-gray-50 p-8">
-              <div className="max-w-[210mm] mx-auto bg-white shadow-lg p-[20mm] min-h-[297mm]">
+            <div className="flex-1 overflow-auto bg-gray-100 p-6">
+              <div className="max-w-[190mm] mx-auto bg-white shadow-md rounded p-[15mm] min-h-[270mm]">
                 {schema.blocks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                    <FileText className="w-16 h-16 mb-4" />
-                    <p className="text-lg">點擊上方按鈕開始建立報價單</p>
+                    <FileText className="w-12 h-12 mb-3 opacity-50" />
+                    <p className="text-sm">點擊上方按鈕開始建立報價單</p>
                   </div>
                 ) : (
                   schema.blocks.map((block, index) => (
                     <div
                       key={block.id}
-                      className={`mb-4 ${
+                      className={`mb-3 ${
                         selectedBlockId === block.id && !isPreview
-                          ? 'ring-2 ring-[#3498db] rounded-lg'
+                          ? 'ring-1 ring-[#334d6d] rounded'
                           : ''
                       }`}
                       onClick={() => !isPreview && setSelectedBlockId(block.id)}

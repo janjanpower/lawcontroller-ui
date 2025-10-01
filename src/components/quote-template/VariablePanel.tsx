@@ -50,46 +50,42 @@ export default function VariablePanel({
   }, [filteredVariables]);
 
   return (
-    <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center gap-2 mb-3">
-          <Tag className="w-5 h-5 text-[#334d6d]" />
-          <h3 className="font-semibold text-gray-900">變數標籤</h3>
+    <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <div className="p-3 border-b border-gray-200">
+        <div className="flex items-center gap-2 mb-2">
+          <Tag className="w-4 h-4 text-[#334d6d]" />
+          <h3 className="text-sm font-semibold text-gray-900">變數</h3>
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input
             type="text"
-            placeholder="搜尋變數..."
+            placeholder="搜尋..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3498db] focus:border-transparent"
+            className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#334d6d] focus:border-[#334d6d]"
           />
         </div>
-
-        <p className="text-xs text-gray-500 mt-2">
-          點擊插入變數到選中的段落
-        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {filteredVariables.length === 0 ? (
-          <div className="p-8 text-center text-gray-400">
-            <Tag className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">
-              {searchQuery ? '找不到符合的變數' : '載入變數中...'}
+          <div className="p-6 text-center text-gray-400">
+            <Tag className="w-8 h-8 mx-auto mb-2 opacity-40" />
+            <p className="text-xs">
+              {searchQuery ? '找不到符合的變數' : '載入中...'}
             </p>
           </div>
         ) : (
           categories.map(([categoryName, vars]) => (
-            <div key={categoryName} className="mb-4">
-              <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
-                <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+            <div key={categoryName} className="mb-3">
+              <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100">
+                <h4 className="text-xs font-semibold text-gray-600">
                   {categoryName}
                 </h4>
               </div>
-              <div className="p-3 space-y-2">
+              <div className="p-2 space-y-1.5">
                 {vars.map((variable) => {
                   const usage = variableUsage.get(variable.key) || 0;
                   const maxUsage = variable.maxUsage;
@@ -98,19 +94,19 @@ export default function VariablePanel({
                   return (
                     <div
                       key={variable.key}
-                      className={`rounded-lg border transition-all ${
+                      className={`rounded border transition-all ${
                         canInsert
-                          ? 'border-blue-200 bg-blue-50 hover:bg-blue-100'
-                          : 'border-gray-200 bg-gray-50 opacity-60'
+                          ? 'border-gray-200 bg-white hover:border-[#334d6d] hover:shadow-sm'
+                          : 'border-gray-200 bg-gray-50 opacity-50'
                       }`}
                     >
-                      <div className="p-3">
-                        <div className="flex items-start justify-between mb-2">
+                      <div className="p-2">
+                        <div className="flex items-start justify-between mb-1.5">
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 truncate">
+                            <div className="text-xs font-medium text-gray-900 truncate">
                               {variable.label}
                             </div>
-                            <div className="text-xs font-mono text-gray-600 mt-1">
+                            <div className="text-[10px] font-mono text-gray-500 mt-0.5">
                               {`{{${variable.key}}}`}
                             </div>
                           </div>
@@ -118,17 +114,17 @@ export default function VariablePanel({
 
                         <div className="flex items-center justify-between">
                           {maxUsage && (
-                            <div className="text-xs text-gray-500">
-                              已使用 {usage} / {maxUsage}
+                            <div className="text-[10px] text-gray-500">
+                              {usage} / {maxUsage}
                             </div>
                           )}
                           <button
                             onClick={() => canInsert && onInsertVariable(variable.key)}
                             disabled={!canInsert}
-                            className={`ml-auto flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                            className={`ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                               canInsert
-                                ? 'bg-[#3498db] text-white hover:bg-[#2980b9]'
-                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                ? 'bg-[#334d6d] text-white hover:bg-[#3f5a7d]'
+                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                             }`}
                           >
                             <Plus className="w-3 h-3" />
