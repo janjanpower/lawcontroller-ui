@@ -593,6 +593,9 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
 
   const nextIndex = colIndex + 1;
 
+  // 用閉包保存最新的 widths，避免 mouseup 讀到舊值
+  let liveWidths = startWidths.slice();
+
   const onMouseMove = (moveEvt: MouseEvent) => {
     const deltaPx = moveEvt.clientX - startX;
     const deltaPct = (deltaPx / totalPx) * 100;
@@ -604,30 +607,26 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
     if (w1 < MIN) { w2 -= (MIN - w1); w1 = MIN; }
     if (w2 < MIN) { w1 -= (MIN - w2); w2 = MIN; }
 
-    const newWidths = [...startWidths];
-    newWidths[colIndex] = w1;
-    newWidths[nextIndex] = w2;
+    liveWidths = [...startWidths];
+    liveWidths[colIndex] = w1;
+    liveWidths[nextIndex] = w2;
 
-    updateBlock(blk.id, { columnWidths: newWidths });
+    updateBlock(blk.id, { columnWidths: liveWidths });
   };
 
   const onMouseUp = () => {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
 
-    // 取最新的 widths 正規化成總和 100
-    if (blk.type === 'table') {
-      const t = blk as TableBlock;
-      const widths = (t.columnWidths && t.columnWidths.length)
-        ? t.columnWidths
-        : new Array(
-            Math.max(t.headers.length, t.rows[0]?.length || 0)
-          ).fill(100 / Math.max(t.headers.length, t.rows[0]?.length || 1));
-      const sum = widths.reduce((a,b)=>a+b,0) || 1;
-      const norm = widths.map(w => (w / sum) * 100);
-      updateBlock(blk.id, { columnWidths: norm });
-    }
+    // 正規化到 100%
+    const sum = liveWidths.reduce((a, b) => a + b, 0) || 1;
+    const norm = liveWidths.map(w => (w / sum) * 100);
+    updateBlock(blk.id, { columnWidths: norm });
   };
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+};
 
 
 
@@ -751,10 +750,10 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
 
   // === 浮動工具列輔助：避免點工具列時 contentEditable 失焦、讓 execCommand 作用在當前選取 ===
-  const preventBlur = (e: React.MouseEvent) => {
-    const el = e.target as HTMLElement;
+  const preventBlur = (e: React.SyntheticEvent) => {
+    const target = e.target as HTMLElement;
     // 讓 input/select/textarea 正常工作（例如顏色選擇器）
-    if (el.closest('input, select, textarea')) {
+    if (target.closest('input, select, textarea')) {
       e.stopPropagation();
       return;
     }
@@ -1369,7 +1368,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                   {/* 無表頭：第一列掛欄寬拖移手柄 */}
                                   {!isPreview && (block as TableBlock).headers.length === 0 && rowIndex === 0 && colIndex < row.length - 1 && (
                                     <div
-                                      className="absolute top-0 right-0 w-2 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none" // ← select-none
+                                      className="absolute top-0 right-0 w-2 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
                                       onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
                                     />
                                   )}
@@ -1390,5 +1389,4 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
       </div>
     </div>
   );
-}
 }
