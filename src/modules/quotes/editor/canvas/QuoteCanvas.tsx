@@ -1391,3 +1391,4 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
     </div>
   );
 }
+}
