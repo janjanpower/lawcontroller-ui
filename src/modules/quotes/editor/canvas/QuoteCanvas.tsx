@@ -474,6 +474,57 @@ const VariableTag: React.FC<{
   );
 };
 
+// ── Mini glyphs for border & vertical align ────────────────────────────────
+const BorderGlyph: React.FC<{ t?: boolean; r?: boolean; b?: boolean; l?: boolean; className?: string }> = ({ t, r, b, l, className }) => (
+  <span className={`inline-block w-4 h-4 relative ${className || ''}`}>
+    <span className="absolute inset-0 rounded-sm border border-white/30" />
+    {t && <span className="absolute left-0 right-0 top-0 h-[2px] bg-white" />}
+    {r && <span className="absolute right-0 top-0 bottom-0 w-[2px] bg-white" />}
+    {b && <span className="absolute left-0 right-0 bottom-0 h-[2px] bg-white" />}
+    {l && <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-white" />}
+  </span>
+);
+
+const BorderOuterGlyph = () => <BorderGlyph t r b l />;
+const BorderTopGlyph = () => <BorderGlyph t />;
+const BorderBottomGlyph = () => <BorderGlyph b />;
+const BorderLeftGlyph = () => <BorderGlyph l />;
+const BorderRightGlyph = () => <BorderGlyph r />;
+const BorderNoneGlyph: React.FC = () => (
+  <span className="inline-block w-4 h-4 relative">
+    <span className="absolute inset-0 rounded-sm border border-white/30" />
+    <span className="absolute -rotate-45 left-[1px] right-[1px] top-1/2 h-[2px] bg-white" />
+  </span>
+);
+const BorderInnerGlyph: React.FC = () => (
+  <span className="inline-block w-4 h-4 relative">
+    <span className="absolute inset-0 rounded-sm border border-white/30" />
+    <span className="absolute left-1 right-1 top-1/2 -translate-y-1/2 h-[2px] bg-white/90" />
+    <span className="absolute top-1 bottom-1 left-1/2 -translate-x-1/2 w-[2px] bg-white/90" />
+  </span>
+);
+
+// 垂直對齊小圖示
+const VAlignTopGlyph: React.FC = () => (
+  <span className="inline-block w-4 h-4 relative">
+    <span className="absolute inset-0 rounded-sm border border-white/30" />
+    <span className="absolute left-1 right-1 top-1 h-[2px] bg-white" />
+    <span className="absolute left-1 right-1 top-[6px] h-[2px] bg-white/60" />
+  </span>
+);
+const VAlignMiddleGlyph: React.FC = () => (
+  <span className="inline-block w-4 h-4 relative">
+    <span className="absolute inset-0 rounded-sm border border-white/30" />
+    <span className="absolute left-1 right-1 top-1/2 -translate-y-1/2 h-[2px] bg-white" />
+  </span>
+);
+const VAlignBottomGlyph: React.FC = () => (
+  <span className="inline-block w-4 h-4 relative">
+    <span className="absolute inset-0 rounded-sm border border-white/30" />
+    <span className="absolute left-1 right-1 bottom-1 h-[2px] bg-white" />
+    <span className="absolute left-1 right-1 bottom-[6px] h-[2px] bg-white/60" />
+  </span>
+);
 
 
 
@@ -506,6 +557,45 @@ export default function QuoteCanvas({
 
   const [showBorderMenu, setShowBorderMenu] = useState(false);
   const [borderThickness, setBorderThickness] = useState(1);
+  const [borderColor, setBorderColor] = useState('#000000');      // 框線顏色（預設黑）
+  const [showAlignMenu, setShowAlignMenu] = useState(false);      // 對齊群組面板
+  const [lastTableTextColor, setLastTableTextColor] = useState('#000000'); // 表格文字體色顯示用
+
+  useEffect(() => {
+    setShowBorderMenu(false);
+    setShowAlignMenu(false);
+  }, [selectedBlockId, isPreview, isEditing]);
+
+
+  useEffect(() => {
+    // 只在選到表格區塊時才處理
+    if (!selectedBlockId) return;
+    const blk = value.blocks.find(b => b.id === selectedBlockId);
+    if (!blk || blk.type !== 'table') return;
+
+    const readCurrentColor = () => {
+      const sel = window.getSelection?.();
+      if (!sel || sel.rangeCount === 0) return;
+
+      // 取目前 caret 所在節點（沒有就用父元素）
+      const node = sel.anchorNode as Node | null;
+      const el =
+        (node && (node.nodeType === 1 ? (node as HTMLElement) : node.parentElement)) ||
+        null;
+      if (!el) return;
+
+      const computed = getComputedStyle(el).color; // e.g. "rgb(34, 34, 34)"
+      setLastTableTextColor(cssColorToHex(computed));
+    };
+
+    // 1) 進入/切換 cell 先讀一次
+    readCurrentColor();
+
+    // 2) caret 在同一格內移動或變動時也更新
+    document.addEventListener('selectionchange', readCurrentColor);
+    return () => document.removeEventListener('selectionchange', readCurrentColor);
+  }, [selectedBlockId, selectedCellId, isEditing, value.blocks]);
+
 
 
   // 載入變數和模板
@@ -963,53 +1053,54 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
   };
 
   // 框線：上/下/左/右/外框/內框/無 + 粗細
-  type BorderSpec = { t?: number; r?: number; b?: number; l?: number };
+  type BorderSpec = { t?: number; r?: number; b?: number; l?: number; color?: string };
   const applyBorders = (mode: 'top'|'bottom'|'left'|'right'|'outer'|'inner'|'none', thickness: number) => {
-    if (!selectedBlock || selectedBlock.type !== 'table') return;
-    const tb = selectedBlock as TableBlock;
-    const cells = getRangeCells(tb);
-    if (cells.length === 0) return;
+  if (!selectedBlock || selectedBlock.type !== 'table') return;
+  const tb = selectedBlock as TableBlock;
+  const cells = getRangeCells(tb);
+  if (cells.length === 0) return;
 
-    const r1 = Math.min(...cells.map(c=>c.r));
-    const r2 = Math.max(...cells.map(c=>c.r));
-    const c1 = Math.min(...cells.map(c=>c.c));
-    const c2 = Math.max(...cells.map(c=>c.c));
+  const r1 = Math.min(...cells.map(c=>c.r));
+  const r2 = Math.max(...cells.map(c=>c.r));
+  const c1 = Math.min(...cells.map(c=>c.c));
+  const c2 = Math.max(...cells.map(c=>c.c));
 
-    const map = { ...( (tb as any).cellBorderMap || {} ) } as Record<string, BorderSpec>;
-    const setEdge = (r:number,c:number,edge:keyof BorderSpec,val:number|undefined) => {
-      const k = `${r}-${c}`;
-      const cur = map[k] || {};
-      if (val === undefined) delete cur[edge]; else cur[edge] = val;
-      map[k] = cur;
-    };
-
-    if (mode === 'none') {
-      cells.forEach(({r,c}) => { map[`${r}-${c}`] = {}; });
-    } else if (mode === 'outer') {
-      for (let r=r1;r<=r2;r++) for (let c=c1;c<=c2;c++) {
-        if (r===r1) setEdge(r,c,'t',thickness);
-        if (r===r2) setEdge(r,c,'b',thickness);
-        if (c===c1) setEdge(r,c,'l',thickness);
-        if (c===c2) setEdge(r,c,'r',thickness);
-      }
-    } else if (mode === 'inner') {
-      for (let r=r1;r<=r2;r++) for (let c=c1;c<=c2;c++) {
-        if (r<r2) setEdge(r,c,'b',thickness);
-        if (c<c2) setEdge(r,c,'r',thickness);
-      }
-      for (let r=r1+1;r<=r2;r++) for (let c=c1;c<=c2;c++) setEdge(r,c,'t',thickness);
-      for (let r=r1;r<=r2;r++)   for (let c=c1+1;c<=c2;c++) setEdge(r,c,'l',thickness);
-    } else {
-      cells.forEach(({r,c}) => {
-        if (mode==='top')    setEdge(r,c,'t',thickness);
-        if (mode==='bottom') setEdge(r,c,'b',thickness);
-        if (mode==='left')   setEdge(r,c,'l',thickness);
-        if (mode==='right')  setEdge(r,c,'r',thickness);
-      });
-    }
-
-    updateBlock(tb.id, { ...(tb as any), cellBorderMap: map } as any);
+  const map = { ...((tb as any).cellBorderMap || {}) } as Record<string, BorderSpec>;
+  const setEdge = (r:number,c:number,edge:keyof BorderSpec,val:number|undefined) => {
+    const k = `${r}-${c}`;
+    const cur = map[k] || {};
+    if (val === undefined) delete cur[edge]; else cur[edge] = val;
+    cur.color = borderColor || '#000000';   // ← 寫入顏色
+    map[k] = cur;
   };
+
+  if (mode === 'none') {
+    cells.forEach(({r,c}) => { map[`${r}-${c}`] = {}; });
+  } else if (mode === 'outer') {
+    for (let r=r1;r<=r2;r++) for (let c=c1;c<=c2;c++) {
+      if (r===r1) setEdge(r,c,'t',thickness);
+      if (r===r2) setEdge(r,c,'b',thickness);
+      if (c===c1) setEdge(r,c,'l',thickness);
+      if (c===c2) setEdge(r,c,'r',thickness);
+    }
+  } else if (mode === 'inner') {
+    for (let r=r1;r<=r2;r++) for (let c=c1;c<=c2;c++) {
+      if (r<r2) setEdge(r,c,'b',thickness);
+      if (c<c2) setEdge(r,c,'r',thickness);
+    }
+    for (let r=r1+1;r<=r2;r++) for (let c=c1;c<=c2;c++) setEdge(r,c,'t',thickness);
+    for (let r=r1;r<=r2;r++)   for (let c=c1+1;c<=c2;c++) setEdge(r,c,'l',thickness);
+  } else {
+    cells.forEach(({r,c}) => {
+      if (mode==='top')    setEdge(r,c,'t',thickness);
+      if (mode==='bottom') setEdge(r,c,'b',thickness);
+      if (mode==='left')   setEdge(r,c,'l',thickness);
+      if (mode==='right')  setEdge(r,c,'r',thickness);
+    });
+  }
+
+  updateBlock(tb.id, { ...(tb as any), cellBorderMap: map } as any);
+};
 
 
   // 模板管理
@@ -1449,40 +1540,34 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                       <>
                         <div className="w-px h-4 bg-gray-600 mx-1" />
 
-                        {/* 文字底色（深藍底容器，方塊顯示目前底色） */}
-                          <div className="relative inline-flex items-center ml-1 rounded bg-[#334d6d] p-0.5" title="文字底色">
-                            <div
-                              className="w-5 h-5 rounded border border-white/30"
-                              style={{ background: (block as TextBlock).backgroundColor || '#ffffff' }}
-                            />
-                            <input
-                              type="color"
-                              className="absolute inset-0 opacity-0 cursor-pointer"
-                              value={(block as TextBlock).backgroundColor || '#ffffff'}
-                              onChange={(e) => { e.stopPropagation(); updateTextFormat('backgroundColor', e.target.value); }}
-                            />
-                          </div>
-
                         {/* 字體大小 */}
                         <select
                           onChange={(e) => { e.stopPropagation(); updateTextFormat('fontSize', Number(e.target.value)); }}
                           value={(block as TextBlock).fontSize || 14}
-                          className="text-xs rounded px-1 py-1 ml-1 bg-[#334d6d] text-white border border-white/20"
+                          className="text-xs rounded px-1 py-1 bg-white text-gray-800 border"
                         >
                           {[10,12,14,16,18,20,24,28,32].map(s => <option key={s} value={s}>{s}px</option>)}
                         </select>
 
-                        {/* 文字體色（深藍底） */}
-                        <div
-                          className="relative inline-flex items-center ml-1 rounded bg-[#334d6d] p-0.5 border border-white/20"
-                          title="文字體色"
-                        >
-                          <div className="w-5 h-5 rounded border border-white/30" />
+                        {/* 文字體色（樣式與底色一致，顏色同步顯示） */}
+                        <div className="relative inline-flex items-center ml-1 rounded bg-[#334d6d] p-0.5 border border-white/20" title="文字體色">
+                          <div className="w-5 h-5 rounded border border-white/30" style={{ background: (block as TextBlock).color || '#000000' }} />
                           <input
                             type="color"
                             className="absolute inset-0 opacity-0 cursor-pointer"
                             value={(block as TextBlock).color || '#000000'}
                             onChange={(e) => { e.stopPropagation(); updateTextFormat('color', e.target.value); }}
+                          />
+                        </div>
+
+                        {/* 文字底色（放最後） */}
+                        <div className="relative inline-flex items-center ml-1 rounded bg-[#334d6d] p-0.5" title="文字底色">
+                          <div className="w-5 h-5 rounded border border-white/30" style={{ background: (block as TextBlock).backgroundColor || '#ffffff' }} />
+                          <input
+                            type="color"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            value={(block as TextBlock).backgroundColor || '#ffffff'}
+                            onChange={(e) => { e.stopPropagation(); updateTextFormat('backgroundColor', e.target.value); }}
                           />
                         </div>
                         <button
@@ -1526,205 +1611,200 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                     {/* 表格工具列（簡化版：欄/列群組 + 字體大小 + 儲存格底色同步） */}
                       {block.type === 'table' && (
-                    <>
-                      <div className="w-px h-4 bg-white/20 mx-1" />
+                        <>
+                          <div className="w-px h-4 bg-white/20 mx-1" />
+                          {(() => {
+                            const tb = selectedBlock as TableBlock;
 
-                      {(() => {
-                        const tb = selectedBlock as TableBlock;
+                            // 目前選到的 cell 底色
+                            let cellBgHex = '#ffffff';
+                            let canPaint = false;
+                            let selR = -1, selC = -1;
+                            if (selectedCellId && !selectedCellId.startsWith('header-')) {
+                              const [rStr, cStr] = selectedCellId.split('-');
+                              selR = Number(rStr); selC = Number(cStr);
+                              if (!Number.isNaN(selR) && !Number.isNaN(selC)) {
+                                const html = tb.rows?.[selR]?.[selC] ?? '';
+                                const found = extractCellBg(html);
+                                if (found) cellBgHex = found;
+                                canPaint = true;
+                              }
+                            }
+                            const applyCellBg = (hex: string) => {
+                              if (!canPaint) return;
+                              const rows = tb.rows.map(row => [...row]);
+                              const cur = rows[selR][selC] || '';
+                              const inner = cur.replace(/<div data-cell-bg[^>]*>([\s\S]*?)<\/div>/, '$1');
+                              // 注意：用 background-color（和 extractor 一致）
+                              rows[selR][selC] = `<div data-cell-bg style="background-color:${hex};padding:6px;">${inner}</div>`;
+                              updateBlock(block.id, { rows });
+                            };
 
-                        // 目前選到的 cell 底色
-                        let cellBgHex = '#ffffff';
-                        let canPaint = false;
-                        let selR = -1, selC = -1;
+                            return (
+                              <>
+                                {/* 欄群組：+ / -（ICON） */}
+                                <div className="flex items-center gap-1">
+                                  <button onClick={(e)=>{ e.stopPropagation(); addTableColumn(); }} className="p-1 hover:bg-white/10 rounded" title="加欄">
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                  <button onClick={(e)=>{ e.stopPropagation(); removeTableColumn(); }} className="p-1 hover:bg-white/10 rounded" title="減欄">
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+                                </div>
 
-                        if (selectedCellId && !selectedCellId.startsWith('header-')) {
-                          const [rStr, cStr] = selectedCellId.split('-');
-                          selR = Number(rStr);
-                          selC = Number(cStr);
-                          if (!Number.isNaN(selR) && !Number.isNaN(selC)) {
-                            const html = tb.rows?.[selR]?.[selC] ?? '';
-                            const found = extractCellBg(html);
-                            if (found) cellBgHex = found;
-                            canPaint = true;
-                          }
-                        }
+                                {/* 列群組：+ / -（ICON） */}
+                                <div className="flex items-center gap-1 ml-2">
+                                  <button onClick={(e)=>{ e.stopPropagation(); addTableRow(); }} className="p-1 hover:bg-white/10 rounded" title="加列">
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                  <button onClick={(e)=>{ e.stopPropagation(); removeTableRow(); }} className="p-1 hover:bg-white/10 rounded" title="減列">
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+                                </div>
 
-                        const applyCellBg = (hex: string) => {
-                          if (!canPaint) return;
-                          const rows = tb.rows.map(row => [...row]);
-                          const cur = rows[selR][selC] || '';
-                          const inner = cur.replace(/<div data-cell-bg[^>]*>([\s\S]*?)<\/div>/, '$1');
-                          rows[selR][selC] = `<div data-cell-bg style="background-color:${hex};padding:6px;">${inner}</div>`;
-                          updateBlock(block.id, { rows });
-                        };
+                                <div className="w-px h-4 bg-white/20 mx-2" />
 
-                        return (
-                          <>
-                            {/* 欄群組 */}
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); addTableColumn(); }}
-                                className="p-1 hover:bg-white/10 rounded" title="加欄"
-                              >
-                                <Plus className="w-3 h-3" />
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); removeTableColumn(); }}
-                                className="p-1 hover:bg-white/10 rounded" title="減欄"
-                              >
-                                <Minus className="w-3 h-3" />
-                              </button>
-                            </div>
-
-                            {/* 儲存格底色（搬到欄群組右邊，深藍底白字樣式） */}
-                            <div className="flex items-center gap-1 ml-2">
-                              <div
-                                className="relative inline-flex items-center rounded bg-[#334d6d] p-0.5 border border-white/20"
-                                title={canPaint ? '儲存格底色' : '請先選取一個儲存格'}
-                              >
-                                <div className="w-5 h-5 rounded border border-white/30" style={{ background: cellBgHex }} />
-                                <input
-                                  type="color"
-                                  className="absolute inset-0 opacity-0 cursor-pointer"
-                                  value={cellBgHex}
-                                  disabled={!canPaint}
-                                  onChange={(evt) => applyCellBg(evt.target.value)}
+                                {/* 字體大小（可見文字顏色） */}
+                                <select
+                                  value={(tb as any).fontSize ?? 14}
+                                  onChange={(e) => {
+                                    const size = parseInt(e.target.value, 10) || 14;
+                                    updateBlock(block.id, { ...(tb as any), fontSize: size } as any);
+                                  }}
+                                  className="text-xs rounded px-1 py-1 bg-white text-gray-800 outline-none"
                                   onMouseDown={preventBlur}
-                                />
-                              </div>
-                            </div>
+                                >
+                                  {[12, 13, 14, 16, 18, 20, 22, 24].map(sz => (
+                                    <option key={sz} value={sz}>{sz}px</option>
+                                  ))}
+                                </select>
 
-                            {/* 列群組 */}
-                            <div className="flex items-center gap-1 ml-2">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); addTableRow(); }}
-                                className="p-1 hover:bg-white/10 rounded" title="加列"
-                              >
-                                <Plus className="w-3 h-3" />
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); removeTableRow(); }}
-                                className="p-1 hover:bg-white/10 rounded" title="減列"
-                              >
-                                <Minus className="w-3 h-3" />
-                              </button>
-                            </div>
+                                {/* 文字體色（樣式跟文字底色一致，會顯示顏色） */}
+                                <div
+                                  className="relative inline-flex items-center ml-2 rounded bg-[#334d6d] p-0.5 border border-white/20"
+                                  title="文字體色"
+                                >
+                                  <div className="w-5 h-5 rounded border border-white/30" style={{ backgroundColor: lastTableTextColor }} />
+                                  <input
+                                    type="color"
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    value={lastTableTextColor}
+                                    onChange={(e) => { setLastTableTextColor(e.target.value); document.execCommand('foreColor', false, e.target.value); }}
+                                    onMouseDown={preventBlur}
+                                  />
+                                </div>
 
-                            <div className="w-px h-4 bg-white/20 mx-2" />
+                                {/* 對齊群組（ICON → 展開） */}
+                                <div className="relative ml-2">
+                                  <button
+                                    onClick={(e)=>{ e.stopPropagation(); setShowAlignMenu(v=>!v); }}
+                                    className="p-1 rounded hover:bg-white/10"
+                                    title="對齊"
+                                  >
+                                    <AlignCenter className="w-3 h-3" />
+                                  </button>
+                                  {showAlignMenu && (
+                                    <div className="absolute z-20 mt-2 right-0 bg-white rounded shadow border p-2 w-40">
+                                      {/* 水平 */}
+                                      <div className="flex items-center justify-between mb-2">
+                                        <button className="p-1 rounded hover:bg-gray-100" onClick={()=>document.execCommand('justifyLeft')} title="靠左"><AlignLeft className="w-4 h-4 text-gray-700" /></button>
+                                        <button className="p-1 rounded hover:bg-gray-100" onClick={()=>document.execCommand('justifyCenter')} title="置中"><AlignCenter className="w-4 h-4 text-gray-700" /></button>
+                                        <button className="p-1 rounded hover:bg-gray-100" onClick={()=>document.execCommand('justifyRight')} title="靠右"><AlignRight className="w-4 h-4 text-gray-700" /></button>
+                                      </div>
+                                      {/* 垂直 */}
+                                      <div className="flex items-center justify-between">
+                                        <button className="p-1 rounded hover:bg-gray-100" onClick={()=>applyVerticalAlign('top')} title="上"><VAlignTopGlyph /></button>
+                                        <button className="p-1 rounded hover:bg-gray-100" onClick={()=>applyVerticalAlign('middle')} title="中"><VAlignMiddleGlyph /></button>
+                                        <button className="p-1 rounded hover:bg-gray-100" onClick={()=>applyVerticalAlign('bottom')} title="下"><VAlignBottomGlyph /></button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
 
-                            {/* 字體大小（深藍底白字） */}
-                            <select
-                              value={(tb as any).fontSize ?? 14}
-                              onChange={(e) => {
-                                const size = parseInt(e.target.value, 10) || 14;
-                                updateBlock(block.id, { ...(tb as any), fontSize: size } as any);
-                              }}
-                              className="text-xs rounded px-1 py-1 bg-[#334d6d] text-white outline-none"
-                              onMouseDown={preventBlur}
-                            >
-                              {[12, 13, 14, 16, 18, 20, 22, 24].map(sz => (
-                                <option key={sz} value={sz}>{sz}</option>
-                              ))}
-                            </select>
+                                {/* 框線群組（ICON → 展開，含粗細與顏色） */}
+                                <div className="relative ml-2">
+                                  <button
+                                    onClick={(e)=>{ e.stopPropagation(); setShowBorderMenu(v=>!v); }}
+                                    className="p-1 rounded hover:bg-white/10"
+                                    title="框線"
+                                  >
+                                    <BorderOuterGlyph />
+                                  </button>
 
-                            {/* 表格文字體色（深藍底白字） */}
-                            <div
-                              className="relative inline-flex items-center ml-2 rounded bg-[#334d6d] p-0.5 border border-white/20"
-                              title="文字體色"
-                            >
-                              <div className="w-5 h-5 rounded border border-white/30" />
-                              <input
-                                type="color"
-                                className="absolute inset-0 opacity-0 cursor-pointer"
-                                onChange={(e) => { document.execCommand('foreColor', false, e.target.value); }}
-                                onMouseDown={preventBlur}
-                              />
-                            </div>
+                                  {showBorderMenu && (
+                                    <div className="absolute z-20 mt-2 right-0 bg-white rounded shadow border p-2 w-56">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs text-gray-600">粗細</span>
+                                        <select
+                                          className="border text-xs rounded px-1 py-0.5 text-gray-800 bg-white"
+                                          value={borderThickness}
+                                          onChange={e=>setBorderThickness(parseInt(e.target.value,10)||1)}
+                                        >
+                                          {[0,1,2,3,4,6].map(n => <option key={n} value={n}>{n}px</option>)}
+                                        </select>
+                                      </div>
 
-                            {/* 水平對齊（依目前 caret 生效） */}
-                            <div className="ml-2 flex items-center gap-1">
-                              <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyLeft'); }}   className="p-1 hover:bg-white/10 rounded" title="靠左"><AlignLeft className="w-3 h-3" /></button>
-                              <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyCenter'); }} className="p-1 hover:bg-white/10 rounded" title="置中"><AlignCenter className="w-3 h-3" /></button>
-                              <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyRight'); }}  className="p-1 hover:bg-white/10 rounded" title="靠右"><AlignRight className="w-3 h-3" /></button>
-                            </div>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs text-gray-600">顏色</span>
+                                        <div className="relative inline-flex items-center rounded bg-[#334d6d] p-0.5 border border-gray-200">
+                                          <div className="w-5 h-5 rounded border border-white/30" style={{ backgroundColor: borderColor }} />
+                                          <input
+                                            type="color"
+                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                            value={borderColor}
+                                            onChange={(e)=>setBorderColor(e.target.value)}
+                                          />
+                                        </div>
+                                      </div>
 
-                            {/* 垂直對齊（作用於目前選取範圍） */}
-                            <div className="ml-2 flex items-center gap-1">
-                              <button className="px-1.5 py-0.5 text-xs rounded hover:bg-white/10" title="上對齊"    onClick={()=>applyVerticalAlign('top')}>上</button>
-                              <button className="px-1.5 py-0.5 text-xs rounded hover:bg-white/10" title="置中對齊"  onClick={()=>applyVerticalAlign('middle')}>中</button>
-                              <button className="px-1.5 py-0.5 text-xs rounded hover:bg-white/10" title="下對齊"    onClick={()=>applyVerticalAlign('bottom')}>下</button>
-                            </div>
+                                      <div className="grid grid-cols-4 gap-1 text-xs">
+                                        <button className="border p-2 hover:bg-gray-50" title="無" onClick={()=>applyBorders('none', 0)}><BorderNoneGlyph /></button>
+                                        <button className="border p-2 hover:bg-gray-50" title="外框" onClick={()=>applyBorders('outer', borderThickness)}><BorderOuterGlyph /></button>
+                                        <button className="border p-2 hover:bg-gray-50" title="內框" onClick={()=>applyBorders('inner', borderThickness)}><BorderInnerGlyph /></button>
+                                        <button className="border p-2 hover:bg-gray-50" title="上框" onClick={()=>applyBorders('top', borderThickness)}><BorderTopGlyph /></button>
+                                        <button className="border p-2 hover:bg-gray-50" title="下框" onClick={()=>applyBorders('bottom', borderThickness)}><BorderBottomGlyph /></button>
+                                        <button className="border p-2 hover:bg-gray-50" title="左框" onClick={()=>applyBorders('left', borderThickness)}><BorderLeftGlyph /></button>
+                                        <button className="border p-2 hover:bg-gray-50" title="右框" onClick={()=>applyBorders('right', borderThickness)}><BorderRightGlyph /></button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
 
-                            {/* 框線（展開選單） */}
-                            <div className="relative ml-2">
-                              <button
-                                onClick={(e)=>{ e.stopPropagation(); setShowBorderMenu(v=>!v); }}
-                                className="px-2 py-1 text-xs rounded bg-white/10 hover:bg-white/20"
-                                title="框線"
-                              >
-                                框線
-                              </button>
-
-                              {showBorderMenu && (
-                                <div className="absolute z-20 mt-2 right-0 bg-white rounded shadow border p-2 w-56">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs text-gray-600">粗細</span>
-                                    <select
-                                      className="border text-xs rounded px-1 py-0.5"
-                                      value={borderThickness}
-                                      onChange={e=>setBorderThickness(parseInt(e.target.value,10)||1)}
-                                    >
-                                      {[0,1,2,3,4,6].map(n => <option key={n} value={n}>{n}px</option>)}
-                                    </select>
-                                  </div>
-
-                                  <div className="grid grid-cols-3 gap-1 text-xs">
-                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('outer', borderThickness)}>外框</button>
-                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('inner', borderThickness)}>內框</button>
-                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('none', 0)}>無</button>
-
-                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('top', borderThickness)}>上</button>
-                                    <div />
-                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('bottom', borderThickness)}>下</button>
-
-                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('left', borderThickness)}>左</button>
-                                    <div />
-                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('right', borderThickness)}>右</button>
+                                {/* ——— 右側：儲存格底色（搬到最右） ——— */}
+                                <div className="ml-2" />
+                                <div className="flex-1" />
+                                <div className="flex items-center">
+                                  <div
+                                    className="relative inline-flex items-center rounded bg-[#334d6d] p-0.5 border border-white/20"
+                                    title={canPaint ? '儲存格底色' : '請先選取一個儲存格'}
+                                  >
+                                    <div className="w-5 h-5 rounded border border-white/30" style={{ background: cellBgHex }} />
+                                    <input
+                                      type="color"
+                                      className="absolute inset-0 opacity-0 cursor-pointer"
+                                      value={cellBgHex}
+                                      disabled={!canPaint}
+                                      onChange={(evt) => applyCellBg(evt.target.value)}
+                                      onMouseDown={preventBlur}
+                                    />
                                   </div>
                                 </div>
-                              )}
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </>
-                  )}
+                              </>
+                            );
+                          })()}
+                        </>
+                      )}
+
 
 
 
                         {block.type === 'table' && selectedCellId && (
-                          <>
-                            <div className="w-px h-4 bg-white/20 mx-2" />
-                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('bold'); }} className="p-1 hover:bg-white/10 rounded" title="粗體">
-                              <Bold className="w-3 h-3" />
-                            </button>
-                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('italic'); }} className="p-1 hover:bg-white/10 rounded" title="斜體">
-                              <Italic className="w-3 h-3" />
-                            </button>
-                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('underline'); }} className="p-1 hover:bg-white/10 rounded" title="底線">
-                              <Underline className="w-3 h-3" />
-                            </button>
-                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('justifyLeft'); }} className="p-1 hover:bg-white/10 rounded" title="靠左">
-                              <AlignLeft className="w-3 h-3" />
-                            </button>
-                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('justifyCenter'); }} className="p-1 hover:bg-white/10 rounded" title="置中">
-                              <AlignCenter className="w-3 h-3" />
-                            </button>
-                            <button onClick={(e)=>{ e.stopPropagation(); cellExec('justifyRight'); }} className="p-1 hover:bg-white/10 rounded" title="靠右">
-                              <AlignRight className="w-3 h-3" />
-                            </button>
-                          </>
-
+                      <>
+                        <div className="w-px h-4 bg-white/20 mx-2" />
+                        <button onClick={(e)=>{ e.stopPropagation(); cellExec('bold'); }} className="p-1 hover:bg-white/10 rounded" title="粗體"><Bold className="w-3 h-3" /></button>
+                        <button onClick={(e)=>{ e.stopPropagation(); cellExec('italic'); }} className="p-1 hover:bg-white/10 rounded" title="斜體"><Italic className="w-3 h-3" /></button>
+                        <button onClick={(e)=>{ e.stopPropagation(); cellExec('underline'); }} className="p-1 hover:bg-white/10 rounded" title="底線"><Underline className="w-3 h-3" /></button>
+                      </>
                     )}
                   </div>
                 )}
@@ -1821,8 +1901,9 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                                     const vAlignMap = (tb as any).vAlignMap || {};
                                     const borderMap = (tb as any).cellBorderMap || {};
-                                    const bspec = (borderMap[cellId] || {}) as { t?: number; r?: number; b?: number; l?: number };
+                                    const bspec = (borderMap[cellId] || {}) as { t?: number; r?: number; b?: number; l?: number; color?: string };
                                     const vAlign = (vAlignMap[cellId] as any) || 'middle';
+                                    const edgeColor = bspec.color || '#000000';
 
                                     return (
                                       <td
@@ -1832,10 +1913,10 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                           width: `${tb.columnWidths?.[colIndex] ?? (100 / colCount)}%`,
                                           backgroundColor: extractCellBg(cell) || undefined,
                                           verticalAlign: vAlign,
-                                          borderTop:    bspec.t ? `${bspec.t}px solid #d1d5db` : undefined,
-                                          borderRight:  bspec.r ? `${bspec.r}px solid #d1d5db` : undefined,
-                                          borderBottom: bspec.b ? `${bspec.b}px solid #d1d5db` : undefined,
-                                          borderLeft:   bspec.l ? `${bspec.l}px solid #d1d5db` : undefined,
+                                          borderTop:    bspec.t ? `${bspec.t}px solid ${edgeColor}` : undefined,
+                                          borderRight:  bspec.r ? `${bspec.r}px solid ${edgeColor}` : undefined,
+                                          borderBottom: bspec.b ? `${bspec.b}px solid ${edgeColor}` : undefined,
+                                          borderLeft:   bspec.l ? `${bspec.l}px solid ${edgeColor}` : undefined,
                                         }}
                                       >
                                         <TableCell
