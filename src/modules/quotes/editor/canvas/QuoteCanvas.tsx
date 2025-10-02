@@ -201,6 +201,26 @@ function isDark(hex: string) {
   return l < 0.5;
 }
 
+// 取得「目前（含拖曳中）」這張表的欄寬(px)陣列
+const getColPxArray = (tb: TableBlock, liveKey: string) => {
+  const live = liveColsPxRef.current[liveKey];
+  if (live && live.length) return live.slice();
+  const saved = ((tb as any).columnWidthsPx as number[] | undefined) ?? [];
+  if (saved.length) return saved.slice();
+  // 沒有 px 設定時，先用 100px/欄估計
+  const cols = tb.headers.length || (tb.rows[0]?.length ?? 1);
+  return new Array(Math.max(cols, 1)).fill(100);
+};
+
+// 表格外框最小寬度 = 各欄 px 總和 + 微量邊框緩衝（避免被外框硬擠壞）
+const getTableMinWidth = (tb: TableBlock, liveKey: string): number => {
+  const arr = getColPxArray(tb, liveKey);
+  const sum = arr.reduce((a, b) => a + (b || 0), 0);
+  // 若顯示外框，加一點緩衝（每欄 1px + 外框 2px）
+  const pad = tb.showBorders ? (arr.length + 1) : 0;
+  return Math.max(sum + pad, 100);
+};
+
 
 const EditableContent = React.forwardRef<HTMLDivElement, EditableContentProps>(({
   html,
@@ -354,16 +374,15 @@ const RichTextEditor: React.FC<{
         minHeight: minTextH,
         height: "auto",
         maxHeight: "none",
-        padding: "8px",
-        border: "none",          // 移除虛線
+        padding: "4px",            // ← 8px → 4px
+        border: "none",
         overflow: "hidden",
-        borderRadius: 6,       // 超出時滾動
+        borderRadius: 6,
         wordBreak: "break-word",
         whiteSpace: "pre-wrap",
         lineHeight: "1.5",
         ...style
       }}
-
     />
   );
 };
@@ -563,12 +582,15 @@ const HoverAddRemove: React.FC<{
     setOpen(true);
   };
 
-  const handleMouseLeave = (e: React.MouseEvent) => {
-    // 延遲關閉，讓用戶有時間移動到按鈕上
-    timeoutRef.current = setTimeout(() => {
-      setOpen(false);
-    }, 150);
+  const handleMouseLeave = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    // 40ms 幾乎立即、仍避免抖動
+    timeoutRef.current = setTimeout(() => setOpen(false), 40);
   };
+
 
   useEffect(() => {
     return () => {
@@ -652,6 +674,20 @@ export default function QuoteCanvas({
   const [lastTableTextColor, setLastTableTextColor] = useState('#000000'); // 表格文字體色顯示用
   const [lastTextColor, setLastTextColor] = useState('#000000');
   const [lastTextBgColor, setLastTextBgColor] = useState('#ffffff'); // 文字背景色
+
+  // ===== 即時拖曳/縮放暫存（不打擾父層 onChange 頻率） =====
+  const livePosRef  = useRef<Record<string, { x: number; y: number }>>({});
+  const liveSizeRef = useRef<Record<string, { w: number; h: number }>>({});
+  const liveColsPxRef = useRef<Record<string, number[]>>({});
+  const [liveTick, setLiveTick] = useState(0);
+  const rafRef = useRef<number | null>(null);
+  const invalidate = () => {
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      setLiveTick((t) => t + 1);
+    });
+  };
 
   useEffect(() => {
     setShowBorderMenu(false);
@@ -807,25 +843,26 @@ export default function QuoteCanvas({
 
   // 新增表格區塊
   const addTableBlock = () => {
-  const newBlock: TableBlock = {
+  const newBlock: TableBlock & { columnWidthsPx?: number[] } = {
     id: `table-${Date.now()}`,
     type: 'table',
     x: 50,
     y: 150,
     w: 400,
     h: 200,
-    headers: [],                    // ← 無表頭
-    rows: [['', '', '']],           // ← 先給 1 列 3 欄
+    headers: [],                      // 無表頭
+    rows: [['', '', '']],             // 1 列 3 欄
     showBorders: true,
-    columnWidths: [33.33, 33.33, 33.34]
+    columnWidthsPx: [120, 160, 120],  // ← 直接用 px
   };
 
   onChange({
     ...value,
-    blocks: [...value.blocks, newBlock]
+    blocks: [...value.blocks, newBlock as TableBlock]
   });
   setSelectedBlockId(newBlock.id);
 };
+
 
 
   // 複製區塊
@@ -893,62 +930,62 @@ export default function QuoteCanvas({
 const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: number) => {
   e.preventDefault(); e.stopPropagation();
   if (blk.type !== 'table') return;
-
   const table = blk as TableBlock;
-  const startX = e.clientX;
 
   const containerTable = (e.currentTarget as HTMLElement).closest('table') as HTMLTableElement | null;
   const totalPx = containerTable?.getBoundingClientRect().width || 1;
 
+  // 目前欄數
   const cols = Math.max(
     table.columnWidths?.length || 0,
     table.headers.length > 0 ? table.headers.length : (table.rows[0]?.length || 0)
-  );
+  ) || 1;
 
-  const startWidths = (table.columnWidths && table.columnWidths.length === cols)
-    ? [...table.columnWidths]
-    : new Array(cols).fill(100 / cols);
+  // 以 px 為主；若未設定，先把百分比換算成 px
+  const startPxArr: number[] = (() => {
+    const fromPx = (table as any).columnWidthsPx as number[] | undefined;
+    if (fromPx && fromPx.length === cols) return fromPx.slice();
+    const fromPct = (table.columnWidths && table.columnWidths.length === cols)
+      ? table.columnWidths.slice()
+      : new Array(cols).fill(100 / cols);
+    return fromPct.map(p => (p / 100) * totalPx);
+  })();
 
-  const nextIndex = colIndex + 1;
-  if (nextIndex >= cols) return;
+  const startX = e.clientX;
+  const startW = startPxArr[colIndex] ?? (totalPx / cols);
+  const MIN_PX = 24;
 
-  let liveWidths = startWidths.slice();
+  let live = startPxArr.slice();
   let rafId: number | null = null;
 
-  const onMouseMove = (moveEvt: MouseEvent) => {
-    const deltaPx = moveEvt.clientX - startX;
-    const deltaPct = (deltaPx / totalPx) * 100;
+  const onMove = (mv: MouseEvent) => {
+    const dx = mv.clientX - startX;
+    let w = startW + dx;
+    if (w < MIN_PX) w = MIN_PX;
+    live = startPxArr.slice();
+    live[colIndex] = w; // 只改被拖動的欄
 
-    let w1 = startWidths[colIndex] + deltaPct;
-    let w2 = startWidths[nextIndex] - deltaPct;
-
-    const MIN = 5;
-    if (w1 < MIN) { w2 -= (MIN - w1); w1 = MIN; }
-    if (w2 < MIN) { w1 -= (MIN - w2); w2 = MIN; }
-
-    liveWidths = [...startWidths];
-    liveWidths[colIndex] = w1;
-    liveWidths[nextIndex] = w2;
-
-    // 使用 requestAnimationFrame 優化性能
+    // 用暫存刷新畫面
+    liveColsPxRef.current[blk.id] = live.slice();
     if (rafId) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(() => {
-      updateBlock(blk.id, { columnWidths: liveWidths });
-    });
+    rafId = requestAnimationFrame(() => invalidate());
   };
 
-  const onMouseUp = () => {
+  const onUp = () => {
     if (rafId) cancelAnimationFrame(rafId);
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
-    const sum = liveWidths.reduce((a,b)=>a+b,0) || 1;
-    const norm = liveWidths.map(w => (w / sum) * 100);
-    updateBlock(blk.id, { columnWidths: norm });
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+
+    // 提交成正式欄寬（px 版）；不再用百分比
+    updateBlock(blk.id, { ...(blk as any), columnWidthsPx: (liveColsPxRef.current[blk.id] ?? live) } as any);
+    // 清掉暫存（避免干擾之後）
+    delete liveColsPxRef.current[blk.id];
   };
 
-  document.addEventListener('mousemove', onMouseMove);
-  document.addEventListener('mouseup', onMouseUp);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 };
+
 
 
 
@@ -1110,21 +1147,19 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
     const cols = Math.max(t.headers.length, t.rows[0]?.length || 0);
     const nextCols = cols + 1;
 
-    // 1) 欄位資料結構
+    // 內容
     const nextHeaders = t.headers.length ? [...t.headers, ''] : t.headers;
     const nextRows = t.rows.map(r => [...r, '']);
 
-    // 2) 欄寬正規化：舊欄縮放到 (cols/nextCols)*原本，最後新增一格 100/nextCols
-    const existing = (t.columnWidths && t.columnWidths.length === cols)
-      ? [...t.columnWidths]
-      : new Array(cols).fill(100 / cols);
+    // 欄寬（px）— 保持舊欄不變，新欄給預設寬
+    const pxArr = ((t as any).columnWidthsPx as number[] | undefined)?.slice() || [];
+    const DEFAULT_PX = 120;
+    while (pxArr.length < cols) pxArr.push(DEFAULT_PX);
+    pxArr.push(DEFAULT_PX); // 新增一欄的預設寬
 
-    const scaled = existing.map(w => w * (cols / nextCols));
-    const newLast = 100 / nextCols;
-    const nextWidths = [...scaled, newLast];
-
-    updateBlock(selectedBlock.id, { headers: nextHeaders, rows: nextRows, columnWidths: nextWidths });
+    updateBlock(selectedBlock.id, { headers: nextHeaders, rows: nextRows, ...(t as any), columnWidthsPx: pxArr } as any);
   };
+
 
 
   const removeTableColumn = () => {
@@ -1139,18 +1174,13 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
     const nextHeaders = t.headers.length ? t.headers.slice(0, -1) : t.headers;
     const nextRows = t.rows.map(r => r.slice(0, -1));
 
-    const existing = (t.columnWidths && t.columnWidths.length === cols)
-      ? [...t.columnWidths]
-      : new Array(cols).fill(100 / cols);
+    // 欄寬（px）— 直接去掉最後一欄，不重算其他欄
+    const pxArr = ((t as any).columnWidthsPx as number[] | undefined)?.slice() || [];
+    const trimmed = pxArr.slice(0, nextCols);
 
-    const trimmed = existing.slice(0, -1);
-    const sum = trimmed.reduce((a, b) => a + b, 0);
-    const nextWidths = sum === 0
-      ? new Array(nextCols).fill(100 / nextCols)
-      : trimmed.map(w => (w / sum) * 100);
-
-    updateBlock(selectedBlock.id, { headers: nextHeaders, rows: nextRows, columnWidths: nextWidths });
+    updateBlock(selectedBlock.id, { headers: nextHeaders, rows: nextRows, ...(t as any), columnWidthsPx: trimmed } as any);
   };
+
 
 
   // === 浮動工具列輔助：避免點工具列時 contentEditable 失焦、讓 execCommand 作用在當前選取 ===
@@ -1675,27 +1705,52 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
             {value.blocks.map((block) => {
               // 計算最小尺寸：根據字體大小
               const fontSize = block.type === 'text' ? ((block as TextBlock).fontSize || 14) : ((block as any).fontSize || 14);
-              const minWidth = Math.max(100, fontSize * 3);
+              let minWidth = Math.max(100, fontSize * 3);
               const minHeight = Math.max(40, fontSize * 2);
+
+              // 表格：外框最小寬度 = 各欄 px 總和（含拖曳中的暫存值），避免被外框擠壞
+              if (block.type === 'table') {
+                minWidth = Math.max(minWidth, getTableMinWidth(block as TableBlock, block.id));
+              }
+
 
               return (
               <Rnd
                 bounds="parent"
                 key={block.id}
-                size={{ width: block.w, height: block.h || 'auto' }}
-                position={{ x: block.x, y: block.y }}
+                size={{
+                  width:  (liveSizeRef.current[block.id]?.w ?? block.w),
+                  height: (liveSizeRef.current[block.id]?.h ?? block.h) || 'auto',
+                }}
+                position={{
+                  x: livePosRef.current[block.id]?.x ?? block.x,
+                  y: livePosRef.current[block.id]?.y ?? block.y,
+                }}
                 minWidth={minWidth}
                 minHeight={minHeight}
+                onDrag={(e, d) => {
+                  livePosRef.current[block.id] = { x: d.x, y: d.y };
+                  invalidate();
+                }}
                 onDragStop={(e, d) => {
+                  delete livePosRef.current[block.id];
                   updateBlock(block.id, { x: d.x, y: d.y });
                 }}
+                onResize={(e, direction, ref, delta, position) => {
+                  liveSizeRef.current[block.id] = { w: ref.offsetWidth, h: ref.offsetHeight };
+                  livePosRef.current[block.id]  = { x: position.x, y: position.y };
+                  invalidate();
+                }}
                 onResizeStop={(e, direction, ref, delta, position) => {
-                  updateBlock(block.id, {
+                  const payload = {
                     w: ref.offsetWidth,
                     h: ref.offsetHeight,
                     x: position.x,
-                    y: position.y
-                  });
+                    y: position.y,
+                  };
+                  delete liveSizeRef.current[block.id];
+                  delete livePosRef.current[block.id];
+                  updateBlock(block.id, payload);
                 }}
                 disableDragging={isPreview || block.locked || isEditing}
                 enableResizing={!isPreview && !block.locked && !isEditing}
@@ -1836,7 +1891,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                             const rows = tb.rows.map(row => [...row]);
                             const cur = rows[selR][selC] || '';
                             const inner = cur.replace(/<div data-cell-bg[^>]*>([\s\S]*?)<\/div>/, '$1');
-                            rows[selR][selC] = `<div data-cell-bg style="background-color:${hex};padding:6px;">${inner}</div>`;
+                            rows[selR][selC] = `<div data-cell-bg style="background-color:${hex};padding:4px;">${inner}</div>`;
                             updateBlock(block.id, { rows });
                           };
 
@@ -2067,19 +2122,33 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                       const borders = tb.showBorders;
                       return (
                         <table
-                            className={`w-full h-full border-collapse ${borders ? 'border border-black' : ''}`}
-                            style={{ fontSize: (tb as any).fontSize ?? 14 }}
-                           >
+                            className={`${borders ? 'border border-black' : ''} h-full border-collapse w-auto max-w-full`}
+                            style={{ fontSize: (tb as any).fontSize ?? 14, tableLayout: 'fixed' }}
+                          >
+                            {/* 以 colgroup 套用欄寬（優先使用 px，其次百分比） */}
+                            <colgroup>
+                              {Array.from({ length: (tb.headers.length || (tb.rows[0]?.length ?? 0)) || 0 }).map((_, i) => {
+                                const livePx = liveColsPxRef.current[block.id]?.[i];
+                                const pxArr  = (tb as any).columnWidthsPx as number[] | undefined;
+                                const pctArr = tb.columnWidths as number[] | undefined;
+                                const colCount = (tb.headers.length || (tb.rows[0]?.length ?? 0)) || 1;
+                                const style: React.CSSProperties = livePx != null
+                                  ? { width: `${livePx}px` }
+                                  : pxArr && pxArr[i] != null
+                                    ? { width: `${pxArr[i]}px` }
+                                    : { width: `${pctArr?.[i] ?? (100 / colCount)}%` };
+                                return <col key={i} style={style} />;
+                              })}
+                            </colgroup>
+
                           {tb.headers.length > 0 && (
                             <thead>
                               <tr>
                                 {tb.headers.map((header, colIndex) => (
                                   <th
                                     key={colIndex}
-                                    className={`${borders ? 'border border-black' : ''} p-2 text-sm font-medium text-left relative`}
+                                    className={`${borders ? 'border border-black' : ''} p-1 text-sm font-medium text-left relative`}
                                     style={{
-                                      width: `${tb.columnWidths?.[colIndex] ?? (100 / tb.headers.length)}%`,
-                                      // 讓表頭也能吃整格底色；沒有設定時就不覆蓋
                                       backgroundColor: extractCellBg(header) || undefined,
                                     }}
                                   >
@@ -2137,7 +2206,6 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                         key={cellId}
                                         className={`${borders ? 'border border-black' : ''} relative`}
                                         style={{
-                                          width: `${tb.columnWidths?.[colIndex] ?? (100 / colCount)}%`,
                                           backgroundColor: extractCellBg(cell) || undefined,
                                           verticalAlign: vAlign,
                                           borderTop:    bspec.t ? `${bspec.t}px solid ${edgeColor}` : undefined,

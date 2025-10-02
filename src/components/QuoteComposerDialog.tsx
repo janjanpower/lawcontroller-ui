@@ -5,7 +5,7 @@ import { getFirmCodeOrThrow, apiFetch } from "../utils/api";
 import { X, FileText, Download, Save, Trash2 } from "lucide-react";
 import 'react/jsx-runtime'
 
-const A4PX = { width: 794, height: 1123, margin: 40 };
+const A4PX = { width: 794, height: 1123, margin: 30 };
 
 interface Props {
   isOpen: boolean;
