@@ -416,7 +416,7 @@ const TableCell: React.FC<{
       style={{
         padding: "4px",
         minHeight: 24,
-        height: "100%",
+        height: "auto",          // ← 改這行
         cursor: isPreview ? "default" : "text",
         ...style,
         backgroundColor: 'transparent',
@@ -477,7 +477,6 @@ const VariableTag: React.FC<{
 // ── Mini glyphs for border & vertical align ────────────────────────────────
 const BOX_BORDER = "border-gray-400";
 const GLYPH = "bg-gray-700";
-
 const BorderGlyph: React.FC<{ t?: boolean; r?: boolean; b?: boolean; l?: boolean; className?: string }> = ({ t, r, b, l, className }) => (
   <span className={`inline-block w-4 h-4 relative ${className || ''}`}>
     <span className={`absolute inset-0 rounded-sm border ${BOX_BORDER}`} />
@@ -521,6 +520,24 @@ const VAlignMiddleGlyph: React.FC = () => (
     <span className={`absolute left-1 right-1 top-1/2 -translate-y-1/2 h-[2px] ${GLYPH}`} />
   </span>
 );
+
+const ColsGlyph: React.FC = () => (
+  <span className="inline-block w-4 h-4 relative">
+    <span className="absolute inset-0 rounded-sm border border-gray-400" />
+    <span className="absolute top-1 bottom-1 left-[6px] w-[2px] bg-gray-700" />
+    <span className="absolute top-1 bottom-1 right-[6px] w-[2px] bg-gray-700" />
+  </span>
+);
+
+const RowsGlyph: React.FC = () => (
+  <span className="inline-block w-4 h-4 relative">
+    <span className="absolute inset-0 rounded-sm border border-gray-400" />
+    <span className="absolute left-1 right-1 top-[6px] h-[2px] bg-gray-700" />
+    <span className="absolute left-1 right-1 bottom-[6px] h-[2px] bg-gray-700" />
+  </span>
+);
+
+
 const VAlignBottomGlyph: React.FC = () => (
   <span className="inline-block w-4 h-4 relative">
     <span className={`absolute inset-0 rounded-sm border ${BOX_BORDER}`} />
@@ -528,6 +545,46 @@ const VAlignBottomGlyph: React.FC = () => (
     <span className={`absolute left-1 right-1 bottom-[6px] h-[2px] ${GLYPH} opacity-60`} />
   </span>
 );
+
+const HoverAddRemove: React.FC<{
+  title: string;
+  glyph: React.ReactNode;
+  onAdd: () => void;
+  onRemove: () => void;
+}> = ({ title, glyph, onAdd, onRemove }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onMouseDown={(e)=>{ e.stopPropagation(); }} // 避免失焦
+    >
+      <button className="h-6 w-6 p-1 rounded hover:bg-white/10" title={title}>
+        {glyph}
+      </button>
+      {open && (
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 -top-8">
+          <button
+            className="w-5 h-5 rounded-full bg-gray-800 text-white border border-white/30 flex items-center justify-center hover:bg-gray-700"
+            onClick={(e)=>{ e.stopPropagation(); onAdd(); }}
+            title={`${title} +`}
+          >
+            <Plus className="w-3 h-3" />
+          </button>
+          <button
+            className="w-5 h-5 rounded-full bg-gray-800 text-white border border-white/30 flex items-center justify-center hover:bg-gray-700"
+            onClick={(e)=>{ e.stopPropagation(); onRemove(); }}
+            title={`${title} -`}
+          >
+            <Minus className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 export default function QuoteCanvas({
   value,
@@ -560,6 +617,7 @@ export default function QuoteCanvas({
   const [borderColor, setBorderColor] = useState('#000000');      // 框線顏色（預設黑）
   const [showAlignMenu, setShowAlignMenu] = useState(false);      // 對齊群組面板
   const [lastTableTextColor, setLastTableTextColor] = useState('#000000'); // 表格文字體色顯示用
+  const [lastTextColor, setLastTextColor] = useState('#000000');
 
   useEffect(() => {
     setShowBorderMenu(false);
@@ -577,6 +635,27 @@ export default function QuoteCanvas({
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [showAlignMenu, showBorderMenu]);
+
+  useEffect(() => {
+    if (!selectedBlockId) return;
+    const blk = value.blocks.find(b => b.id === selectedBlockId);
+    if (!blk || blk.type !== 'text' || !isEditing) return;
+
+    const readCurrentColor = () => {
+      const sel = window.getSelection?.();
+      if (!sel || sel.rangeCount === 0) return;
+      const node = sel.anchorNode as Node | null;
+      const el = (node && (node.nodeType === 1 ? (node as HTMLElement) : node.parentElement)) || null;
+      if (!el) return;
+      const computed = getComputedStyle(el).color;
+      setLastTextColor(cssColorToHex(computed));
+    };
+
+    readCurrentColor();
+    document.addEventListener('selectionchange', readCurrentColor);
+    return () => document.removeEventListener('selectionchange', readCurrentColor);
+  }, [selectedBlockId, isEditing, value.blocks]);
+
 
   useEffect(() => {
     // 只在選到表格區塊時才處理
@@ -1593,22 +1672,26 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                         <select
                           onChange={(e) => { e.stopPropagation(); updateTextFormat('fontSize', Number(e.target.value)); }}
                           value={(block as TextBlock).fontSize || 14}
-                          className="h-7 text-xs rounded px-1 py-0 bg-white text-gray-800 border"   // ← 改這行
+                          className="h-5 text-[12px] rounded px-1 py-0 bg-white text-gray-800 border"  // ← 改這行
                         >
                           {[10,12,14,16,18,20,24,28,32].map(s => <option key={s} value={s}>{s}px</option>)}
                         </select>
 
-                        {/* 文字體色（無外框底色） */}
+                        {/* 文字體色（無外框底色 + 依選取更新） */}
                         <div className="relative inline-flex items-center ml-1 p-0.5 border border-gray-300 rounded" title="文字體色">
-                          <div className="w-5 h-5 rounded" style={{ background: (block as TextBlock).color || '#000000' }} />
+                          <div className="w-5 h-5 rounded" style={{ background: lastTextColor }} />
                           <input
                             type="color"
                             className="absolute inset-0 opacity-0 cursor-pointer"
-                            value={(block as TextBlock).color || '#000000'}
-                            onChange={(e) => { e.stopPropagation(); updateTextFormat('color', e.target.value); }}
-                            onMouseDown={preventBlur}
+                            value={lastTextColor}
+                            onMouseDown={preventBlur}                  // ← 點色票不丟選取
+                            onChange={(e) => {
+                              setLastTextColor(e.target.value);
+                              document.execCommand('foreColor', false, e.target.value);
+                            }}
                           />
                         </div>
+
 
                         {/* 文字底色（無外框底色） */}
                         <div className="relative inline-flex items-center ml-1 p-0.5 border border-gray-300 rounded" title="文字底色">
@@ -1617,35 +1700,23 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                             type="color"
                             className="absolute inset-0 opacity-0 cursor-pointer"
                             value={(block as TextBlock).backgroundColor || '#ffffff'}
-                            onChange={(e) => { e.stopPropagation(); updateTextFormat('backgroundColor', e.target.value); }}
+                            onChange={(e) => { document.execCommand('hiliteColor', false, e.target.value); }}
                             onMouseDown={preventBlur}
                           />
                         </div>
 
                         {/* 對齊群組（在 B/I/U 左邊） */}
-                        <div className="relative ml-2">
-                          <button
-                            onClick={(e)=>{ e.stopPropagation(); updateTextFormat('align','left'); }}
-                            className="p-1 rounded hover:bg-white/10" title="靠左">
-                            <AlignLeft className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e)=>{ e.stopPropagation(); updateTextFormat('align','center'); }}
-                            className="p-1 rounded hover:bg-white/10" title="置中">
-                            <AlignCenter className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e)=>{ e.stopPropagation(); updateTextFormat('align','right'); }}
-                            className="p-1 rounded hover:bg-white/10" title="靠右">
-                            <AlignRight className="w-3 h-3" />
-                          </button>
-                        </div>
+                        <div className="ml-2 flex items-center gap-1">
+                      <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyLeft'); }} className="h-6 w-6 p-1 rounded hover:bg-white/10" title="靠左"><AlignLeft className="w-3 h-3" /></button>
+                      <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyCenter'); }} className="h-6 w-6 p-1 rounded hover:bg-white/10" title="置中"><AlignCenter className="w-3 h-3" /></button>
+                      <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyRight'); }} className="h-6 w-6 p-1 rounded hover:bg-white/10" title="靠右"><AlignRight className="w-3 h-3" /></button>
+                    </div>
+
 
                         {/* B/I/U 放最右 */}
-                        <button onClick={(e)=>{ e.stopPropagation(); updateTextFormat('bold', !(block as TextBlock).bold); }} className="ml-2 p-1 hover:bg-gray-700 rounded" title="粗體"><Bold className="w-3 h-3" /></button>
-                        <button onClick={(e)=>{ e.stopPropagation(); updateTextFormat('italic', !(block as TextBlock).italic); }} className="p-1 hover:bg-gray-700 rounded" title="斜體"><Italic className="w-3 h-3" /></button>
-                        <button onClick={(e)=>{ e.stopPropagation(); updateTextFormat('underline', !(block as TextBlock).underline); }} className="p-1 hover:bg-gray-700 rounded" title="底線"><Underline className="w-3 h-3" /></button>
-
+                        <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('bold'); }} className="ml-2 p-1 hover:bg-gray-700 rounded" title="粗體"><Bold className="w-3 h-3" /></button>
+                        <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('italic'); }} className="p-1 hover:bg-gray-700 rounded" title="斜體"><Italic className="w-3 h-3" /></button>
+                        <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('underline'); }} className="p-1 hover:bg-gray-700 rounded" title="底線"><Underline className="w-3 h-3" /></button>
                       </>
                     )}
 
@@ -1682,16 +1753,9 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                           return (
                             <>
                               {/* ───── ② 增減欄/列 + 儲存格底色 ───── */}
-                              <div className="flex items-center gap-1">
-                                {/* 欄 */}
-                                <button onClick={(e)=>{ e.stopPropagation(); addTableColumn(); }} className="p-1 hover:bg-white/10 rounded" title="加欄"><Plus className="w-3 h-3" /></button>
-                                <button onClick={(e)=>{ e.stopPropagation(); removeTableColumn(); }} className="p-1 hover:bg-white/10 rounded" title="減欄"><Minus className="w-3 h-3" /></button>
-                              </div>
-                              <div className="flex items-center gap-1 ml-2">
-                                {/* 列 */}
-                                <button onClick={(e)=>{ e.stopPropagation(); addTableRow(); }} className="p-1 hover:bg-white/10 rounded" title="加列"><Plus className="w-3 h-3" /></button>
-                                <button onClick={(e)=>{ e.stopPropagation(); removeTableRow(); }} className="p-1 hover:bg-white/10 rounded" title="減列"><Minus className="w-3 h-3" /></button>
-                              </div>
+                              <HoverAddRemove title="欄" glyph={<ColsGlyph />} onAdd={addTableColumn} onRemove={removeTableColumn} />
+                              <div className="ml-1" />
+                              <HoverAddRemove title="列" glyph={<RowsGlyph />} onAdd={addTableRow} onRemove={removeTableRow} />
 
                               {/* 儲存格底色（無外框底色）— 靠近增刪群組 */}
                               <div className="ml-2 relative inline-flex items-center p-0.5 border border-gray-300 rounded" title={canPaint ? '儲存格底色' : '請先選取一個儲存格'}>
@@ -1716,7 +1780,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                   const size = parseInt(e.target.value, 10) || 14;
                                   updateBlock(block.id, { ...(tb as any), fontSize: size } as any);
                                 }}
-                                className="h-7 text-xs rounded px-1 py-0 bg-white text-gray-800 outline-none border"  // ← 改這行
+                                className="h-5 text-xs rounded px-1 py-0 bg-white text-gray-800 outline-none border"  // ← 改這行
                                 onMouseDown={preventBlur}
                               >
                                 {[12, 13, 14, 16, 18, 20, 22, 24].map(sz => (
