@@ -203,9 +203,18 @@ const sanitizeHtml = (dirty: string) => {
       'a'
     ],
     ALLOWED_ATTR: [
-      'style','data-var-key','contenteditable',
+      'class',               // ⬅️ 讓 class="var-chip" 不會被洗掉
+      'style',
+      'contenteditable',
+
+      // 變數與表格用的自訂 data-* 屬性
+      'data-var-key',
+      'data-cell-bg',
+
+      // 連結
       'href','target','rel'
     ],
+
     FORBID_ATTR: [
       'onerror','onload','onclick','onmouseover','onfocus','onblur'
     ],
