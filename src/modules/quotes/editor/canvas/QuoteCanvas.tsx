@@ -566,6 +566,17 @@ export default function QuoteCanvas({
     setShowAlignMenu(false);
   }, [selectedBlockId, isPreview, isEditing]);
 
+  useEffect(() => {
+    if (!showAlignMenu && !showBorderMenu) return;
+
+    const onDown = (ev: MouseEvent) => {
+      setShowAlignMenu(false);
+      setShowBorderMenu(false);
+    };
+
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [showAlignMenu, showBorderMenu]);
 
   useEffect(() => {
     // 只在選到表格區塊時才處理
@@ -821,28 +832,19 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
   const t = blk as TableBlock;
   const startY = e.clientY;
 
-  // 目前各列高度（px）。若還沒建，先用每列 32px
   const rows = t.rows || [];
   const init = ((t as any).rowHeights as number[] | undefined) ?? new Array(rows.length).fill(32);
 
-  const next = rowIndex + 1;
   let live = init.slice();
-
-  // 以目前這兩列的總和來分配，確保拉一個、另一個跟著反向變化
-  const sumPair = (init[rowIndex] ?? 32) + (init[next] ?? 32);
 
   const onMove = (mv: MouseEvent) => {
     const dy = mv.clientY - startY;
     let h1 = (init[rowIndex] ?? 32) + dy;
-    let h2 = sumPair - h1;
-
     const MIN = 5;
-    if (h1 < MIN) { h2 -= (MIN - h1); h1 = MIN; }
-    if (h2 < MIN) { h1 -= (MIN - h2); h2 = MIN; }
+    if (h1 < MIN) h1 = MIN;
 
     live = init.slice();
-    live[rowIndex] = h1;
-    live[next] = h2;
+    live[rowIndex] = h1;   // ← 只改被拖動的那一列
 
     updateBlock(blk.id, { ...(blk as any), rowHeights: live } as any);
   };
@@ -856,6 +858,7 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
 };
+
 
 
 const recolorHtmlForKey = useCallback((html: string, key: string, color: string) => {
@@ -1547,7 +1550,9 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                 {/* 浮動操作工具列 */}
                 {selectedBlockId === block.id && !isPreview && (
                   <div
-                      className="absolute -top-10 right-0 flex items-center gap-1 bg-gray-800 text-white px-2 py-1 rounded-md shadow-lg z-[9999]"
+                      className="absolute bottom-full right-0 mb-[5px] flex items-center gap-1
+                                bg-gray-800 text-white px-2 py-[2px] rounded-md shadow-lg
+                                z-[9999] leading-none"
                       style={{ zIndex: 2147483647 }}
                       onMouseDown={preventBlur}
                       onTouchStart={preventBlur}
@@ -1588,7 +1593,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                         <select
                           onChange={(e) => { e.stopPropagation(); updateTextFormat('fontSize', Number(e.target.value)); }}
                           value={(block as TextBlock).fontSize || 14}
-                          className="text-xs rounded px-1 py-1 bg-white text-gray-800 border"
+                          className="h-7 text-xs rounded px-1 py-0 bg-white text-gray-800 border"   // ← 改這行
                         >
                           {[10,12,14,16,18,20,24,28,32].map(s => <option key={s} value={s}>{s}px</option>)}
                         </select>
@@ -1601,6 +1606,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                             className="absolute inset-0 opacity-0 cursor-pointer"
                             value={(block as TextBlock).color || '#000000'}
                             onChange={(e) => { e.stopPropagation(); updateTextFormat('color', e.target.value); }}
+                            onMouseDown={preventBlur}
                           />
                         </div>
 
@@ -1612,14 +1618,27 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                             className="absolute inset-0 opacity-0 cursor-pointer"
                             value={(block as TextBlock).backgroundColor || '#ffffff'}
                             onChange={(e) => { e.stopPropagation(); updateTextFormat('backgroundColor', e.target.value); }}
+                            onMouseDown={preventBlur}
                           />
                         </div>
 
                         {/* 對齊群組（在 B/I/U 左邊） */}
                         <div className="relative ml-2">
-                          <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyLeft'); }} className="p-1 rounded hover:bg-white/10" title="靠左"><AlignLeft className="w-3 h-3" /></button>
-                          <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyCenter'); }} className="p-1 rounded hover:bg-white/10" title="置中"><AlignCenter className="w-3 h-3" /></button>
-                          <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyRight'); }} className="p-1 rounded hover:bg-white/10" title="靠右"><AlignRight className="w-3 h-3" /></button>
+                          <button
+                            onClick={(e)=>{ e.stopPropagation(); updateTextFormat('align','left'); }}
+                            className="p-1 rounded hover:bg-white/10" title="靠左">
+                            <AlignLeft className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e)=>{ e.stopPropagation(); updateTextFormat('align','center'); }}
+                            className="p-1 rounded hover:bg-white/10" title="置中">
+                            <AlignCenter className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e)=>{ e.stopPropagation(); updateTextFormat('align','right'); }}
+                            className="p-1 rounded hover:bg-white/10" title="靠右">
+                            <AlignRight className="w-3 h-3" />
+                          </button>
                         </div>
 
                         {/* B/I/U 放最右 */}
@@ -1697,7 +1716,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                   const size = parseInt(e.target.value, 10) || 14;
                                   updateBlock(block.id, { ...(tb as any), fontSize: size } as any);
                                 }}
-                                className="text-xs rounded px-1 py-1 bg-white text-gray-800 outline-none border"
+                                className="h-7 text-xs rounded px-1 py-0 bg-white text-gray-800 outline-none border"  // ← 改這行
                                 onMouseDown={preventBlur}
                               >
                                 {[12, 13, 14, 16, 18, 20, 22, 24].map(sz => (
@@ -1722,7 +1741,11 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                               {/* ───── ④ 表格框線（ICON 無底色；面板往上開） ───── */}
                               <div className="relative">
                                 <button
-                                  onClick={(e)=>{ e.stopPropagation(); setShowBorderMenu(v=>!v); }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowBorderMenu(v => !v);
+                                    setShowAlignMenu(false);     // ← 互斥
+                                  }}
                                   className="p-1 rounded hover:bg-white/10"
                                   title="框線"
                                 >
@@ -1730,7 +1753,10 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                 </button>
 
                                 {showBorderMenu && (
-                                  <div className="absolute z-20 bottom-full mb-2 right-0 bg-white rounded shadow border p-2 w-56">
+                                  <div
+                                      className="absolute z-20 bottom-full mb-2 right-0 bg-white rounded shadow border p-2 w-56"
+                                      onMouseDown={(e) => e.stopPropagation()}   // ← 加這行
+                                    >
                                     {/* 粗細 */}
                                     <div className="flex items-center justify-between mb-2">
                                       <span className="text-xs text-gray-600">粗細</span>
@@ -1777,14 +1803,21 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                               {/* ───── ⑤ 對齊工具（同上排顏色，可見） ───── */}
                               <div className="relative">
                                 <button
-                                  onClick={(e)=>{ e.stopPropagation(); setShowAlignMenu(v=>!v); }}
+                                  onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowAlignMenu(v => !v);
+                                  setShowBorderMenu(false);    // ← 互斥
+                                }}
                                   className="p-1 rounded hover:bg-white/10"
                                   title="對齊"
                                 >
                                   <AlignCenter className="w-3 h-3" />
                                 </button>
                                 {showAlignMenu && (
-                                  <div className="absolute z-20 bottom-full mb-2 right-0 bg-white rounded shadow border p-2 w-40">
+                                  <div
+                                    className="absolute z-20 bottom-full mb-2 right-0 bg-white rounded shadow border p-2 w-40"
+                                    onMouseDown={(e) => e.stopPropagation()}   // ← 加這行
+                                  >
                                     {/* 水平 */}
                                     <div className="flex items-center justify-between mb-2">
                                       <button className="p-1 rounded hover:bg-gray-100" onClick={()=>document.execCommand('justifyLeft')}   title="靠左"><AlignLeft className="w-4 h-4 text-gray-700" /></button>
@@ -1811,18 +1844,6 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                           })()}
                         </>
                       )}
-
-
-
-
-                        {block.type === 'table' && selectedCellId && (
-                      <>
-                        <div className="w-px h-4 bg-white/20 mx-2" />
-                        <button onClick={(e)=>{ e.stopPropagation(); cellExec('bold'); }} className="p-1 hover:bg-white/10 rounded" title="粗體"><Bold className="w-3 h-3" /></button>
-                        <button onClick={(e)=>{ e.stopPropagation(); cellExec('italic'); }} className="p-1 hover:bg-white/10 rounded" title="斜體"><Italic className="w-3 h-3" /></button>
-                        <button onClick={(e)=>{ e.stopPropagation(); cellExec('underline'); }} className="p-1 hover:bg-white/10 rounded" title="底線"><Underline className="w-3 h-3" /></button>
-                      </>
-                    )}
                   </div>
                 )}
 
@@ -1857,7 +1878,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                       const borders = tb.showBorders;
                       return (
                         <table
-                            className={`w-full h-full border-collapse ${borders ? 'border border-gray-300' : ''}`}
+                            className={`w-full h-full border-collapse ${borders ? 'border border-black' : ''}`}
                             style={{ fontSize: (tb as any).fontSize ?? 14 }}
                            >
                           {tb.headers.length > 0 && (
@@ -1866,7 +1887,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                 {tb.headers.map((header, colIndex) => (
                                   <th
                                     key={colIndex}
-                                    className={`${borders ? 'border border-gray-300' : ''} p-2 text-sm font-medium text-left relative`}
+                                    className={`${borders ? 'border border-black' : ''} p-2 text-sm font-medium text-left relative`}
                                     style={{
                                       width: `${tb.columnWidths?.[colIndex] ?? (100 / tb.headers.length)}%`,
                                       // 讓表頭也能吃整格底色；沒有設定時就不覆蓋
@@ -1925,7 +1946,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                     return (
                                       <td
                                         key={cellId}
-                                        className="relative"
+                                        className={`${borders ? 'border border-black' : ''} relative`}
                                         style={{
                                           width: `${tb.columnWidths?.[colIndex] ?? (100 / colCount)}%`,
                                           backgroundColor: extractCellBg(cell) || undefined,
