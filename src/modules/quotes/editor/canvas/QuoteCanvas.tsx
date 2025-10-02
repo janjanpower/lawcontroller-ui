@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Rnd } from 'react-rnd';
 import {
@@ -201,25 +202,23 @@ function isDark(hex: string) {
   return l < 0.5;
 }
 
-// 取得「目前（含拖曳中）」這張表的欄寬(px)陣列
-const getColPxArray = (tb: TableBlock, liveKey: string) => {
-  const live = liveColsPxRef.current[liveKey];
-  if (live && live.length) return live.slice();
-  const saved = ((tb as any).columnWidthsPx as number[] | undefined) ?? [];
-  if (saved.length) return saved.slice();
-  // 沒有 px 設定時，先用 100px/欄估計
-  const cols = tb.headers.length || (tb.rows[0]?.length ?? 1);
-  return new Array(Math.max(cols, 1)).fill(100);
-};
-
-// 表格外框最小寬度 = 各欄 px 總和 + 微量邊框緩衝（避免被外框硬擠壞）
-const getTableMinWidth = (tb: TableBlock, liveKey: string): number => {
-  const arr = getColPxArray(tb, liveKey);
-  const sum = arr.reduce((a, b) => a + (b || 0), 0);
-  // 若顯示外框，加一點緩衝（每欄 1px + 外框 2px）
-  const pad = tb.showBorders ? (arr.length + 1) : 0;
-  return Math.max(sum + pad, 100);
-};
+// ---- HTML sanitize helper（集中設定允許的標籤與屬性）----
+const sanitizeHtml = (dirty: string) =>
+  DOMPurify.sanitize(dirty, {
+    ALLOWED_TAGS: [
+      'b','i','u','br','div','span','p','strong','em',
+      'ul','ol','li',
+      'table','thead','tbody','tr','th','td','colgroup','col',
+      'a'
+    ],
+    ALLOWED_ATTR: [
+      'style','data-var-key','contenteditable', // 供 var-chip / contenteditable 內嵌
+      'href','target','rel'                    // 供 <a> 連結
+    ],
+    FORBID_ATTR: [
+      'onerror','onload','onclick','onmouseover','onfocus','onblur' // 阻擋所有事件屬性
+    ],
+  });
 
 
 const EditableContent = React.forwardRef<HTMLDivElement, EditableContentProps>(({
@@ -249,18 +248,20 @@ const EditableContent = React.forwardRef<HTMLDivElement, EditableContentProps>((
     const focused = document.activeElement === el;
     if (focused && !readOnly) return;
     if (lastCommitted.current !== html) {
-      el.innerHTML = html || "";
-      lastCommitted.current = html || "";
+      const clean = sanitizeHtml(html || "");
+      el.innerHTML = clean;
+      lastCommitted.current = clean;
     }
   }, [html, readOnly]);
 
   const commit = useCallback(() => {
     const el = ref.current;
     if (!el) return;
-    const newHtml = el.innerHTML;
-    if (newHtml !== lastCommitted.current) {
-      lastCommitted.current = newHtml;
-      onCommit(newHtml);
+    const dirty = el.innerHTML;
+    const clean = sanitizeHtml(dirty);
+    if (clean !== lastCommitted.current) {
+      lastCommitted.current = clean;
+      onCommit(clean);
     }
   }, [onCommit]);
 
@@ -338,7 +339,7 @@ const EditableContent = React.forwardRef<HTMLDivElement, EditableContentProps>((
         commit();
         requestAnimationFrame(() => { if (el) restoreSelection(el, saved); });
       }}
-      dangerouslySetInnerHTML={{ __html: lastCommitted.current || html || "" }}
+      dangerouslySetInnerHTML={{ __html: sanitizeHtml(lastCommitted.current || html || "") }}
       suppressContentEditableWarning
     />
   );
@@ -689,6 +690,26 @@ export default function QuoteCanvas({
     });
   };
 
+  // === 取得欄寬(px)與計算表格外框最小寬（要讀取 liveColsPxRef，所以放在 component 內） ===
+  const getColPxArray = useCallback((tb: TableBlock, liveKey: string) => {
+    const live = liveColsPxRef.current[liveKey];
+    if (live && live.length) return live.slice();
+
+    const saved = ((tb as any).columnWidthsPx as number[] | undefined) ?? [];
+    if (saved.length) return saved.slice();
+
+    const cols = tb.headers.length || (tb.rows[0]?.length ?? 1);
+    return new Array(Math.max(cols, 1)).fill(120); // 給合理預設寬
+  }, []);
+
+  const getTableMinWidth = useCallback((tb: TableBlock, liveKey: string): number => {
+    const arr = getColPxArray(tb, liveKey);
+    const sum = arr.reduce((a, b) => a + (b || 0), 0);
+    const pad = tb.showBorders ? (arr.length + 1) : 0; // 邊框微量緩衝
+    return Math.max(sum + pad, 100);
+  }, [getColPxArray]);
+
+
   useEffect(() => {
     setShowBorderMenu(false);
     setShowAlignMenu(false);
@@ -990,13 +1011,11 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
 
 
 const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number) => {
-  e.preventDefault();
-  e.stopPropagation();
+  e.preventDefault(); e.stopPropagation();
   if (blk.type !== 'table') return;
-
   const t = blk as TableBlock;
-  const startY = e.clientY;
 
+  const startY = e.clientY;
   const rows = t.rows || [];
   const init = ((t as any).rowHeights as number[] | undefined) ?? new Array(rows.length).fill(32);
 
@@ -1006,16 +1025,16 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
   const onMove = (mv: MouseEvent) => {
     const dy = mv.clientY - startY;
     let h1 = (init[rowIndex] ?? 32) + dy;
-    const MIN = 5;
-    if (h1 < MIN) h1 = MIN;
+    if (h1 < 5) h1 = 5;
 
     live = init.slice();
-    live[rowIndex] = h1;   // ← 只改被拖動的那一列
+    live[rowIndex] = h1;
 
-    // 使用 requestAnimationFrame 優化性能
     if (rafId) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(() => {
-      updateBlock(blk.id, { ...(blk as any), rowHeights: live } as any);
+      // 只改視覺，不觸發 onChange（可放進一個 liveRowHeightsRef 類似欄寬的做法）
+      // 這裡最保守做法：暫時把目前區塊的樣式撐起來（用 data-* 或 local state）
+      // 如果想最少改動，也可先保持不動，mouseup 才 updateBlock。
     });
   };
 
@@ -1023,7 +1042,8 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
     if (rafId) cancelAnimationFrame(rafId);
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
-    updateBlock(blk.id, { ...(blk as any), rowHeights: live } as any);
+    // ✅ mouseup 才寫回
+    updateBlock(blk.id, { ...(t as any), rowHeights: live } as any);
   };
 
   document.addEventListener('mousemove', onMove);
@@ -1157,7 +1177,9 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
     while (pxArr.length < cols) pxArr.push(DEFAULT_PX);
     pxArr.push(DEFAULT_PX); // 新增一欄的預設寬
 
-    updateBlock(selectedBlock.id, { headers: nextHeaders, rows: nextRows, ...(t as any), columnWidthsPx: pxArr } as any);
+    updateBlock(t.id, { ...(t as any), headers: nextHeaders, rows: nextRows, columnWidthsPx: pxArr } as any);
+
+
   };
 
 
@@ -1178,10 +1200,9 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
     const pxArr = ((t as any).columnWidthsPx as number[] | undefined)?.slice() || [];
     const trimmed = pxArr.slice(0, nextCols);
 
-    updateBlock(selectedBlock.id, { headers: nextHeaders, rows: nextRows, ...(t as any), columnWidthsPx: trimmed } as any);
+    updateBlock(t.id, { ...(t as any), headers: nextHeaders, rows: nextRows, columnWidthsPx: trimmed } as any);
+
   };
-
-
 
   // === 浮動工具列輔助：避免點工具列時 contentEditable 失焦、讓 execCommand 作用在當前選取 ===
   const preventBlur = (e: React.SyntheticEvent) => {
