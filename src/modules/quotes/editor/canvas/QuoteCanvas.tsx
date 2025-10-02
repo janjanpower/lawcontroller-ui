@@ -998,7 +998,10 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
     document.removeEventListener('mouseup', onUp);
 
     // 提交成正式欄寬（px 版）；不再用百分比
-    updateBlock(blk.id, { ...(blk as any), columnWidthsPx: (liveColsPxRef.current[blk.id] ?? live) } as any);
+    const finalColWidths = liveColsPxRef.current[blk.id] ?? live;
+    // 計算新的表格總寬度
+    const newTableWidth = finalColWidths.reduce((a, b) => a + b, 0) + (table.showBorders ? (finalColWidths.length + 1) : 0);
+    updateBlock(blk.id, { ...(blk as any), columnWidthsPx: finalColWidths, w: newTableWidth } as any);
     // 清掉暫存（避免干擾之後）
     delete liveColsPxRef.current[blk.id];
   };
@@ -1042,8 +1045,9 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
     if (rafId) cancelAnimationFrame(rafId);
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
-    // ✅ mouseup 才寫回
-    updateBlock(blk.id, { ...(t as any), rowHeights: live } as any);
+    // ✅ mouseup 才寫回，同時更新外框高度
+    const newTableHeight = live.reduce((a, b) => a + b, 0) + (t.showBorders ? (live.length + 1) : 0) + (t.headers.length > 0 ? 40 : 0);
+    updateBlock(blk.id, { ...(t as any), rowHeights: live, h: newTableHeight } as any);
   };
 
   document.addEventListener('mousemove', onMove);
@@ -1093,8 +1097,23 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
   const baseStyle = 'padding:2px 6px;border-radius:4px;display:inline-block;';
   const chipHtml = `<span class="var-chip" contenteditable="false" data-var-key="${payload.key}" style="${baseStyle}background-color:${color};">${payload.label}</span>`;
 
+  // 嘗試在當前光標位置插入
+  if (insertHtmlAtCaret(chipHtml)) {
+    // 成功插入後，觸發當前編輯區域的 commit 來更新狀態
+    // 這確保預覽模式能立即看到變數
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const container = sel.getRangeAt(0).commonAncestorContainer;
+      const editableEl = (container.nodeType === 1 ? container : container.parentElement)?.closest('[contenteditable="true"]') as HTMLElement;
+      if (editableEl) {
+        // 觸發 input 事件來提交更改
+        editableEl.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    return;
+  }
 
-  if (insertHtmlAtCaret(chipHtml)) return;
+  // 如果沒有光標位置，回退到附加到選中的區塊
   if (!selectedBlock) return;
 
   const appendToHtml = (html: string) => (html || '') + chipHtml;
@@ -1774,7 +1793,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                   updateBlock(block.id, payload);
                 }}
                 disableDragging={isPreview || block.locked || isEditing}
-                enableResizing={!isPreview && !block.locked && !isEditing}
+                enableResizing={block.type === 'table' ? false : (!isPreview && !block.locked && !isEditing)}
                 dragGrid={[1, 1]}
                 resizeGrid={[1, 1]}
                 onClick={(e) => {
@@ -1840,13 +1859,16 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                         </select>
 
                         {/* 文字體色（無外框底色 + 依選取更新） */}
-                        <div className="relative inline-flex items-center ml-0.5 p-0.5 border border-gray-200 rounded hover:border-gray-300 transition-colors" title="文字體色">
+                        <div
+                          className="relative inline-flex items-center ml-0.5 p-0.5 border border-gray-200 rounded hover:border-gray-300 transition-colors"
+                          title="文字體色"
+                          onMouseDown={preventBlur}
+                        >
                           <div className="w-4 h-4 rounded" style={{ background: lastTextColor }} />
                           <input
                             type="color"
                             className="absolute inset-0 opacity-0 cursor-pointer"
                             value={lastTextColor}
-                            onMouseDown={preventBlur}                  // ← 點色票不丟選取
                             onChange={(e) => {
                               setLastTextColor(e.target.value);
                               document.execCommand('foreColor', false, e.target.value);
@@ -1856,7 +1878,11 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
 
                         {/* 文字底色（根據選取顯示） */}
-                        <div className="relative inline-flex items-center ml-0.5 p-0.5 border border-gray-200 rounded hover:border-gray-300 transition-colors" title="文字底色">
+                        <div
+                          className="relative inline-flex items-center ml-0.5 p-0.5 border border-gray-200 rounded hover:border-gray-300 transition-colors"
+                          title="文字底色"
+                          onMouseDown={preventBlur}
+                        >
                           <div className="w-4 h-4 rounded" style={{ background: lastTextBgColor }} />
                           <input
                             type="color"
@@ -1866,7 +1892,6 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                               setLastTextBgColor(e.target.value);
                               document.execCommand('hiliteColor', false, e.target.value);
                             }}
-                            onMouseDown={preventBlur}
                           />
                         </div>
 
@@ -1924,7 +1949,11 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                               <HoverAddRemove title="列" glyph={<RowsGlyph />} onAdd={addTableRow} onRemove={removeTableRow} />
 
                               {/* 儲存格底色（無外框底色）— 靠近增刪群組 */}
-                              <div className="ml-0.5 relative inline-flex items-center p-0.5 border border-gray-200 rounded hover:border-gray-300 transition-colors" title={canPaint ? '儲存格底色' : '請先選取一個儲存格'}>
+                              <div
+                                className="ml-0.5 relative inline-flex items-center p-0.5 border border-gray-200 rounded hover:border-gray-300 transition-colors"
+                                title={canPaint ? '儲存格底色' : '請先選取一個儲存格'}
+                                onMouseDown={preventBlur}
+                              >
                                 <div className="w-4 h-4 rounded" style={{ background: cellBgHex }} />
                                 <input
                                   type="color"
@@ -1932,7 +1961,6 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                   value={cellBgHex}
                                   disabled={!canPaint}
                                   onChange={(evt) => applyCellBg(evt.target.value)}
-                                  onMouseDown={preventBlur}
                                 />
                               </div>
 
@@ -1954,14 +1982,17 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                 ))}
                               </select>
 
-                              <div className="relative inline-flex items-center ml-0.5 p-0.5 border border-gray-200 rounded hover:border-gray-300 transition-colors" title="文字體色">
+                              <div
+                                className="relative inline-flex items-center ml-0.5 p-0.5 border border-gray-200 rounded hover:border-gray-300 transition-colors"
+                                title="文字體色"
+                                onMouseDown={preventBlur}
+                              >
                                 <div className="w-4 h-4 rounded" style={{ backgroundColor: lastTableTextColor }} />
                                 <input
                                   type="color"
                                   className="absolute inset-0 opacity-0 cursor-pointer"
                                   value={lastTableTextColor}
                                   onChange={(e) => { setLastTableTextColor(e.target.value); document.execCommand('foreColor', false, e.target.value); }}
-                                  onMouseDown={preventBlur}
                                 />
                               </div>
 
