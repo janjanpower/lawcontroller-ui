@@ -445,13 +445,13 @@ const VariableTag: React.FC<{
   const dark = isDark(color);
   return (
     <div
-      className="flex items-center justify-between border rounded-md px-2 py-1 transition-colors"
-      style={{ backgroundColor: color, borderColor: '#00000033' }}
+      className="flex items-center justify-between border border-gray-200 rounded-lg px-2.5 py-2 transition-all hover:border-gray-300"
+      style={{ backgroundColor: color }}
     >
       <div className="flex items-center gap-2 min-w-0">
         {/* 色票（外框加寬） */}
         <div className="relative inline-flex items-center">
-          <div className="w-5 h-5 rounded border-2 border-white/70 overflow-hidden" />
+          <div className="w-4 h-4 rounded border-2 border-white/50 overflow-hidden" />
           <input
             type="color"
             className="absolute inset-0 opacity-0 cursor-pointer"
@@ -460,12 +460,12 @@ const VariableTag: React.FC<{
             title="標籤底色"
           />
         </div>
-        <div className={`text-xs truncate ${dark ? 'text-white' : 'text-gray-800'}`}>{label}</div>
+        <div className={`text-xs truncate ${dark ? 'text-white' : 'text-gray-700'}`}>{label}</div>
       </div>
       <button
         onMouseDown={(e) => e.preventDefault()}
         onClick={onInsert}
-        className={`ml-2 p-1 rounded transition-colors flex-shrink-0 ${dark ? 'bg-white text-gray-800' : 'bg-gray-800 text-white'}`}
+        className={`ml-2 p-1 rounded transition-all flex-shrink-0 ${dark ? 'bg-white/90 text-gray-800 hover:bg-white' : 'bg-gray-800 text-white hover:bg-gray-700'}`}
         title="插入"
       >
         <Plus className="w-3 h-3" />
@@ -1326,38 +1326,38 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
     <div className="flex h-full bg-gray-50">
       {/* 左側變數面板 */}
       {showVariablePanel && (
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+        <div className="w-72 bg-white border-r border-gray-200 flex flex-col">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
                 <Tag className="w-4 h-4" />
                 變數標籤
               </h3>
               <button
                 onClick={() => setShowVariablePanel(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-gray-500">
               點擊插入變數到選中的元素
             </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-3">
             {variables.length === 0 ? (
               <div className="text-sm text-gray-500 space-y-2">
                 <div>目前沒有可用的變數。</div>
                 <button
                   onClick={loadVariables}
-                  className="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
+                  className="px-2 py-1 text-xs bg-gray-50 rounded hover:bg-gray-100 transition-colors"
                 >
                   重新載入
                 </button>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {variables.map(v => {
                   return (
                     <VariableTag
@@ -1379,21 +1379,21 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
       {/* 主要編輯區域 */}
       <div className="flex-1 flex flex-col">
         {/* 頂部工具列 */}
-        <div className="bg-white border-b border-gray-200 p-4">
+        <div className="bg-white border-b border-gray-100 px-5 py-3">
           <div className="flex items-center justify-between">
             {/* 左側：全域工具 */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               {/* 預覽模式切換 */}
               <button
                 onClick={() => setIsPreview(!isPreview)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all ${
                   isPreview
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-blue-50 text-blue-600 font-medium'
+                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 {isPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                <span className="text-sm font-medium">
+                <span>
                   {isPreview ? '編輯模式' : '預覽模式'}
                 </span>
               </button>
@@ -1403,17 +1403,17 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={addTextBlock}
-                    className="flex items-center gap-2 px-3 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-all text-sm"
                   >
                     <Type className="w-4 h-4" />
-                    <span className="text-sm font-medium">文字</span>
+                    <span>文字</span>
                   </button>
                   <button
                     onClick={addTableBlock}
-                    className="flex items-center gap-2 px-3 py-2 bg-purple-100 text-purple-700 rounded-md hover:bg-purple-200 transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all text-sm"
                   >
                     <Table className="w-4 h-4" />
-                    <span className="text-sm font-medium">表格</span>
+                    <span>表格</span>
                   </button>
                 </div>
               )}
@@ -1422,44 +1422,44 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
               {!showVariablePanel && (
                 <button
                   onClick={() => setShowVariablePanel(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-all text-sm"
                 >
                   <Tag className="w-4 h-4" />
-                  <span className="text-sm font-medium">變數</span>
+                  <span>變數</span>
                 </button>
               )}
             </div>
 
             {/* 右側：模板和匯出工具 */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {/* 模板選擇 */}
               <div className="relative">
                 <button
                   onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-all text-sm"
                 >
                   <Settings className="w-4 h-4" />
-                  <span className="text-sm">模板</span>
+                  <span>模板</span>
                   <ChevronDown className="w-3 h-3" />
                 </button>
 
                 {showTemplateDropdown && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setShowTemplateDropdown(false)} />
-                    <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-                      <div className="p-3 border-b border-gray-200">
+                    <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl z-20">
+                      <div className="p-3 border-b border-gray-100">
                         <input
                           type="text"
                           placeholder="模板名稱"
                           value={templateName}
                           onChange={(e) => setTemplateName(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                         <div className="flex gap-2 mt-2">
                           <button
                             onClick={handleSaveTemplate}
                             disabled={loading}
-                            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm disabled:opacity-50"
+                            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm disabled:opacity-50"
                           >
                             {currentTemplateId ? '更新' : '儲存'}
                           </button>
@@ -1474,10 +1474,10 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                             setTemplateName('');
                             onChange({ page: value.page, blocks: [], gridSize: value.gridSize, showGrid: value.showGrid });
                           }}
-                          className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 flex items-center gap-2"
+                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 flex items-center gap-2"
                         >
                           <Plus className="w-4 h-4 text-green-600" />
-                          <span className="text-sm text-green-700">新增模板</span>
+                          <span className="text-sm text-green-600 font-medium">新增模板</span>
                         </button>
 
                         {templates.map((template) => {
@@ -1485,22 +1485,22 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                           return (
                             <div
                               key={template.id}
-                              className="group w-full px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+                              className="group w-full px-4 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-b-0"
                             >
                               <button
                                 onClick={() => loadTemplate(template)}
                                 className="w-full text-left flex items-center justify-between gap-2"
                               >
                                 <div className="min-w-0">
-                                  <div className={`font-medium text-sm ${isActive ? 'text-blue-700' : 'text-gray-900'}`}>
+                                  <div className={`text-sm ${isActive ? 'text-blue-600 font-medium' : 'text-gray-900'}`}>
                                     {template.name}
                                     {isActive && (
-                                      <span className="ml-2 inline-block text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 align-middle">
-                                        當前選擇模板
+                                      <span className="ml-2 inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 align-middle">
+                                        當前
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-xs text-gray-500 mt-1">
+                                  <div className="text-xs text-gray-400 mt-0.5">
                                     {new Date(template.created_at).toLocaleDateString('zh-TW')}
                                   </div>
                                 </div>
@@ -1532,10 +1532,10 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                       }
                                     })();
                                   }}
-                                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50"
+                                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 transition-all"
                                   title="刪除模板"
                                 >
-                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
                                 </button>
                               </button>
                             </div>
@@ -1551,10 +1551,10 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
               <button
                 onClick={() => onExport(value)}
                 disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-[#334d6d] text-white rounded-md hover:bg-[#3f5a7d] transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-1.5 bg-[#334d6d] text-white rounded-lg hover:bg-[#3f5a7d] transition-all disabled:opacity-50 text-sm"
               >
                 <Download className="w-4 h-4" />
-                <span className="text-sm font-medium">匯出</span>
+                <span>匯出</span>
               </button>
 
             </div>
@@ -1562,10 +1562,10 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
         </div>
 
         {/* 畫布區域 */}
-        <div className="flex-1 overflow-auto bg-gray-100 p-8">
+        <div className="flex-1 overflow-auto bg-gray-50 p-8">
           <div
             ref={canvasRef}
-            className="relative mx-auto bg-white shadow-lg"
+            className="relative mx-auto bg-white shadow-sm border border-gray-100"
             style={{
               width: value.page.width,
               height: value.page.height,
@@ -1629,8 +1629,8 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                 {/* 浮動操作工具列 */}
                 {selectedBlockId === block.id && !isPreview && (
                   <div
-                      className="absolute bottom-full right-0 mb-[5px] flex items-center gap-1
-                                bg-gray-800 text-white px-2 py-[2px] rounded-md shadow-lg
+                      className="absolute bottom-full right-0 mb-2 flex items-center gap-1
+                                bg-gray-900 text-white px-2 py-1.5 rounded-lg shadow-lg
                                 z-[9999] leading-none"
                       style={{ zIndex: 2147483647 }}
                       onMouseDown={preventBlur}
@@ -1639,34 +1639,34 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                     {/* 複製 */}
                     <button
                       onClick={(e) => { e.stopPropagation(); copyBlock(); }}
-                      className="p-1 hover:bg-gray-700 rounded"
+                      className="p-1 hover:bg-gray-700 rounded transition-colors"
                       title="複製"
                     >
-                      <Copy className="w-3 h-3" />
+                      <Copy className="w-3.5 h-3.5" />
                     </button>
 
                     {/* 鎖定/解鎖 */}
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleLock(); }}
-                      className="p-1 hover:bg-gray-700 rounded"
+                      className="p-1 hover:bg-gray-700 rounded transition-colors"
                       title={block.locked ? "解鎖" : "鎖定"}
                     >
-                      {block.locked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                      {block.locked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                     </button>
 
                     {/* 刪除 */}
                     <button
                       onClick={(e) => { e.stopPropagation(); removeBlock(); }}
-                      className="p-1 hover:bg-red-600 rounded"
+                      className="p-1 hover:bg-red-500 rounded transition-colors"
                       title="移除"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
 
                     {/* 文字區塊工具（簡約 ICON） */}
                     {block.type === 'text' && (
                       <>
-                        <div className="w-px h-4 bg-gray-600 mx-1" />
+                        <div className="w-px h-4 bg-gray-700 mx-1" />
 
                         {/* 字體大小 */}
                         <select
