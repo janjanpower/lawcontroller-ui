@@ -2,31 +2,22 @@ import DOMPurify from 'dompurify';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Rnd } from 'react-rnd';
 import {
-  Type,
-  Table,
-  Eye,
-  EyeOff,
-  Download,
-  Trash2,
-  Copy,
-  Lock,
-  Unlock,
-  Bold,
-  Italic,
-  Underline,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Plus,
-  Minus,
-  Settings,
-  ChevronDown,
-  X,
-  Tag,
+  Type, Table, Eye, EyeOff, Download, Trash2, Copy,
+  Lock, Unlock, Bold, Italic, Underline, AlignLeft,
+  AlignCenter, AlignRight, Plus, Minus, Settings,
+  ChevronDown, X, Tag,
 } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow } from '../../../../utils/api';
 import type { QuoteCanvasSchema, CanvasBlock, TextBlock, TableBlock } from './schema';
 
+// ===== Snap / Bounds helpers =====
+const SNAP_TOLERANCE = 6; // 吸附容忍距離（px）
+const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+const round = (v: number) => Math.round(v);
+const snapToStep = (v: number, step: number) => round(v / step) * step;
+
+// ✅ 在這裡加入（imports 之後、helpers 附近最清楚）
+const MIN_CELL_PX = 10; // 欄寬最小 & 列高最小 一致
 interface QuoteCanvasProps {
   value: QuoteCanvasSchema;
   onChange: (schema: QuoteCanvasSchema) => void;
@@ -203,8 +194,8 @@ function isDark(hex: string) {
 }
 
 // ---- HTML sanitize helper（集中設定允許的標籤與屬性）----
-const sanitizeHtml = (dirty: string) =>
-  DOMPurify.sanitize(dirty, {
+const sanitizeHtml = (dirty: string) => {
+  const clean = DOMPurify.sanitize(dirty, {
     ALLOWED_TAGS: [
       'b','i','u','br','div','span','p','strong','em',
       'ul','ol','li',
@@ -212,13 +203,22 @@ const sanitizeHtml = (dirty: string) =>
       'a'
     ],
     ALLOWED_ATTR: [
-      'style','data-var-key','contenteditable', // 供 var-chip / contenteditable 內嵌
-      'href','target','rel'                    // 供 <a> 連結
+      'style','data-var-key','contenteditable',
+      'href','target','rel'
     ],
     FORBID_ATTR: [
-      'onerror','onload','onclick','onmouseover','onfocus','onblur' // 阻擋所有事件屬性
+      'onerror','onload','onclick','onmouseover','onfocus','onblur'
     ],
   });
+
+  // 事後補 rel，避免 target="_blank" 的安全性問題
+  const wrap = document.createElement('div');
+  wrap.innerHTML = clean;
+  wrap.querySelectorAll('a[target="_blank"]:not([rel])').forEach(a => {
+    a.setAttribute('rel', 'noopener noreferrer');
+  });
+  return wrap.innerHTML;
+};
 
 
 const EditableContent = React.forwardRef<HTMLDivElement, EditableContentProps>(({
@@ -266,46 +266,74 @@ const EditableContent = React.forwardRef<HTMLDivElement, EditableContentProps>((
   }, [onCommit]);
 
   const onInput = useCallback(() => {
-    if (isComposing) return;
-  }, [isComposing]);
+  if (isComposing) return;
+  // 保留選取
+  const el = ref.current;
+  const saved = el ? saveSelection(el) : null;
 
-  const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (isComposing && e.key === "Enter") {
-      e.preventDefault(); e.stopPropagation(); return;
+  // 立即 sanitize 並 commit（避免需要 blur 才同步到 state）
+  if (el) {
+    const dirty = el.innerHTML;
+    const clean = sanitizeHtml(dirty);
+    if (clean !== lastCommitted.current) {
+      lastCommitted.current = clean;
+      onCommit(clean);
     }
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      const el = ref.current;
-      const saved = el ? saveSelection(el) : null;
-      commit();
-      requestAnimationFrame(() => { if (el) restoreSelection(el, saved); });
-      e.preventDefault();
-      return;
-    }
-    if (e.key === "Backspace" || e.key === "Delete") {
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) return;
-      const range = sel.getRangeAt(0);
-      const node = range.startContainer;
-      const offset = range.startOffset;
+  }
 
-      const isChip = (el: Node | null) => el instanceof HTMLElement && el.classList.contains("var-chip");
+  // 下一禎恢復 caret（避免輸入斷點跑掉）
+  requestAnimationFrame(() => {
+    if (el) restoreSelection(el, saved);
+  });
+}, [isComposing, onCommit]);
 
-      let left: Node | null = null;
-      let right: Node | null = null;
+// ⬇️ 插在 onInput 後面、return JSX 之前
+const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+  if (readOnly) return;
 
-      if (node.nodeType === Node.TEXT_NODE) {
-        left = (offset === 0) ? node.previousSibling : null;
-        right = (offset === (node.nodeValue?.length ?? 0)) ? node.nextSibling : null;
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        const el = node as Element;
-        left = el.childNodes[offset - 1] ?? el.previousSibling;
-        right = el.childNodes[offset] ?? el.nextSibling;
-      }
+  const isMac = /mac/i.test(navigator.platform);
+  const meta = isMac ? e.metaKey : e.ctrlKey;
 
-      if (e.key === "Backspace" && isChip(left)) { (left as HTMLElement).remove(); e.preventDefault(); return; }
-      if (e.key === "Delete" && isChip(right)) { (right as HTMLElement).remove(); e.preventDefault(); return; }
-    }
-  }, [commit, isComposing]);
+  // Cmd/Ctrl + B / I / U
+  if (meta && !e.shiftKey && !e.altKey) {
+    const k = e.key.toLowerCase();
+    if (k === 'b') { e.preventDefault(); document.execCommand('bold'); return; }
+    if (k === 'i') { e.preventDefault(); document.execCommand('italic'); return; }
+    if (k === 'u') { e.preventDefault(); document.execCommand('underline'); return; }
+  }
+
+  // Tab：避免跳焦點，改成插入兩個空白
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    insertHtmlAtCaret('&nbsp;&nbsp;');
+    const el = ref.current;
+    if (el) el.dispatchEvent(new Event('input', { bubbles: true }));
+    return;
+  }
+
+  // Escape：離開編輯
+  if (e.key === 'Escape') {
+    (e.currentTarget as HTMLDivElement).blur();
+  }
+}, [readOnly]);
+
+const onPaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+  if (readOnly) return;
+  e.preventDefault();
+
+  // 取用者貼上內容（html 優先，其次純文字），且立刻 sanitize
+  const html = e.clipboardData.getData('text/html');
+  const text = e.clipboardData.getData('text/plain');
+  const safe = sanitizeHtml(html || (text ? text.replace(/\n/g, '<br>') : ''));
+
+  // 插到目前 caret
+  insertHtmlAtCaret(safe);
+
+  // 觸發 input，讓外層 onCommit 能即時拿到變更
+  const el = ref.current;
+  if (el) el.dispatchEvent(new Event('input', { bubbles: true }));
+}, [readOnly]);
+
 
   return (
     <div
@@ -321,14 +349,15 @@ const EditableContent = React.forwardRef<HTMLDivElement, EditableContentProps>((
         minHeight: 20,
         height: "100%",
         maxHeight: "100%",
-        overflow: "visible",              // ← 不要卷軸，讓內容撐開
+        overflow: "visible",
         whiteSpace: "pre-wrap",
         wordBreak: "break-word",
         ...style
       }}
       data-placeholder={placeholder || ""}
       onInput={onInput}
-      onKeyDown={onKeyDown}
+      onKeyDown={onKeyDown}   // ← 這行你原本就有，但之前沒有實作
+      onPaste={onPaste}       // ← 這行是新加的
       onFocus={() => onFocusIn?.()}
       onBlur={() => { commit(); onFocusOut?.(); }}
       onCompositionStart={() => setIsComposing(true)}
@@ -342,6 +371,7 @@ const EditableContent = React.forwardRef<HTMLDivElement, EditableContentProps>((
       dangerouslySetInnerHTML={{ __html: sanitizeHtml(lastCommitted.current || html || "") }}
       suppressContentEditableWarning
     />
+
   );
 });
 
@@ -954,28 +984,24 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
   if (blk.type !== 'table') return;
   const table = blk as TableBlock;
 
-  // 使用外框寬度作為最大限制
-  const maxWidth = blk.w || 600;
-  const borderPadding = table.showBorders ? 2 : 0;
+  const maxWidth = blk.w || 600;                   // 外框當最大寬
+  const borderPadding = table.showBorders ? 2 : 0; // 邊框微誤差
   const availableWidth = maxWidth - borderPadding;
 
-  // 目前欄數
   const cols = Math.max(
-    table.columnWidths?.length || 0,
-    table.headers.length > 0 ? table.headers.length : (table.rows[0]?.length || 0)
-  ) || 1;
+    (table as any).columnWidthsPx?.length || 0,
+    table.headers.length || (table.rows[0]?.length || 1)
+  );
 
-  // 獲取當前欄寬陣列（px）
+  // 起始欄寬（px），若無就平均分掉可用寬
   const startPxArr: number[] = (() => {
-    const fromPx = (table as any).columnWidthsPx as number[] | undefined;
-    if (fromPx && fromPx.length === cols) return fromPx.slice();
-    // 預設平均分配可用寬度
-    return new Array(cols).fill(availableWidth / cols);
+    const arr = (table as any).columnWidthsPx as number[] | undefined;
+    if (arr && arr.length === cols) return arr.slice();
+    return new Array(cols).fill(Math.max(MIN_CELL_PX, availableWidth / cols));
   })();
 
   const startX = e.clientX;
-  const startW = startPxArr[colIndex] ?? (availableWidth / cols);
-  const MIN_PX = 24;
+  const startW = startPxArr[colIndex];
 
   let live = startPxArr.slice();
   let rafId: number | null = null;
@@ -983,20 +1009,18 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
   const onMove = (mv: MouseEvent) => {
     const dx = mv.clientX - startX;
     let newW = startW + dx;
-    if (newW < MIN_PX) newW = MIN_PX;
+    if (newW < MIN_CELL_PX) newW = MIN_CELL_PX;
 
-    // 確保所有欄寬總和不超過可用寬度
-    const otherColsWidth = startPxArr.reduce((sum, w, i) => i !== colIndex ? sum + w : sum, 0);
-    const maxAllowed = availableWidth - otherColsWidth;
-    if (newW > maxAllowed) newW = maxAllowed;
+    const other = startPxArr.reduce((s, w, i) => i === colIndex ? s : s + w, 0);
+    const maxAllowed = availableWidth - other;
+    if (newW > maxAllowed) newW = Math.max(MIN_CELL_PX, maxAllowed);
 
     live = startPxArr.slice();
     live[colIndex] = newW;
 
-    // 用暫存刷新畫面
     liveColsPxRef.current[blk.id] = live.slice();
     if (rafId) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(() => invalidate());
+    rafId = requestAnimationFrame(invalidate);
   };
 
   const onUp = () => {
@@ -1004,10 +1028,8 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
 
-    // 提交成正式欄寬（px 版），外框寬度保持不變
     const finalColWidths = liveColsPxRef.current[blk.id] ?? live;
     updateBlock(blk.id, { ...(blk as any), columnWidthsPx: finalColWidths } as any);
-    // 清掉暫存
     delete liveColsPxRef.current[blk.id];
   };
 
@@ -1015,34 +1037,55 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
   document.addEventListener('mouseup', onUp);
 };
 
-
-
-
 const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number) => {
   e.preventDefault(); e.stopPropagation();
   if (blk.type !== 'table') return;
   const t = blk as TableBlock;
 
-  const startY = e.clientY;
+  const maxHeight = blk.h || 300;                 // 外框當最大高
   const rows = t.rows || [];
-  const init = ((t as any).rowHeights as number[] | undefined) ?? new Array(rows.length).fill(32);
+  const rowCount = Math.max(1, rows.length);
+
+  // 初始各列高（若未存，平均分掉外框高）
+  const init: number[] = (() => {
+    const saved = (t as any).rowHeights as number[] | undefined;
+    if (saved && saved.length === rowCount) return saved.slice();
+    const base = Math.max(MIN_CELL_PX, maxHeight / rowCount);
+    return new Array(rowCount).fill(base);
+  })();
+
+  // 確保合計不超過外框（初次亦對齊）
+  let total = init.reduce((s, h) => s + h, 0);
+  if (total !== maxHeight) {
+    const ratio = maxHeight / total;
+    for (let i = 0; i < init.length; i++) init[i] = Math.max(MIN_CELL_PX, init[i] * ratio);
+    // 因為最小值夾住可能造成誤差，再次校正最後一列
+    const sum = init.reduce((s, h) => s + h, 0);
+    init[init.length - 1] += (maxHeight - sum);
+  }
+
+  const startY = e.clientY;
+  const startH = init[rowIndex];
 
   let live = init.slice();
   let rafId: number | null = null;
 
   const onMove = (mv: MouseEvent) => {
     const dy = mv.clientY - startY;
-    let newH = (init[rowIndex] ?? 32) + dy;
-    if (newH < 5) newH = 5;
+    let newH = startH + dy;
+    if (newH < MIN_CELL_PX) newH = MIN_CELL_PX;
 
-    // 只改變被拖動的列，不影響其他列
+    // 其他列總高
+    const otherSum = init.reduce((s, h, i) => i === rowIndex ? s : s + h, 0);
+    const maxAllowed = maxHeight - otherSum;
+    if (newH > maxAllowed) newH = Math.max(MIN_CELL_PX, maxAllowed);
+
     live = init.slice();
     live[rowIndex] = newH;
 
-    // 用暫存刷新畫面
     liveRowsHeightRef.current[blk.id] = live.slice();
     if (rafId) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(() => invalidate());
+    rafId = requestAnimationFrame(invalidate);
   };
 
   const onUp = () => {
@@ -1050,10 +1093,8 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
 
-    // 提交正式列高
-    const finalRowHeights = liveRowsHeightRef.current[blk.id] ?? live;
-    updateBlock(blk.id, { ...(t as any), rowHeights: finalRowHeights } as any);
-    // 清掉暫存
+    const finalHeights = liveRowsHeightRef.current[blk.id] ?? live;
+    updateBlock(blk.id, { ...(t as any), rowHeights: finalHeights } as any);
     delete liveRowsHeightRef.current[blk.id];
   };
 
@@ -1789,31 +1830,52 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                   invalidate();
                 }}
                 onResizeStop={(e, direction, ref, delta, position) => {
-                  const payload: any = {
-                    w: ref.offsetWidth,
-                    h: ref.offsetHeight,
-                    x: position.x,
-                    y: position.y,
-                  };
+                const payload: any = {
+                  w: ref.offsetWidth,
+                  h: ref.offsetHeight,
+                  x: position.x,
+                  y: position.y,
+                };
 
-                  // 如果是表格且寬度改變，按比例調整欄寬
-                  if (block.type === 'table' && delta.width !== 0) {
-                    const tb = block as TableBlock;
-                    const oldWidth = block.w || 600;
-                    const newWidth = ref.offsetWidth;
-                    const ratio = newWidth / oldWidth;
+                // ✅ 若為表格：外框縮放時，欄寬＆列高都按比例縮放
+                if (block.type === 'table' && (delta.width !== 0 || delta.height !== 0)) {
+                  const tb = block as TableBlock;
 
-                    const currentColWidths = (tb as any).columnWidthsPx as number[] | undefined;
-                    if (currentColWidths && currentColWidths.length > 0) {
-                      const newColWidths = currentColWidths.map(w => w * ratio);
-                      payload.columnWidthsPx = newColWidths;
-                    }
+                  const oldW = Math.max(1, block.w || 1); // 避免除以 0
+                  const oldH = Math.max(1, block.h || 1);
+                  const newW = ref.offsetWidth;
+                  const newH = ref.offsetHeight;
+
+                  // 欄寬（px）按比例縮放，且不低於 MIN_CELL_PX
+                  const curCol = (tb as any).columnWidthsPx as number[] | undefined;
+                  if (curCol && curCol.length > 0 && delta.width !== 0) {
+                    const ratioW = newW / oldW;
+                    payload.columnWidthsPx = curCol.map(w => Math.max(MIN_CELL_PX, w * ratioW));
                   }
 
-                  delete liveSizeRef.current[block.id];
-                  delete livePosRef.current[block.id];
-                  updateBlock(block.id, payload);
-                }}
+                  // 列高（px）按比例縮放，總和校正為 newH，且每列不低於 MIN_CELL_PX
+                  const curRow = (tb as any).rowHeights as number[] | undefined;
+                  if (curRow && curRow.length > 0 && delta.height !== 0) {
+                    const ratioH = newH / oldH;
+
+                    // 第一步：先各自縮放並套用最小值
+                    let scaled = curRow.map(h => Math.max(MIN_CELL_PX, h * ratioH));
+
+                    // 第二步：校正總和，讓列高合計 = newH（把差值補到最後一列）
+                    const sum = scaled.reduce((s, h) => s + h, 0);
+                    const diff = newH - sum;
+                    scaled[scaled.length - 1] = Math.max(MIN_CELL_PX, scaled[scaled.length - 1] + diff);
+
+                    payload.rowHeights = scaled;
+                  }
+                }
+
+                delete liveSizeRef.current[block.id];
+                delete livePosRef.current[block.id];
+                updateBlock(block.id, payload);
+              }}
+
+
                 disableDragging={isPreview || block.locked || isEditing}
                 enableResizing={!isPreview && !block.locked && !isEditing}
                 dragGrid={[1, 1]}
@@ -1828,11 +1890,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                 className={`${selectedBlockId === block.id ? 'relative' : 'hover:ring-1 hover:ring-gray-300'} ${
                   block.locked ? 'opacity-60' : ''
                 } transition-all`}
-                style={{
-                  ...(selectedBlockId === block.id ? {
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-                  } : {})
-                }}
+                style={{ willChange: 'transform,width,height' }}
               >
                 {/* 自定義選取框 - 四角 90 度符號，透明背景，比內容大 */}
                 {selectedBlockId === block.id && !isPreview && (
@@ -2282,7 +2340,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                               // 優先使用即時拖曳中的列高
                               const liveRowHeights = liveRowsHeightRef.current[block.id];
                               const rowH = liveRowHeights?.[rowIndex] ?? (tb as any).rowHeights?.[rowIndex];
-                              const baseRowMin = Math.max(24, Math.ceil(((tb as any).fontSize ?? 14) * 1.6));
+                              const baseRowMin = MIN_CELL_PX;
 
                               return (
                                 <tr key={rowIndex} style={{ height: rowH ? `${rowH}px` : undefined, minHeight: baseRowMin, lineHeight: 1.4 }}>
@@ -2339,7 +2397,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                         {!isPreview && (
                                           (selected || (tb.headers.length === 0 && rowIndex === 0)) && colIndex < row.length - 1 && (
                                             <div
-                                              className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
+                                              className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
                                               onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
                                             />
                                           )
@@ -2349,7 +2407,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                         {!isPreview && rowIndex < tb.rows.length - 1 && (
                                           (selected || colIndex === 0) && (
                                             <div
-                                              className="absolute bottom-0 left-0 w-full h-1 cursor-row-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
+                                              className="absolute bottom-0 left-0 w-full h-1.5 cursor-row-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
                                               onMouseDown={(e) => startResizeRow(e, block, rowIndex)}
                                             />
                                           )
