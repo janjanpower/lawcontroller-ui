@@ -552,18 +552,46 @@ const HoverAddRemove: React.FC<{
   onRemove: () => void;
 }> = ({ title, glyph, onAdd, onRemove }) => {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setOpen(true);
+  };
+
+  const handleMouseLeave = (e: React.MouseEvent) => {
+    // 延遲關閉，讓用戶有時間移動到按鈕上
+    timeoutRef.current = setTimeout(() => {
+      setOpen(false);
+    }, 150);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div
-      className="relative flex flex-col items-center"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onMouseDown={(e)=>{ e.stopPropagation(); }} // 避免失焦
+      ref={containerRef}
+      className="relative inline-flex"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onMouseDown={(e)=>{ e.stopPropagation(); }}
     >
-      {/* + 按鈕在上方 */}
+      {/* + 按鈕在上方（絕對定位，懸浮） */}
       {open && (
         <button
-          className="mb-1 w-5 h-5 rounded bg-gray-900 text-white shadow-lg flex items-center justify-center hover:bg-gray-800 transition-all z-10"
+          className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 rounded bg-gray-900 text-white shadow-lg flex items-center justify-center hover:bg-gray-800 transition-all z-[10001]"
           onClick={(e)=>{ e.stopPropagation(); onAdd(); }}
+          onMouseEnter={handleMouseEnter}
           title={`${title} +`}
         >
           <Plus className="w-3 h-3" />
@@ -575,11 +603,12 @@ const HoverAddRemove: React.FC<{
         {glyph}
       </button>
 
-      {/* - 按鈕在下方 */}
+      {/* - 按鈕在下方（絕對定位，懸浮） */}
       {open && (
         <button
-          className="mt-1 w-5 h-5 rounded bg-gray-900 text-white shadow-lg flex items-center justify-center hover:bg-gray-800 transition-all z-10"
+          className="absolute -bottom-7 left-1/2 -translate-x-1/2 w-5 h-5 rounded bg-gray-900 text-white shadow-lg flex items-center justify-center hover:bg-gray-800 transition-all z-[10001]"
           onClick={(e)=>{ e.stopPropagation(); onRemove(); }}
+          onMouseEnter={handleMouseEnter}
           title={`${title} -`}
         >
           <Minus className="w-3 h-3" />
@@ -884,6 +913,7 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
   if (nextIndex >= cols) return;
 
   let liveWidths = startWidths.slice();
+  let rafId: number | null = null;
 
   const onMouseMove = (moveEvt: MouseEvent) => {
     const deltaPx = moveEvt.clientX - startX;
@@ -900,10 +930,15 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
     liveWidths[colIndex] = w1;
     liveWidths[nextIndex] = w2;
 
-    updateBlock(blk.id, { columnWidths: liveWidths });
+    // 使用 requestAnimationFrame 優化性能
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => {
+      updateBlock(blk.id, { columnWidths: liveWidths });
+    });
   };
 
   const onMouseUp = () => {
+    if (rafId) cancelAnimationFrame(rafId);
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
     const sum = liveWidths.reduce((a,b)=>a+b,0) || 1;
@@ -929,6 +964,7 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
   const init = ((t as any).rowHeights as number[] | undefined) ?? new Array(rows.length).fill(32);
 
   let live = init.slice();
+  let rafId: number | null = null;
 
   const onMove = (mv: MouseEvent) => {
     const dy = mv.clientY - startY;
@@ -939,10 +975,15 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
     live = init.slice();
     live[rowIndex] = h1;   // ← 只改被拖動的那一列
 
-    updateBlock(blk.id, { ...(blk as any), rowHeights: live } as any);
+    // 使用 requestAnimationFrame 優化性能
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => {
+      updateBlock(blk.id, { ...(blk as any), rowHeights: live } as any);
+    });
   };
 
   const onUp = () => {
+    if (rafId) cancelAnimationFrame(rafId);
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     updateBlock(blk.id, { ...(blk as any), rowHeights: live } as any);
@@ -1645,21 +1686,8 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                 position={{ x: block.x, y: block.y }}
                 minWidth={minWidth}
                 minHeight={minHeight}
-                onDrag={(e, d) => {
-                  // 即時更新位置
-                  updateBlock(block.id, { x: d.x, y: d.y });
-                }}
                 onDragStop={(e, d) => {
                   updateBlock(block.id, { x: d.x, y: d.y });
-                }}
-                onResize={(e, direction, ref, delta, position) => {
-                  // 即時更新尺寸
-                  updateBlock(block.id, {
-                    w: ref.offsetWidth,
-                    h: ref.offsetHeight,
-                    x: position.x,
-                    y: position.y
-                  });
                 }}
                 onResizeStop={(e, direction, ref, delta, position) => {
                   updateBlock(block.id, {
@@ -1689,8 +1717,8 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                   <div
                       className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex items-center gap-0.5
                                 bg-white text-gray-700 px-1 py-1 rounded-lg shadow-xl border border-gray-200
-                                z-[9999] leading-none backdrop-blur-sm"
-                      style={{ zIndex: 2147483647 }}
+                                leading-none backdrop-blur-sm"
+                      style={{ zIndex: 2147483640 }}
                       onMouseDown={preventBlur}
                       onTouchStart={preventBlur}
                     >
@@ -1882,8 +1910,8 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                                 {showBorderMenu && (
                                   <div
-                                    className="absolute z-[10000] bottom-full mb-2 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-2xl border border-gray-200 p-2"
-                                    style={{ width: 'max-content', maxWidth: '400px' }}
+                                    className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-2xl border border-gray-200 p-2"
+                                    style={{ width: 'max-content', maxWidth: '400px', zIndex: 2147483645 }}
                                     onMouseDown={(e) => e.stopPropagation()}
                                   >
                                     <div className="flex items-center gap-2">
@@ -1977,8 +2005,9 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                 </button>
                                 {showAlignMenu && (
                                   <div
-                                    className="absolute z-[10000] bottom-full mb-2 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-2xl border border-gray-200 p-2"
-                                    onMouseDown={(e) => e.stopPropagation()}   // ← 加這行
+                                    className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-2xl border border-gray-200 p-2"
+                                    style={{ zIndex: 2147483645 }}
+                                    onMouseDown={(e) => e.stopPropagation()}
                                   >
                                     {/* 水平和垂直對齊在一列 */}
                                     <div className="flex items-center gap-1">
