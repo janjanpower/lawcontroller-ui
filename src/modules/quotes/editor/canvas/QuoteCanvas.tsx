@@ -22,8 +22,6 @@ import {
   ChevronDown,
   X,
   Tag,
-  SplitSquareVertical,
-  SplitSquareHorizontal,
 } from 'lucide-react';
 import { apiFetch, getFirmCodeOrThrow } from '../../../../utils/api';
 import type { QuoteCanvasSchema, CanvasBlock, TextBlock, TableBlock } from './schema';
@@ -339,7 +337,7 @@ const RichTextEditor: React.FC<{
   onFocusIn?: () => void;   // 新增
   onFocusOut?: () => void;  // 新增
 }> = ({ content, onChange, style, vars, isPreview, onFocusIn, onFocusOut }) => {
-
+  const minTextH = Math.max(24, Math.ceil((((style as any)?.fontSize ?? 14) as number) * 1.6));
   // 預覽時才替換變數；編輯時維持原字串（避免把 {{}} 寫回）
   const previewHtml = React.useMemo(() => {
   return isPreview ? renderWithVariables(content, vars) : content;
@@ -353,12 +351,13 @@ const RichTextEditor: React.FC<{
       onFocusIn={onFocusIn}     // ← 改這裡
       onFocusOut={onFocusOut}   // ← 改這裡
       style={{
-        minHeight: "40px",
+        minHeight: minTextH,
         height: "auto",
         maxHeight: "none",
         padding: "8px",
         border: "none",          // 移除虛線
-        overflow: "visible",        // 超出時滾動
+        overflow: "hidden",
+        borderRadius: 6,       // 超出時滾動
         wordBreak: "break-word",
         whiteSpace: "pre-wrap",
         lineHeight: "1.5",
@@ -378,7 +377,7 @@ const TableCell: React.FC<{
   vars: VariableDef[];
   isPreview: boolean;
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (e?: React.MouseEvent) => void;
 }> = ({ content, onChange, style, vars, isPreview, isSelected, onSelect }) => {
   const previewHtml = React.useMemo(
     () => (isPreview ? renderWithVariables(content, vars) : content),
@@ -400,13 +399,14 @@ const TableCell: React.FC<{
     const dy = Math.abs(e.clientY - start.current.y);
     if (dx > 3 || dy > 3) moved.current = true; // 3px 閾值
   };
-  const onMouseUp = () => {
+  const onMouseUp = (e: React.MouseEvent) => {
     if (!moved.current && !isPreview) {
-      onSelect();
+      onSelect?.(e);
       requestAnimationFrame(() => ecRef.current?.focus());
     }
     start.current = null;
   };
+
 
   return (
     <div
@@ -445,13 +445,13 @@ const VariableTag: React.FC<{
   const dark = isDark(color);
   return (
     <div
-      className="flex items-center justify-between border rounded-md p-2 transition-colors"
-      style={{ backgroundColor: color, borderColor: '#00000022' }}
+      className="flex items-center justify-between border rounded-md px-2 py-1 transition-colors"
+      style={{ backgroundColor: color, borderColor: '#00000033' }}
     >
       <div className="flex items-center gap-2 min-w-0">
-        {/* 小色票（可改色） */}
+        {/* 色票（外框加寬） */}
         <div className="relative inline-flex items-center">
-          <div className="w-6 h-6 rounded border-2 border-white/70 overflow-hidden" />  {/* 原本 w-5 h-5 border */}
+          <div className="w-5 h-5 rounded border-2 border-white/70 overflow-hidden" />
           <input
             type="color"
             className="absolute inset-0 opacity-0 cursor-pointer"
@@ -460,18 +460,20 @@ const VariableTag: React.FC<{
             title="標籤底色"
           />
         </div>
-        <div className={`text-sm truncate ${dark ? 'text-white' : 'text-gray-800'}`}>{label}</div>
+        <div className={`text-xs truncate ${dark ? 'text-white' : 'text-gray-800'}`}>{label}</div>
       </div>
       <button
         onMouseDown={(e) => e.preventDefault()}
         onClick={onInsert}
-        className={`ml-2 px-2 py-1 rounded text-xs transition-colors flex-shrink-0 ${dark ? 'bg-white text-gray-800' : 'bg-gray-800 text-white'}`}
+        className={`ml-2 p-1 rounded transition-colors flex-shrink-0 ${dark ? 'bg-white text-gray-800' : 'bg-gray-800 text-white'}`}
+        title="插入"
       >
-        插入
+        <Plus className="w-3 h-3" />
       </button>
     </div>
   );
 };
+
 
 
 
@@ -496,8 +498,15 @@ export default function QuoteCanvas({
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [varColors, setVarColors] = useState<Record<string,string>>({});
-
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [selectedRange, setSelectedRange] = useState<{
+    start?: { r: number; c: number };
+    end?: { r: number; c: number };
+  } | null>(null);
+
+  const [showBorderMenu, setShowBorderMenu] = useState(false);
+  const [borderThickness, setBorderThickness] = useState(1);
+
 
   // 載入變數和模板
   useEffect(() => {
@@ -931,6 +940,77 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
   const cellExec = (cmd: string, value?: string) => document.execCommand(cmd, false, value);
 
+    // 取得目前選取的矩形範圍內所有 cell
+  const getRangeCells = useCallback((tb: TableBlock) => {
+    if (!selectedRange?.start || !selectedRange?.end) return [];
+    const r1 = Math.min(selectedRange.start.r, selectedRange.end.r);
+    const r2 = Math.max(selectedRange.start.r, selectedRange.end.r);
+    const c1 = Math.min(selectedRange.start.c, selectedRange.end.c);
+    const c2 = Math.max(selectedRange.start.c, selectedRange.end.c);
+    const cells: Array<{r:number;c:number}> = [];
+    for (let r=r1; r<=r2; r++) for (let c=c1; c<=c2; c++) cells.push({r,c});
+    return cells;
+  }, [selectedRange]);
+
+  // 垂直對齊（top/middle/bottom）
+  const applyVerticalAlign = (val: 'top'|'middle'|'bottom') => {
+    if (!selectedBlock || selectedBlock.type !== 'table') return;
+    const tb = selectedBlock as TableBlock;
+    const cells = getRangeCells(tb);
+    const map = { ...( (tb as any).vAlignMap || {} ) } as Record<string,string>;
+    cells.forEach(({r,c}) => { map[`${r}-${c}`] = val; });
+    updateBlock(tb.id, { ...(tb as any), vAlignMap: map } as any);
+  };
+
+  // 框線：上/下/左/右/外框/內框/無 + 粗細
+  type BorderSpec = { t?: number; r?: number; b?: number; l?: number };
+  const applyBorders = (mode: 'top'|'bottom'|'left'|'right'|'outer'|'inner'|'none', thickness: number) => {
+    if (!selectedBlock || selectedBlock.type !== 'table') return;
+    const tb = selectedBlock as TableBlock;
+    const cells = getRangeCells(tb);
+    if (cells.length === 0) return;
+
+    const r1 = Math.min(...cells.map(c=>c.r));
+    const r2 = Math.max(...cells.map(c=>c.r));
+    const c1 = Math.min(...cells.map(c=>c.c));
+    const c2 = Math.max(...cells.map(c=>c.c));
+
+    const map = { ...( (tb as any).cellBorderMap || {} ) } as Record<string, BorderSpec>;
+    const setEdge = (r:number,c:number,edge:keyof BorderSpec,val:number|undefined) => {
+      const k = `${r}-${c}`;
+      const cur = map[k] || {};
+      if (val === undefined) delete cur[edge]; else cur[edge] = val;
+      map[k] = cur;
+    };
+
+    if (mode === 'none') {
+      cells.forEach(({r,c}) => { map[`${r}-${c}`] = {}; });
+    } else if (mode === 'outer') {
+      for (let r=r1;r<=r2;r++) for (let c=c1;c<=c2;c++) {
+        if (r===r1) setEdge(r,c,'t',thickness);
+        if (r===r2) setEdge(r,c,'b',thickness);
+        if (c===c1) setEdge(r,c,'l',thickness);
+        if (c===c2) setEdge(r,c,'r',thickness);
+      }
+    } else if (mode === 'inner') {
+      for (let r=r1;r<=r2;r++) for (let c=c1;c<=c2;c++) {
+        if (r<r2) setEdge(r,c,'b',thickness);
+        if (c<c2) setEdge(r,c,'r',thickness);
+      }
+      for (let r=r1+1;r<=r2;r++) for (let c=c1;c<=c2;c++) setEdge(r,c,'t',thickness);
+      for (let r=r1;r<=r2;r++)   for (let c=c1+1;c<=c2;c++) setEdge(r,c,'l',thickness);
+    } else {
+      cells.forEach(({r,c}) => {
+        if (mode==='top')    setEdge(r,c,'t',thickness);
+        if (mode==='bottom') setEdge(r,c,'b',thickness);
+        if (mode==='left')   setEdge(r,c,'l',thickness);
+        if (mode==='right')  setEdge(r,c,'r',thickness);
+      });
+    }
+
+    updateBlock(tb.id, { ...(tb as any), cellBorderMap: map } as any);
+  };
+
 
   // 模板管理
   const handleSaveTemplate = async () => {
@@ -1063,7 +1143,6 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
             ) : (
               <div className="space-y-3">
                 {variables.map(v => {
-                  const color = varColors[v.key] || '#e6f0ff'; // 預設淡藍
                   return (
                     <VariableTag
                       key={v.key}
@@ -1150,10 +1229,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                 {showTemplateDropdown && (
                   <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setShowTemplateDropdown(false)}
-                    />
+                    <div className="fixed inset-0 z-10" onClick={() => setShowTemplateDropdown(false)} />
                     <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
                       <div className="p-3 border-b border-gray-200">
                         <input
@@ -1171,56 +1247,91 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                           >
                             {currentTemplateId ? '更新' : '儲存'}
                           </button>
-                          {currentTemplateId && (
-                            <button
-                              onClick={handleRemoveTemplate}
-                              disabled={loading}
-                              className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
-                            >
-                              刪除
-                            </button>
-                          )}
                         </div>
                       </div>
 
                       <div className="max-h-64 overflow-y-auto">
-                        {/* 新增模板項目（含 ICON） */}
+                        {/* 新增模板：清空畫布 */}
                         <button
-                          onClick={() => { setCurrentTemplateId(null); setTemplateName(''); }}
+                          onClick={() => {
+                            setCurrentTemplateId(null);
+                            setTemplateName('');
+                            onChange({ page: value.page, blocks: [], gridSize: value.gridSize, showGrid: value.showGrid });
+                          }}
                           className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 flex items-center gap-2"
                         >
                           <Plus className="w-4 h-4 text-green-600" />
                           <span className="text-sm text-green-700">新增模板</span>
                         </button>
 
-                        {templates.length === 0 ? (
-                          <div className="p-4 text-center text-gray-500 text-sm">
-                            尚無模板
-                          </div>
-                        ) : (
-                          templates.map((template) => (
-                            <button
+                        {templates.map((template) => {
+                          const isActive = currentTemplateId === template.id;
+                          return (
+                            <div
                               key={template.id}
-                              onClick={() => loadTemplate(template)}
-                              className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
-                                currentTemplateId === template.id ? 'bg-blue-50 text-blue-700' : ''
-                              }`}
+                              className="group w-full px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
                             >
-                              <div className="font-medium text-sm">{template.name}</div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                {new Date(template.created_at).toLocaleDateString('zh-TW')}
-                              </div>
-                            </button>
-                          ))
-                        )}
-                      </div>
+                              <button
+                                onClick={() => loadTemplate(template)}
+                                className="w-full text-left flex items-center justify-between gap-2"
+                              >
+                                <div className="min-w-0">
+                                  <div className={`font-medium text-sm ${isActive ? 'text-blue-700' : 'text-gray-900'}`}>
+                                    {template.name}
+                                    {isActive && (
+                                      <span className="ml-2 inline-block text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 align-middle">
+                                        當前選擇模板
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {new Date(template.created_at).toLocaleDateString('zh-TW')}
+                                  </div>
+                                </div>
 
+                                {/* Trash ICON */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    (async () => {
+                                      try {
+                                        setLoading(true);
+                                        const firmCode = getFirmCodeOrThrow();
+                                        const res = await apiFetch(`/api/quote-templates/${template.id}?firm_code=${encodeURIComponent(firmCode)}`, {
+                                          method: 'DELETE'
+                                        });
+                                        if (res.ok) {
+                                          if (currentTemplateId === template.id) {
+                                            setCurrentTemplateId(null);
+                                            setTemplateName('');
+                                            onChange({ page: value.page, blocks: [], gridSize: value.gridSize, showGrid: value.showGrid });
+                                          }
+                                          await loadTemplates();
+                                        } else {
+                                          const err = await res.json();
+                                          alert(err.detail || '刪除失敗');
+                                        }
+                                      } finally {
+                                        setLoading(false);
+                                      }
+                                    })();
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50"
+                                  title="刪除模板"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </button>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </>
                 )}
               </div>
 
-              {/* 匯出按鈕 */}
+              {/* 匯出按鈕（保持在模板選單之外） */}
               <button
                 onClick={() => onExport(value)}
                 disabled={loading}
@@ -1229,6 +1340,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                 <Download className="w-4 h-4" />
                 <span className="text-sm font-medium">匯出</span>
               </button>
+
             </div>
           </div>
         </div>
@@ -1269,6 +1381,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
             {/* 渲染所有區塊 */}
             {value.blocks.map((block) => (
               <Rnd
+
                 bounds="parent"
                 key={block.id}
                 size={{ width: block.w, height: block.h || 'auto' }}
@@ -1358,6 +1471,20 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                         >
                           {[10,12,14,16,18,20,24,28,32].map(s => <option key={s} value={s}>{s}px</option>)}
                         </select>
+
+                        {/* 文字體色（深藍底） */}
+                        <div
+                          className="relative inline-flex items-center ml-1 rounded bg-[#334d6d] p-0.5 border border-white/20"
+                          title="文字體色"
+                        >
+                          <div className="w-5 h-5 rounded border border-white/30" />
+                          <input
+                            type="color"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            value={(block as TextBlock).color || '#000000'}
+                            onChange={(e) => { e.stopPropagation(); updateTextFormat('color', e.target.value); }}
+                          />
+                        </div>
                         <button
                           onClick={(e)=>{ e.stopPropagation(); updateTextFormat('bold', !(block as TextBlock).bold); }}
                           className="p-1 hover:bg-gray-700 rounded" title="粗體"
@@ -1399,126 +1526,180 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                     {/* 表格工具列（簡化版：欄/列群組 + 字體大小 + 儲存格底色同步） */}
                       {block.type === 'table' && (
-                        <>
-                          <div className="w-px h-4 bg-white/20 mx-1" />
+                    <>
+                      <div className="w-px h-4 bg-white/20 mx-1" />
 
-                          {(() => {
-                            const tb = selectedBlock as TableBlock;
+                      {(() => {
+                        const tb = selectedBlock as TableBlock;
 
-                            // 取目前選到的 cell 底色（沒有就白色）
-                            let cellBgHex = '#ffffff';
-                            let canPaint = false;
-                            let selR = -1, selC = -1;
+                        // 目前選到的 cell 底色
+                        let cellBgHex = '#ffffff';
+                        let canPaint = false;
+                        let selR = -1, selC = -1;
 
-                            if (selectedCellId && !selectedCellId.startsWith('header-')) {
-                              const [rStr, cStr] = selectedCellId.split('-');
-                              selR = Number(rStr);
-                              selC = Number(cStr);
-                              if (!Number.isNaN(selR) && !Number.isNaN(selC)) {
-                                const html = tb.rows?.[selR]?.[selC] ?? '';
-                                const found = extractCellBg(html);
-                                if (found) cellBgHex = found;
-                                canPaint = true;
-                              }
-                            }
+                        if (selectedCellId && !selectedCellId.startsWith('header-')) {
+                          const [rStr, cStr] = selectedCellId.split('-');
+                          selR = Number(rStr);
+                          selC = Number(cStr);
+                          if (!Number.isNaN(selR) && !Number.isNaN(selC)) {
+                            const html = tb.rows?.[selR]?.[selC] ?? '';
+                            const found = extractCellBg(html);
+                            if (found) cellBgHex = found;
+                            canPaint = true;
+                          }
+                        }
 
-                            const applyCellBg = (hex: string) => {
-                              if (!canPaint) return;
-                              const rows = tb.rows.map(row => [...row]);
-                              const cur = rows[selR][selC] || '';
-                              // 移除舊的 data-cell-bg wrapper，再包一次
-                              const inner = cur.replace(/<div data-cell-bg[^>]*>([\s\S]*?)<\/div>/, '$1');
-                              rows[selR][selC] = `<div data-cell-bg style="background-color:${hex};padding:6px;">${inner}</div>`;
-                              updateBlock(block.id, { rows });
-                            };
+                        const applyCellBg = (hex: string) => {
+                          if (!canPaint) return;
+                          const rows = tb.rows.map(row => [...row]);
+                          const cur = rows[selR][selC] || '';
+                          const inner = cur.replace(/<div data-cell-bg[^>]*>([\s\S]*?)<\/div>/, '$1');
+                          rows[selR][selC] = `<div data-cell-bg style="background-color:${hex};padding:6px;">${inner}</div>`;
+                          updateBlock(block.id, { rows });
+                        };
 
+                        return (
+                          <>
+                            {/* 欄群組 */}
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); addTableColumn(); }}
+                                className="p-1 hover:bg-white/10 rounded" title="加欄"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); removeTableColumn(); }}
+                                className="p-1 hover:bg-white/10 rounded" title="減欄"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                            </div>
 
-                            return (
-                              <>
-                                {/* 欄操作（ICON） */}
-                                  <div className="flex items-center gap-1">
-                                    <SplitSquareVertical className="w-3 h-3 opacity-80" title="欄" />
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); addTableColumn(); }}
-                                      className="p-1 hover:bg-white/10 rounded"
-                                      title="加欄"
+                            {/* 儲存格底色（搬到欄群組右邊，深藍底白字樣式） */}
+                            <div className="flex items-center gap-1 ml-2">
+                              <div
+                                className="relative inline-flex items-center rounded bg-[#334d6d] p-0.5 border border-white/20"
+                                title={canPaint ? '儲存格底色' : '請先選取一個儲存格'}
+                              >
+                                <div className="w-5 h-5 rounded border border-white/30" style={{ background: cellBgHex }} />
+                                <input
+                                  type="color"
+                                  className="absolute inset-0 opacity-0 cursor-pointer"
+                                  value={cellBgHex}
+                                  disabled={!canPaint}
+                                  onChange={(evt) => applyCellBg(evt.target.value)}
+                                  onMouseDown={preventBlur}
+                                />
+                              </div>
+                            </div>
+
+                            {/* 列群組 */}
+                            <div className="flex items-center gap-1 ml-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); addTableRow(); }}
+                                className="p-1 hover:bg-white/10 rounded" title="加列"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); removeTableRow(); }}
+                                className="p-1 hover:bg-white/10 rounded" title="減列"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            <div className="w-px h-4 bg-white/20 mx-2" />
+
+                            {/* 字體大小（深藍底白字） */}
+                            <select
+                              value={(tb as any).fontSize ?? 14}
+                              onChange={(e) => {
+                                const size = parseInt(e.target.value, 10) || 14;
+                                updateBlock(block.id, { ...(tb as any), fontSize: size } as any);
+                              }}
+                              className="text-xs rounded px-1 py-1 bg-[#334d6d] text-white outline-none"
+                              onMouseDown={preventBlur}
+                            >
+                              {[12, 13, 14, 16, 18, 20, 22, 24].map(sz => (
+                                <option key={sz} value={sz}>{sz}</option>
+                              ))}
+                            </select>
+
+                            {/* 表格文字體色（深藍底白字） */}
+                            <div
+                              className="relative inline-flex items-center ml-2 rounded bg-[#334d6d] p-0.5 border border-white/20"
+                              title="文字體色"
+                            >
+                              <div className="w-5 h-5 rounded border border-white/30" />
+                              <input
+                                type="color"
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                onChange={(e) => { document.execCommand('foreColor', false, e.target.value); }}
+                                onMouseDown={preventBlur}
+                              />
+                            </div>
+
+                            {/* 水平對齊（依目前 caret 生效） */}
+                            <div className="ml-2 flex items-center gap-1">
+                              <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyLeft'); }}   className="p-1 hover:bg-white/10 rounded" title="靠左"><AlignLeft className="w-3 h-3" /></button>
+                              <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyCenter'); }} className="p-1 hover:bg-white/10 rounded" title="置中"><AlignCenter className="w-3 h-3" /></button>
+                              <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyRight'); }}  className="p-1 hover:bg-white/10 rounded" title="靠右"><AlignRight className="w-3 h-3" /></button>
+                            </div>
+
+                            {/* 垂直對齊（作用於目前選取範圍） */}
+                            <div className="ml-2 flex items-center gap-1">
+                              <button className="px-1.5 py-0.5 text-xs rounded hover:bg-white/10" title="上對齊"    onClick={()=>applyVerticalAlign('top')}>上</button>
+                              <button className="px-1.5 py-0.5 text-xs rounded hover:bg-white/10" title="置中對齊"  onClick={()=>applyVerticalAlign('middle')}>中</button>
+                              <button className="px-1.5 py-0.5 text-xs rounded hover:bg-white/10" title="下對齊"    onClick={()=>applyVerticalAlign('bottom')}>下</button>
+                            </div>
+
+                            {/* 框線（展開選單） */}
+                            <div className="relative ml-2">
+                              <button
+                                onClick={(e)=>{ e.stopPropagation(); setShowBorderMenu(v=>!v); }}
+                                className="px-2 py-1 text-xs rounded bg-white/10 hover:bg-white/20"
+                                title="框線"
+                              >
+                                框線
+                              </button>
+
+                              {showBorderMenu && (
+                                <div className="absolute z-20 mt-2 right-0 bg-white rounded shadow border p-2 w-56">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs text-gray-600">粗細</span>
+                                    <select
+                                      className="border text-xs rounded px-1 py-0.5"
+                                      value={borderThickness}
+                                      onChange={e=>setBorderThickness(parseInt(e.target.value,10)||1)}
                                     >
-                                      <Plus className="w-3 h-3" />
-                                    </button>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); removeTableColumn(); }}
-                                      className="p-1 hover:bg-white/10 rounded"
-                                      title="減欄"
-                                    >
-                                      <Minus className="w-3 h-3" />
-                                    </button>
+                                      {[0,1,2,3,4,6].map(n => <option key={n} value={n}>{n}px</option>)}
+                                    </select>
                                   </div>
 
-                                  {/* 列操作（ICON） */}
-                                  <div className="flex items-center gap-1 ml-2">
-                                    <SplitSquareHorizontal className="w-3 h-3 opacity-80" title="列" />
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); addTableRow(); }}
-                                      className="p-1 hover:bg-white/10 rounded"
-                                      title="加列"
-                                    >
-                                      <Plus className="w-3 h-3" />
-                                    </button>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); removeTableRow(); }}
-                                      className="p-1 hover:bg-white/10 rounded"
-                                      title="減列"
-                                    >
-                                      <Minus className="w-3 h-3" />
-                                    </button>
-                                  </div>
+                                  <div className="grid grid-cols-3 gap-1 text-xs">
+                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('outer', borderThickness)}>外框</button>
+                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('inner', borderThickness)}>內框</button>
+                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('none', 0)}>無</button>
 
+                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('top', borderThickness)}>上</button>
+                                    <div />
+                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('bottom', borderThickness)}>下</button>
 
-                                <div className="w-px h-4 bg-white/20 mx-2" />
-
-                                {/* 字體大小（整張表） */}
-                                <label className="flex items-center gap-1 text-xs">
-
-                                  <select
-                                    value={(tb as any).fontSize ?? 14}
-                                    onChange={(e) => {
-                                      const size = parseInt(e.target.value, 10) || 14;
-                                      updateBlock(block.id, { ...(tb as any), fontSize: size } as any);
-                                    }}
-                                    className="text-xs rounded px-1 py-1 bg-[#334d6d] text-white border border-white/20 outline-none"
-                                    onMouseDown={preventBlur}
-                                  >
-                                    {[12, 13, 14, 16, 18, 20, 22, 24].map(sz => (
-                                      <option key={sz} value={sz}>{sz}</option>
-                                    ))}
-                                  </select>
-                                </label>
-
-                                {/* 儲存格底色（跟著目前 cell 顏色同步顯示／修改） */}
-                                <div className="flex items-center gap-1 ml-2">
-                                  <div
-                                    className="relative inline-flex items-center rounded bg-[#334d6d] p-0.5 border border-white/20"
-                                    title={canPaint ? '儲存格底色' : '請先選取一個儲存格'}
-                                  >
-                                    <div
-                                      className="w-5 h-5 rounded border border-white/30"
-                                      style={{ background: cellBgHex }}
-                                    />
-                                    <input
-                                      type="color"
-                                      className="absolute inset-0 opacity-0 cursor-pointer"
-                                      value={cellBgHex}
-                                      disabled={!canPaint}
-                                      onChange={(evt) => applyCellBg(evt.target.value)}
-                                      onMouseDown={preventBlur}
-                                    />
+                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('left', borderThickness)}>左</button>
+                                    <div />
+                                    <button className="border p-2 hover:bg-gray-50" onClick={()=>applyBorders('right', borderThickness)}>右</button>
                                   </div>
                                 </div>
-                              </>
-                            );
-                          })()}
-                        </>
-                      )}
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </>
+                  )}
+
 
 
                         {block.type === 'table' && selectedCellId && (
@@ -1627,65 +1808,88 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
 
                           <tbody>
-                          {tb.rows.map((row, rowIndex) => {
-                            const colCount = row.length;
-                            const rowH = (tb as any).rowHeights?.[rowIndex]; // px 或 undefined
-                            return (
-                              <tr key={rowIndex} style={{ height: rowH ? `${rowH}px` : undefined }}>
-                                {row.map((cell, colIndex) => {
-                                  const cellId = `${rowIndex}-${colIndex}`;
-                                  const selected = selectedCellId === cellId;
-                                  return (
-                                    <td
-                                      key={cellId}
-                                      className={`relative ${borders ? 'border border-gray-300' : ''}`}
-                                      style={{
-                                        width: `${tb.columnWidths?.[colIndex] ?? (100 / colCount)}%`,
-                                        backgroundColor: extractCellBg(cell) || undefined,   // ← 整格底色
-                                      }}
-                                    >
-                                      <TableCell
-                                        content={cell}
-                                        onChange={(newContent) => {
-                                          const newRows = [...tb.rows];
-                                          newRows[rowIndex] = [...newRows[rowIndex]];
-                                          newRows[rowIndex][colIndex] = newContent;
-                                          updateBlock(block.id, { rows: newRows });
+                            {tb.rows.map((row, rowIndex) => {
+                              const colCount = row.length;
+                              const rowH = (tb as any).rowHeights?.[rowIndex];
+                              const baseRowMin = Math.max(24, Math.ceil(((tb as any).fontSize ?? 14) * 1.6));
+
+                              return (
+                                <tr key={rowIndex} style={{ height: rowH ? `${rowH}px` : undefined, minHeight: baseRowMin, lineHeight: 1.4 }}>
+                                  {row.map((cell, colIndex) => {
+                                    const cellId = `${rowIndex}-${colIndex}`;
+                                    const selected = selectedCellId === cellId;
+
+                                    const vAlignMap = (tb as any).vAlignMap || {};
+                                    const borderMap = (tb as any).cellBorderMap || {};
+                                    const bspec = (borderMap[cellId] || {}) as { t?: number; r?: number; b?: number; l?: number };
+                                    const vAlign = (vAlignMap[cellId] as any) || 'middle';
+
+                                    return (
+                                      <td
+                                        key={cellId}
+                                        className="relative"
+                                        style={{
+                                          width: `${tb.columnWidths?.[colIndex] ?? (100 / colCount)}%`,
+                                          backgroundColor: extractCellBg(cell) || undefined,
+                                          verticalAlign: vAlign,
+                                          borderTop:    bspec.t ? `${bspec.t}px solid #d1d5db` : undefined,
+                                          borderRight:  bspec.r ? `${bspec.r}px solid #d1d5db` : undefined,
+                                          borderBottom: bspec.b ? `${bspec.b}px solid #d1d5db` : undefined,
+                                          borderLeft:   bspec.l ? `${bspec.l}px solid #d1d5db` : undefined,
                                         }}
-                                        style={{}}
-                                        vars={variables}
-                                        isPreview={isPreview}
-                                        isSelected={selected}
-                                        onSelect={() => { setSelectedCellId(cellId); setSelectedBlockId(block.id); setIsEditing(true); }}
-                                      />
+                                      >
+                                        <TableCell
+                                          content={cell}
+                                          onChange={(newContent) => {
+                                            const newRows = [...tb.rows];
+                                            newRows[rowIndex] = [...newRows[rowIndex]];
+                                            newRows[rowIndex][colIndex] = newContent;
+                                            updateBlock(block.id, { rows: newRows });
+                                          }}
+                                          style={{}}
+                                          vars={variables}
+                                          isPreview={isPreview}
+                                          isSelected={selected}
+                                          onSelect={(e) => {
+                                            setSelectedBlockId(block.id);
+                                            setIsEditing(true);
+                                            if (e?.shiftKey && selectedCellId) {
+                                              const [sr, sc] = selectedCellId.split('-').map(Number);
+                                              setSelectedCellId(cellId);
+                                              setSelectedRange({ start: { r: sr, c: sc }, end: { r: rowIndex, c: colIndex } });
+                                            } else {
+                                              setSelectedCellId(cellId);
+                                              setSelectedRange({ start: { r: rowIndex, c: colIndex }, end: { r: rowIndex, c: colIndex } });
+                                            }
+                                          }}
+                                        />
 
-                                      {/* 垂直把手 */}
-                                      {!isPreview && (
-                                        (selected || (tb.headers.length === 0 && rowIndex === 0)) && colIndex < row.length - 1 && (
-                                          <div
-                                            className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
-                                            onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
-                                          />
-                                        )
-                                      )}
+                                        {/* 垂直把手（調欄寬） */}
+                                        {!isPreview && (
+                                          (selected || (tb.headers.length === 0 && rowIndex === 0)) && colIndex < row.length - 1 && (
+                                            <div
+                                              className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
+                                              onMouseDown={(e) => startResizeColumn(e, block, colIndex)}
+                                            />
+                                          )
+                                        )}
 
-                                      {/* 水平把手 */}
-                                      {!isPreview && rowIndex < tb.rows.length - 1 && (
-                                        (selected || colIndex === 0) && (
-                                          <div
-                                            className="absolute bottom-0 left-0 w-full h-1 cursor-row-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
-                                            onMouseDown={(e) => startResizeRow(e, block, rowIndex)}
-                                          />
-                                        )
-                                      )}
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-
+                                        {/* 水平把手（調列高） */}
+                                        {!isPreview && rowIndex < tb.rows.length - 1 && (
+                                          (selected || colIndex === 0) && (
+                                            <div
+                                              className="absolute bottom-0 left-0 w-full h-1 cursor-row-resize bg-transparent hover:bg-blue-400/50 transition-colors select-none"
+                                              onMouseDown={(e) => startResizeRow(e, block, rowIndex)}
+                                            />
+                                          )
+                                        )}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
                         </table>
                       );
                     })()}
