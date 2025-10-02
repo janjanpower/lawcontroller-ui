@@ -680,6 +680,7 @@ export default function QuoteCanvas({
   const livePosRef  = useRef<Record<string, { x: number; y: number }>>({});
   const liveSizeRef = useRef<Record<string, { w: number; h: number }>>({});
   const liveColsPxRef = useRef<Record<string, number[]>>({});
+  const liveRowsHeightRef = useRef<Record<string, number[]>>({});
   const [liveTick, setLiveTick] = useState(0);
   const rafRef = useRef<number | null>(null);
   const invalidate = () => {
@@ -1022,15 +1023,9 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
   if (blk.type !== 'table') return;
   const t = blk as TableBlock;
 
-  // 使用外框高度作為最大限制
-  const maxHeight = blk.h || 400;
-  const headerHeight = t.headers.length > 0 ? 40 : 0;
-  const borderPadding = t.showBorders ? 2 : 0;
-  const availableHeight = maxHeight - headerHeight - borderPadding;
-
   const startY = e.clientY;
   const rows = t.rows || [];
-  const init = ((t as any).rowHeights as number[] | undefined) ?? new Array(rows.length).fill(Math.min(32, availableHeight / rows.length));
+  const init = ((t as any).rowHeights as number[] | undefined) ?? new Array(rows.length).fill(32);
 
   let live = init.slice();
   let rafId: number | null = null;
@@ -1040,26 +1035,26 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
     let newH = (init[rowIndex] ?? 32) + dy;
     if (newH < 5) newH = 5;
 
-    // 確保所有列高總和不超過可用高度
-    const otherRowsHeight = init.reduce((sum, h, i) => i !== rowIndex ? sum + h : sum, 0);
-    const maxAllowed = availableHeight - otherRowsHeight;
-    if (newH > maxAllowed) newH = maxAllowed;
-
+    // 只改變被拖動的列，不影響其他列
     live = init.slice();
     live[rowIndex] = newH;
 
+    // 用暫存刷新畫面
+    liveRowsHeightRef.current[blk.id] = live.slice();
     if (rafId) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(() => {
-      // 視覺更新會通過 invalidate 觸發
-    });
+    rafId = requestAnimationFrame(() => invalidate());
   };
 
   const onUp = () => {
     if (rafId) cancelAnimationFrame(rafId);
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
-    // mouseup 才寫回，外框高度保持不變
-    updateBlock(blk.id, { ...(t as any), rowHeights: live } as any);
+
+    // 提交正式列高
+    const finalRowHeights = liveRowsHeightRef.current[blk.id] ?? live;
+    updateBlock(blk.id, { ...(t as any), rowHeights: finalRowHeights } as any);
+    // 清掉暫存
+    delete liveRowsHeightRef.current[blk.id];
   };
 
   document.addEventListener('mousemove', onMove);
@@ -1105,7 +1100,12 @@ const handleVarColorChange = useCallback((key: string, color: string) => {
 }, [onChange, recolorHtmlForKey, value]);
 
 const insertVariableToBlock = (payload: InsertVarPayload) => {
-  const color = (varColors && varColors[payload.key]) || '#e6f0ff';
+  // 確保變數顏色已初始化
+  const color = varColors[payload.key] || '#e6f0ff';
+  if (!varColors[payload.key]) {
+    setVarColors(prev => ({ ...prev, [payload.key]: color }));
+  }
+
   const baseStyle = 'padding:2px 6px;border-radius:4px;display:inline-block;';
   const chipHtml = `<span class="var-chip" contenteditable="false" data-var-key="${payload.key}" style="${baseStyle}background-color:${color};">${payload.label}</span>`;
 
@@ -1755,9 +1755,9 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
               let minWidth = Math.max(100, fontSize * 3);
               const minHeight = Math.max(40, fontSize * 2);
 
-              // 表格：外框最小寬度 = 各欄 px 總和（含拖曳中的暫存值），避免被外框擠壞
+              // 表格：設定合理的最小寬度，外框可自由調整作為最大寬度限制
               if (block.type === 'table') {
-                minWidth = Math.max(minWidth, getTableMinWidth(block as TableBlock, block.id));
+                minWidth = 200; // 表格最小寬度
               }
 
 
@@ -1789,12 +1789,27 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                   invalidate();
                 }}
                 onResizeStop={(e, direction, ref, delta, position) => {
-                  const payload = {
+                  const payload: any = {
                     w: ref.offsetWidth,
                     h: ref.offsetHeight,
                     x: position.x,
                     y: position.y,
                   };
+
+                  // 如果是表格且寬度改變，按比例調整欄寬
+                  if (block.type === 'table' && delta.width !== 0) {
+                    const tb = block as TableBlock;
+                    const oldWidth = block.w || 600;
+                    const newWidth = ref.offsetWidth;
+                    const ratio = newWidth / oldWidth;
+
+                    const currentColWidths = (tb as any).columnWidthsPx as number[] | undefined;
+                    if (currentColWidths && currentColWidths.length > 0) {
+                      const newColWidths = currentColWidths.map(w => w * ratio);
+                      payload.columnWidthsPx = newColWidths;
+                    }
+                  }
+
                   delete liveSizeRef.current[block.id];
                   delete livePosRef.current[block.id];
                   updateBlock(block.id, payload);
@@ -1819,18 +1834,18 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                   } : {})
                 }}
               >
-                {/* 自定義選取框 - 四角 90 度符號，帶內距 */}
+                {/* 自定義選取框 - 四角 90 度符號，透明背景，比內容大 */}
                 {selectedBlockId === block.id && !isPreview && (
-                  <>
+                  <div className="absolute -inset-2 pointer-events-none">
                     {/* 左上角 */}
-                    <div className="absolute top-1 left-1 w-5 h-5 border-l-[3px] border-t-[3px] border-blue-600 pointer-events-none" />
+                    <div className="absolute top-0 left-0 w-6 h-6 border-l-[3px] border-t-[3px] border-blue-600" />
                     {/* 右上角 */}
-                    <div className="absolute top-1 right-1 w-5 h-5 border-r-[3px] border-t-[3px] border-blue-600 pointer-events-none" />
+                    <div className="absolute top-0 right-0 w-6 h-6 border-r-[3px] border-t-[3px] border-blue-600" />
                     {/* 左下角 */}
-                    <div className="absolute bottom-1 left-1 w-5 h-5 border-l-[3px] border-b-[3px] border-blue-600 pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-6 h-6 border-l-[3px] border-b-[3px] border-blue-600" />
                     {/* 右下角 */}
-                    <div className="absolute bottom-1 right-1 w-5 h-5 border-r-[3px] border-b-[3px] border-blue-600 pointer-events-none" />
-                  </>
+                    <div className="absolute bottom-0 right-0 w-6 h-6 border-r-[3px] border-b-[3px] border-blue-600" />
+                  </div>
                 )}
 
                 {/* 浮動操作工具列 */}
@@ -2264,7 +2279,9 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                           <tbody>
                             {tb.rows.map((row, rowIndex) => {
                               const colCount = row.length;
-                              const rowH = (tb as any).rowHeights?.[rowIndex];
+                              // 優先使用即時拖曳中的列高
+                              const liveRowHeights = liveRowsHeightRef.current[block.id];
+                              const rowH = liveRowHeights?.[rowIndex] ?? (tb as any).rowHeights?.[rowIndex];
                               const baseRowMin = Math.max(24, Math.ceil(((tb as any).fontSize ?? 14) * 1.6));
 
                               return (
