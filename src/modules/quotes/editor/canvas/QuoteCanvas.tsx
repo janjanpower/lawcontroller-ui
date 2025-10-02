@@ -445,13 +445,12 @@ const VariableTag: React.FC<{
   const dark = isDark(color);
   return (
     <div
-      className="flex items-center justify-between border border-gray-200 rounded-lg px-2.5 py-2 transition-all hover:border-gray-300"
+      className="group flex items-center justify-between rounded-xl px-3 py-2.5 transition-all hover:shadow-sm cursor-pointer border border-transparent hover:border-gray-200"
       style={{ backgroundColor: color }}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        {/* 色票（外框加寬） */}
-        <div className="relative inline-flex items-center">
-          <div className="w-4 h-4 rounded border-2 border-white/50 overflow-hidden" />
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className="relative inline-flex items-center flex-shrink-0">
+          <div className="w-5 h-5 rounded-md border border-white/30 overflow-hidden shadow-sm" />
           <input
             type="color"
             className="absolute inset-0 opacity-0 cursor-pointer"
@@ -460,15 +459,15 @@ const VariableTag: React.FC<{
             title="標籤底色"
           />
         </div>
-        <div className={`text-xs truncate ${dark ? 'text-white' : 'text-gray-700'}`}>{label}</div>
+        <div className={`text-xs font-medium truncate ${dark ? 'text-white' : 'text-gray-800'}`}>{label}</div>
       </div>
       <button
         onMouseDown={(e) => e.preventDefault()}
         onClick={onInsert}
-        className={`ml-2 p-1 rounded transition-all flex-shrink-0 ${dark ? 'bg-white/90 text-gray-800 hover:bg-white' : 'bg-gray-800 text-white hover:bg-gray-700'}`}
+        className={`ml-2 p-1.5 rounded-lg transition-all flex-shrink-0 opacity-0 group-hover:opacity-100 ${dark ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-gray-900/10 hover:bg-gray-900/20 text-gray-800'}`}
         title="插入"
       >
-        <Plus className="w-3 h-3" />
+        <Plus className="w-3.5 h-3.5" />
       </button>
     </div>
   );
@@ -560,24 +559,24 @@ const HoverAddRemove: React.FC<{
       onMouseLeave={() => setOpen(false)}
       onMouseDown={(e)=>{ e.stopPropagation(); }} // 避免失焦
     >
-      <button className="h-6 w-6 p-1 rounded hover:bg-white/10" title={title}>
+      <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title={title}>
         {glyph}
       </button>
       {open && (
-        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 -top-8">
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 -top-10">
           <button
-            className="w-5 h-5 rounded-full bg-gray-800 text-white border border-white/30 flex items-center justify-center hover:bg-gray-700"
+            className="w-6 h-6 rounded-lg bg-gray-900 text-white shadow-lg flex items-center justify-center hover:bg-gray-800 transition-all"
             onClick={(e)=>{ e.stopPropagation(); onAdd(); }}
             title={`${title} +`}
           >
-            <Plus className="w-3 h-3" />
+            <Plus className="w-3.5 h-3.5" />
           </button>
           <button
-            className="w-5 h-5 rounded-full bg-gray-800 text-white border border-white/30 flex items-center justify-center hover:bg-gray-700"
+            className="w-6 h-6 rounded-lg bg-gray-900 text-white shadow-lg flex items-center justify-center hover:bg-gray-800 transition-all"
             onClick={(e)=>{ e.stopPropagation(); onRemove(); }}
             title={`${title} -`}
           >
-            <Minus className="w-3 h-3" />
+            <Minus className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
@@ -1323,41 +1322,47 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
   };
 
   return (
-    <div className="flex h-full bg-gray-50">
+    <div className="flex h-full bg-[#fafbfc]">
       {/* 左側變數面板 */}
       {showVariablePanel && (
-        <div className="w-72 bg-white border-r border-gray-200 flex flex-col">
-          <div className="px-4 py-3 border-b border-gray-100">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                <Tag className="w-4 h-4" />
-                變數標籤
-              </h3>
+        <div className="w-64 bg-white flex flex-col shadow-sm">
+          <div className="px-4 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <Tag className="w-4 h-4 text-blue-600" />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900">變數標籤</h3>
+              </div>
               <button
                 onClick={() => setShowVariablePanel(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 text-gray-500" />
               </button>
             </div>
-            <p className="text-xs text-gray-500">
-              點擊插入變數到選中的元素
+            <p className="text-xs text-gray-500 leading-relaxed">
+              點擊標籤插入變數
             </p>
           </div>
+          <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
 
-          <div className="flex-1 overflow-y-auto p-3">
+          <div className="flex-1 overflow-y-auto px-3 py-4">
             {variables.length === 0 ? (
-              <div className="text-sm text-gray-500 space-y-2">
-                <div>目前沒有可用的變數。</div>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                  <Tag className="w-6 h-6 text-gray-400" />
+                </div>
+                <p className="text-sm text-gray-500 mb-3">目前沒有可用的變數</p>
                 <button
                   onClick={loadVariables}
-                  className="px-2 py-1 text-xs bg-gray-50 rounded hover:bg-gray-100 transition-colors"
+                  className="px-4 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
                 >
                   重新載入
                 </button>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {variables.map(v => {
                   return (
                     <VariableTag
@@ -1379,54 +1384,60 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
       {/* 主要編輯區域 */}
       <div className="flex-1 flex flex-col">
         {/* 頂部工具列 */}
-        <div className="bg-white border-b border-gray-100 px-5 py-3">
-          <div className="flex items-center justify-between">
+        <div className="bg-white shadow-sm">
+          <div className="flex items-center justify-between px-6 py-4">
             {/* 左側：全域工具 */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {/* 預覽模式切換 */}
               <button
                 onClick={() => setIsPreview(!isPreview)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                   isPreview
-                    ? 'bg-blue-50 text-blue-600 font-medium'
-                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                    ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 {isPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 <span>
-                  {isPreview ? '編輯模式' : '預覽模式'}
+                  {isPreview ? '編輯' : '預覽'}
                 </span>
               </button>
 
               {/* 新增元素 */}
               {!isPreview && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={addTextBlock}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-all text-sm"
-                  >
-                    <Type className="w-4 h-4" />
-                    <span>文字</span>
-                  </button>
-                  <button
-                    onClick={addTableBlock}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all text-sm"
-                  >
-                    <Table className="w-4 h-4" />
-                    <span>表格</span>
-                  </button>
-                </div>
+                <>
+                  <div className="w-px h-6 bg-gray-200 mx-1" />
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={addTextBlock}
+                      className="flex items-center gap-2 px-3 py-2 bg-white text-gray-700 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all text-sm font-medium"
+                    >
+                      <Type className="w-4 h-4" />
+                      <span>文字</span>
+                    </button>
+                    <button
+                      onClick={addTableBlock}
+                      className="flex items-center gap-2 px-3 py-2 bg-white text-gray-700 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all text-sm font-medium"
+                    >
+                      <Table className="w-4 h-4" />
+                      <span>表格</span>
+                    </button>
+                  </div>
+                </>
               )}
 
               {/* 變數面板切換 */}
               {!showVariablePanel && (
-                <button
-                  onClick={() => setShowVariablePanel(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-all text-sm"
-                >
-                  <Tag className="w-4 h-4" />
-                  <span>變數</span>
-                </button>
+                <>
+                  <div className="w-px h-6 bg-gray-200 mx-1" />
+                  <button
+                    onClick={() => setShowVariablePanel(true)}
+                    className="flex items-center gap-2 px-3 py-2 bg-white text-gray-700 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all text-sm font-medium"
+                  >
+                    <Tag className="w-4 h-4" />
+                    <span>變數</span>
+                  </button>
+                </>
               )}
             </div>
 
@@ -1436,37 +1447,37 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
               <div className="relative">
                 <button
                   onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-all text-sm"
+                  className="flex items-center gap-2 px-3 py-2 bg-white text-gray-700 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all text-sm font-medium"
                 >
                   <Settings className="w-4 h-4" />
                   <span>模板</span>
-                  <ChevronDown className="w-3 h-3" />
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showTemplateDropdown ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showTemplateDropdown && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setShowTemplateDropdown(false)} />
-                    <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl z-20">
-                      <div className="p-3 border-b border-gray-100">
+                    <div className="absolute top-full right-0 mt-3 w-72 bg-white border border-gray-200 rounded-2xl shadow-2xl z-20 overflow-hidden">
+                      <div className="p-4 bg-gradient-to-br from-gray-50 to-white">
                         <input
                           type="text"
-                          placeholder="模板名稱"
+                          placeholder="輸入模板名稱..."
                           value={templateName}
                           onChange={(e) => setTemplateName(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                         />
-                        <div className="flex gap-2 mt-2">
+                        <div className="flex gap-2 mt-3">
                           <button
                             onClick={handleSaveTemplate}
                             disabled={loading}
-                            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm disabled:opacity-50"
+                            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all text-sm font-medium disabled:opacity-50 shadow-sm"
                           >
-                            {currentTemplateId ? '更新' : '儲存'}
+                            {currentTemplateId ? '更新模板' : '儲存模板'}
                           </button>
                         </div>
                       </div>
 
-                      <div className="max-h-64 overflow-y-auto">
+                      <div className="max-h-80 overflow-y-auto">
                         {/* 新增模板：清空畫布 */}
                         <button
                           onClick={() => {
@@ -1474,10 +1485,12 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                             setTemplateName('');
                             onChange({ page: value.page, blocks: [], gridSize: value.gridSize, showGrid: value.showGrid });
                           }}
-                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 flex items-center gap-2"
+                          className="w-full text-left px-4 py-3.5 hover:bg-blue-50 transition-all border-b border-gray-100 flex items-center gap-3 group"
                         >
-                          <Plus className="w-4 h-4 text-green-600" />
-                          <span className="text-sm text-green-600 font-medium">新增模板</span>
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center shadow-sm group-hover:shadow-md transition-all">
+                            <Plus className="w-4 h-4 text-white" />
+                          </div>
+                          <span className="text-sm text-gray-900 font-medium">建立新模板</span>
                         </button>
 
                         {templates.map((template) => {
@@ -1485,23 +1498,31 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                           return (
                             <div
                               key={template.id}
-                              className="group w-full px-4 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-b-0"
+                              className={`group w-full px-4 py-3 transition-all border-b border-gray-50 last:border-b-0 ${
+                                isActive ? 'bg-blue-50' : 'hover:bg-gray-50'
+                              }`}
                             >
                               <button
                                 onClick={() => loadTemplate(template)}
                                 className="w-full text-left flex items-center justify-between gap-2"
                               >
-                                <div className="min-w-0">
-                                  <div className={`text-sm ${isActive ? 'text-blue-600 font-medium' : 'text-gray-900'}`}>
-                                    {template.name}
-                                    {isActive && (
-                                      <span className="ml-2 inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 align-middle">
-                                        當前
-                                      </span>
-                                    )}
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${
+                                    isActive ? 'bg-blue-600' : 'bg-gray-100 group-hover:bg-gray-200'
+                                  }`}>
+                                    <Settings className={`w-4 h-4 ${
+                                      isActive ? 'text-white' : 'text-gray-600'
+                                    }`} />
                                   </div>
-                                  <div className="text-xs text-gray-400 mt-0.5">
-                                    {new Date(template.created_at).toLocaleDateString('zh-TW')}
+                                  <div className="flex-1 min-w-0">
+                                    <div className={`text-sm font-medium ${
+                                      isActive ? 'text-blue-600' : 'text-gray-900'
+                                    }`}>
+                                      {template.name}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-0.5">
+                                      {new Date(template.created_at).toLocaleDateString('zh-TW')}
+                                    </div>
                                   </div>
                                 </div>
 
@@ -1532,10 +1553,10 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                       }
                                     })();
                                   }}
-                                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 transition-all"
+                                  className="opacity-0 group-hover:opacity-100 p-2 rounded-lg hover:bg-red-50 transition-all"
                                   title="刪除模板"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                                  <Trash2 className="w-4 h-4 text-red-500" />
                                 </button>
                               </button>
                             </div>
@@ -1551,10 +1572,10 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
               <button
                 onClick={() => onExport(value)}
                 disabled={loading}
-                className="flex items-center gap-2 px-4 py-1.5 bg-[#334d6d] text-white rounded-lg hover:bg-[#3f5a7d] transition-all disabled:opacity-50 text-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#334d6d] to-[#3f5a7d] text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 text-sm font-medium shadow-sm"
               >
                 <Download className="w-4 h-4" />
-                <span>匯出</span>
+                <span>匯出文件</span>
               </button>
 
             </div>
@@ -1562,10 +1583,10 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
         </div>
 
         {/* 畫布區域 */}
-        <div className="flex-1 overflow-auto bg-gray-50 p-8">
+        <div className="flex-1 overflow-auto bg-[#fafbfc] p-8">
           <div
             ref={canvasRef}
-            className="relative mx-auto bg-white shadow-sm border border-gray-100"
+            className="relative mx-auto bg-white shadow-lg rounded-lg border border-gray-200"
             style={{
               width: value.page.width,
               height: value.page.height,
@@ -1584,11 +1605,11 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
             {!isPreview && (
               <>
                 <div
-                  className="absolute border-l border-blue-300 border-dashed opacity-30"
+                  className="absolute border-l border-blue-400/20 border-dashed"
                   style={{ left: value.page.width / 2, top: 0, height: '100%' }}
                 />
                 <div
-                  className="absolute border-t border-blue-300 border-dashed opacity-30"
+                  className="absolute border-t border-blue-400/20 border-dashed"
                   style={{ top: value.page.height / 2, left: 0, width: '100%' }}
                 />
               </>
@@ -1622,16 +1643,16 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                     setSelectedCellId(null);
                   }
                 }}
-                className={`${selectedBlockId === block.id ? 'ring-2 ring-blue-500' : ''} ${
-                  block.locked ? 'opacity-75' : ''
-                }`}
+                className={`${selectedBlockId === block.id ? 'ring-2 ring-blue-600 shadow-lg' : 'hover:ring-1 hover:ring-gray-300'} ${
+                  block.locked ? 'opacity-60' : ''
+                } transition-all`}
               >
                 {/* 浮動操作工具列 */}
                 {selectedBlockId === block.id && !isPreview && (
                   <div
-                      className="absolute bottom-full right-0 mb-2 flex items-center gap-1
-                                bg-gray-900 text-white px-2 py-1.5 rounded-lg shadow-lg
-                                z-[9999] leading-none"
+                      className="absolute bottom-full right-0 mb-3 flex items-center gap-0.5
+                                bg-white text-gray-700 px-1.5 py-1.5 rounded-xl shadow-xl border border-gray-200
+                                z-[9999] leading-none backdrop-blur-sm"
                       style={{ zIndex: 2147483647 }}
                       onMouseDown={preventBlur}
                       onTouchStart={preventBlur}
@@ -1639,47 +1660,47 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                     {/* 複製 */}
                     <button
                       onClick={(e) => { e.stopPropagation(); copyBlock(); }}
-                      className="p-1 hover:bg-gray-700 rounded transition-colors"
+                      className="p-2 hover:bg-gray-100 rounded-lg transition-all"
                       title="複製"
                     >
-                      <Copy className="w-3.5 h-3.5" />
+                      <Copy className="w-4 h-4" />
                     </button>
 
                     {/* 鎖定/解鎖 */}
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleLock(); }}
-                      className="p-1 hover:bg-gray-700 rounded transition-colors"
+                      className="p-2 hover:bg-gray-100 rounded-lg transition-all"
                       title={block.locked ? "解鎖" : "鎖定"}
                     >
-                      {block.locked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                      {block.locked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                     </button>
 
                     {/* 刪除 */}
                     <button
                       onClick={(e) => { e.stopPropagation(); removeBlock(); }}
-                      className="p-1 hover:bg-red-500 rounded transition-colors"
+                      className="p-2 hover:bg-red-50 rounded-lg transition-all hover:text-red-600"
                       title="移除"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
 
                     {/* 文字區塊工具（簡約 ICON） */}
                     {block.type === 'text' && (
                       <>
-                        <div className="w-px h-4 bg-gray-700 mx-1" />
+                        <div className="w-px h-5 bg-gray-200 mx-1" />
 
                         {/* 字體大小 */}
                         <select
                           onChange={(e) => { e.stopPropagation(); updateTextFormat('fontSize', Number(e.target.value)); }}
                           value={(block as TextBlock).fontSize || 14}
-                          className="h-5 text-[12px] rounded px-1 py-0 bg-white text-gray-800 border"  // ← 改這行
+                          className="h-7 text-xs rounded-lg px-2 bg-white text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors"
                         >
                           {[10,12,14,16,18,20,24,28,32].map(s => <option key={s} value={s}>{s}px</option>)}
                         </select>
 
                         {/* 文字體色（無外框底色 + 依選取更新） */}
-                        <div className="relative inline-flex items-center ml-1 p-0.5 border border-gray-300 rounded" title="文字體色">
-                          <div className="w-5 h-5 rounded" style={{ background: lastTextColor }} />
+                        <div className="relative inline-flex items-center ml-1 p-1 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors" title="文字體色">
+                          <div className="w-5 h-5 rounded-md" style={{ background: lastTextColor }} />
                           <input
                             type="color"
                             className="absolute inset-0 opacity-0 cursor-pointer"
@@ -1694,8 +1715,8 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
 
                         {/* 文字底色（無外框底色） */}
-                        <div className="relative inline-flex items-center ml-1 p-0.5 border border-gray-300 rounded" title="文字底色">
-                          <div className="w-5 h-5 rounded" style={{ background: (block as TextBlock).backgroundColor || '#ffffff' }} />
+                        <div className="relative inline-flex items-center ml-1 p-1 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors" title="文字底色">
+                          <div className="w-5 h-5 rounded-md" style={{ background: (block as TextBlock).backgroundColor || '#ffffff' }} />
                           <input
                             type="color"
                             className="absolute inset-0 opacity-0 cursor-pointer"
@@ -1706,24 +1727,25 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                         </div>
 
                         {/* 對齊群組（在 B/I/U 左邊） */}
-                        <div className="ml-2 flex items-center gap-1">
-                      <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyLeft'); }} className="h-6 w-6 p-1 rounded hover:bg-white/10" title="靠左"><AlignLeft className="w-3 h-3" /></button>
-                      <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyCenter'); }} className="h-6 w-6 p-1 rounded hover:bg-white/10" title="置中"><AlignCenter className="w-3 h-3" /></button>
-                      <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyRight'); }} className="h-6 w-6 p-1 rounded hover:bg-white/10" title="靠右"><AlignRight className="w-3 h-3" /></button>
+                        <div className="ml-1 flex items-center gap-0.5">
+                      <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyLeft'); }} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title="靠左"><AlignLeft className="w-4 h-4" /></button>
+                      <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyCenter'); }} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title="置中"><AlignCenter className="w-4 h-4" /></button>
+                      <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('justifyRight'); }} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title="靠右"><AlignRight className="w-4 h-4" /></button>
                     </div>
 
+                        <div className="w-px h-5 bg-gray-200 mx-1" />
 
                         {/* B/I/U 放最右 */}
-                        <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('bold'); }} className="ml-2 p-1 hover:bg-gray-700 rounded" title="粗體"><Bold className="w-3 h-3" /></button>
-                        <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('italic'); }} className="p-1 hover:bg-gray-700 rounded" title="斜體"><Italic className="w-3 h-3" /></button>
-                        <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('underline'); }} className="p-1 hover:bg-gray-700 rounded" title="底線"><Underline className="w-3 h-3" /></button>
+                        <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('bold'); }} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="粗體"><Bold className="w-4 h-4" /></button>
+                        <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('italic'); }} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="斜體"><Italic className="w-4 h-4" /></button>
+                        <button onClick={(e)=>{ e.stopPropagation(); document.execCommand('underline'); }} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="底線"><Underline className="w-4 h-4" /></button>
                       </>
                     )}
 
                     {/* 表格工具列（簡化版：欄/列群組 + 字體大小 + 儲存格底色同步） */}
                       {block.type === 'table' && (
                         <>
-                          <div className="w-px h-4 bg-white/20 mx-2" />
+                          <div className="w-px h-5 bg-gray-200 mx-1" />
                         {(() => {
                           const tb = selectedBlock as TableBlock;
 
@@ -1758,8 +1780,8 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                               <HoverAddRemove title="列" glyph={<RowsGlyph />} onAdd={addTableRow} onRemove={removeTableRow} />
 
                               {/* 儲存格底色（無外框底色）— 靠近增刪群組 */}
-                              <div className="ml-2 relative inline-flex items-center p-0.5 border border-gray-300 rounded" title={canPaint ? '儲存格底色' : '請先選取一個儲存格'}>
-                                <div className="w-5 h-5 rounded" style={{ background: cellBgHex }} />
+                              <div className="ml-1 relative inline-flex items-center p-1 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors" title={canPaint ? '儲存格底色' : '請先選取一個儲存格'}>
+                                <div className="w-5 h-5 rounded-md" style={{ background: cellBgHex }} />
                                 <input
                                   type="color"
                                   className="absolute inset-0 opacity-0 cursor-pointer"
@@ -1771,7 +1793,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                               </div>
 
                               {/* 分隔線 */}
-                              <div className="w-px h-4 bg-white/20 mx-2" />
+                              <div className="w-px h-5 bg-gray-200 mx-1" />
 
                               {/* ───── ③ 字體大小 + 字體顏色（無外框底色） ───── */}
                               <select
@@ -1780,7 +1802,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                   const size = parseInt(e.target.value, 10) || 14;
                                   updateBlock(block.id, { ...(tb as any), fontSize: size } as any);
                                 }}
-                                className="h-5 text-xs rounded px-1 py-0 bg-white text-gray-800 outline-none border"  // ← 改這行
+                                className="h-7 text-xs rounded-lg px-2 bg-white text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors"
                                 onMouseDown={preventBlur}
                               >
                                 {[12, 13, 14, 16, 18, 20, 22, 24].map(sz => (
@@ -1788,8 +1810,8 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                 ))}
                               </select>
 
-                              <div className="relative inline-flex items-center ml-2 p-0.5 border border-gray-300 rounded" title="文字體色">
-                                <div className="w-5 h-5 rounded" style={{ backgroundColor: lastTableTextColor }} />
+                              <div className="relative inline-flex items-center ml-1 p-1 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors" title="文字體色">
+                                <div className="w-5 h-5 rounded-md" style={{ backgroundColor: lastTableTextColor }} />
                                 <input
                                   type="color"
                                   className="absolute inset-0 opacity-0 cursor-pointer"
@@ -1800,7 +1822,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                               </div>
 
                               {/* 分隔線 */}
-                              <div className="w-px h-4 bg-white/20 mx-2" />
+                              <div className="w-px h-5 bg-gray-200 mx-1" />
 
                               {/* ───── ④ 表格框線（ICON 無底色；面板往上開） ───── */}
                               <div className="relative">
@@ -1810,7 +1832,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                     setShowBorderMenu(v => !v);
                                     setShowAlignMenu(false);     // ← 互斥
                                   }}
-                                  className="p-1 rounded hover:bg-white/10"
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                                   title="框線"
                                 >
                                   <BorderOuterGlyph />
@@ -1818,14 +1840,14 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
                                 {showBorderMenu && (
                                   <div
-                                      className="absolute z-20 bottom-full mb-2 right-0 bg-white rounded shadow border p-2 w-56"
+                                      className="absolute z-20 bottom-full mb-3 right-0 bg-white rounded-xl shadow-xl border border-gray-200 p-3 w-60"
                                       onMouseDown={(e) => e.stopPropagation()}   // ← 加這行
                                     >
                                     {/* 粗細 */}
-                                    <div className="flex items-center justify-between mb-2">
-                                      <span className="text-xs text-gray-600">粗細</span>
+                                    <div className="flex items-center justify-between mb-3">
+                                      <span className="text-xs font-medium text-gray-700">粗細</span>
                                       <select
-                                        className="border text-xs rounded px-1 py-0.5 text-gray-800 bg-white"
+                                        className="border border-gray-200 text-xs rounded-lg px-2 py-1 text-gray-700 bg-white hover:border-gray-300 transition-colors"
                                         value={borderThickness}
                                         onChange={e=>setBorderThickness(parseInt(e.target.value,10)||1)}
                                       >
@@ -1834,10 +1856,10 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                     </div>
 
                                     {/* 顏色（無外框底色） */}
-                                    <div className="flex items-center justify-between mb-2">
-                                      <span className="text-xs text-gray-600">顏色</span>
-                                      <div className="relative inline-flex items-center p-0.5 border border-gray-300 rounded">
-                                        <div className="w-5 h-5 rounded" style={{ backgroundColor: borderColor }} />
+                                    <div className="flex items-center justify-between mb-3">
+                                      <span className="text-xs font-medium text-gray-700">顏色</span>
+                                      <div className="relative inline-flex items-center p-1 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
+                                        <div className="w-5 h-5 rounded-md" style={{ backgroundColor: borderColor }} />
                                         <input
                                           type="color"
                                           className="absolute inset-0 opacity-0 cursor-pointer"
@@ -1848,21 +1870,21 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                     </div>
 
                                     {/* 框線模式（顏色統一為 glyph 深灰） */}
-                                    <div className="grid grid-cols-4 gap-1 text-xs">
-                                      <button className="border p-2 hover:bg-gray-50" title="無"     onClick={()=>applyBorders('none',   0)}><BorderNoneGlyph /></button>
-                                      <button className="border p-2 hover:bg-gray-50" title="外框"   onClick={()=>applyBorders('outer',  borderThickness)}><BorderOuterGlyph /></button>
-                                      <button className="border p-2 hover:bg-gray-50" title="內框"   onClick={()=>applyBorders('inner',  borderThickness)}><BorderInnerGlyph /></button>
-                                      <button className="border p-2 hover:bg-gray-50" title="上框"   onClick={()=>applyBorders('top',    borderThickness)}><BorderTopGlyph /></button>
-                                      <button className="border p-2 hover:bg-gray-50" title="下框"   onClick={()=>applyBorders('bottom', borderThickness)}><BorderBottomGlyph /></button>
-                                      <button className="border p-2 hover:bg-gray-50" title="左框"   onClick={()=>applyBorders('left',   borderThickness)}><BorderLeftGlyph /></button>
-                                      <button className="border p-2 hover:bg-gray-50" title="右框"   onClick={()=>applyBorders('right',  borderThickness)}><BorderRightGlyph /></button>
+                                    <div className="grid grid-cols-4 gap-1.5 text-xs">
+                                      <button className="border border-gray-200 p-2 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all" title="無"     onClick={()=>applyBorders('none',   0)}><BorderNoneGlyph /></button>
+                                      <button className="border border-gray-200 p-2 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all" title="外框"   onClick={()=>applyBorders('outer',  borderThickness)}><BorderOuterGlyph /></button>
+                                      <button className="border border-gray-200 p-2 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all" title="內框"   onClick={()=>applyBorders('inner',  borderThickness)}><BorderInnerGlyph /></button>
+                                      <button className="border border-gray-200 p-2 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all" title="上框"   onClick={()=>applyBorders('top',    borderThickness)}><BorderTopGlyph /></button>
+                                      <button className="border border-gray-200 p-2 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all" title="下框"   onClick={()=>applyBorders('bottom', borderThickness)}><BorderBottomGlyph /></button>
+                                      <button className="border border-gray-200 p-2 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all" title="左框"   onClick={()=>applyBorders('left',   borderThickness)}><BorderLeftGlyph /></button>
+                                      <button className="border border-gray-200 p-2 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all" title="右框"   onClick={()=>applyBorders('right',  borderThickness)}><BorderRightGlyph /></button>
                                     </div>
                                   </div>
                                 )}
                               </div>
 
                               {/* 分隔線 */}
-                              <div className="w-px h-4 bg-white/20 mx-2" />
+                              <div className="w-px h-5 bg-gray-200 mx-1" />
 
                               {/* ───── ⑤ 對齊工具（同上排顏色，可見） ───── */}
                               <div className="relative">
@@ -1872,37 +1894,37 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                                   setShowAlignMenu(v => !v);
                                   setShowBorderMenu(false);    // ← 互斥
                                 }}
-                                  className="p-1 rounded hover:bg-white/10"
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                                   title="對齊"
                                 >
-                                  <AlignCenter className="w-3 h-3" />
+                                  <AlignCenter className="w-4 h-4" />
                                 </button>
                                 {showAlignMenu && (
                                   <div
-                                    className="absolute z-20 bottom-full mb-2 right-0 bg-white rounded shadow border p-2 w-40"
+                                    className="absolute z-20 bottom-full mb-3 right-0 bg-white rounded-xl shadow-xl border border-gray-200 p-3 w-44"
                                     onMouseDown={(e) => e.stopPropagation()}   // ← 加這行
                                   >
                                     {/* 水平 */}
                                     <div className="flex items-center justify-between mb-2">
-                                      <button className="p-1 rounded hover:bg-gray-100" onClick={()=>document.execCommand('justifyLeft')}   title="靠左"><AlignLeft className="w-4 h-4 text-gray-700" /></button>
-                                      <button className="p-1 rounded hover:bg-gray-100" onClick={()=>document.execCommand('justifyCenter')} title="置中"><AlignCenter className="w-4 h-4 text-gray-700" /></button>
-                                      <button className="p-1 rounded hover:bg-gray-100" onClick={()=>document.execCommand('justifyRight')}  title="靠右"><AlignRight className="w-4 h-4 text-gray-700" /></button>
+                                      <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onClick={()=>document.execCommand('justifyLeft')}   title="靠左"><AlignLeft className="w-4 h-4 text-gray-700" /></button>
+                                      <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onClick={()=>document.execCommand('justifyCenter')} title="置中"><AlignCenter className="w-4 h-4 text-gray-700" /></button>
+                                      <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onClick={()=>document.execCommand('justifyRight')}  title="靠右"><AlignRight className="w-4 h-4 text-gray-700" /></button>
                                     </div>
                                     {/* 垂直 */}
                                     <div className="flex items-center justify-between">
-                                      <button className="p-1 rounded hover:bg-gray-100" onClick={()=>applyVerticalAlign('top')}    title="上"><VAlignTopGlyph /></button>
-                                      <button className="p-1 rounded hover:bg-gray-100" onClick={()=>applyVerticalAlign('middle')} title="中"><VAlignMiddleGlyph /></button>
-                                      <button className="p-1 rounded hover:bg-gray-100" onClick={()=>applyVerticalAlign('bottom')} title="下"><VAlignBottomGlyph /></button>
+                                      <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onClick={()=>applyVerticalAlign('top')}    title="上"><VAlignTopGlyph /></button>
+                                      <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onClick={()=>applyVerticalAlign('middle')} title="中"><VAlignMiddleGlyph /></button>
+                                      <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" onClick={()=>applyVerticalAlign('bottom')} title="下"><VAlignBottomGlyph /></button>
                                     </div>
                                   </div>
                                 )}
                               </div>
 
                               {/* ───── ⑥ B/I/U 最右 ───── */}
-                              <div className="w-px h-4 bg-white/20 mx-2" />
-                              <button onClick={(e)=>{ e.stopPropagation(); cellExec('bold'); }}      className="p-1 hover:bg-white/10 rounded" title="粗體"><Bold className="w-3 h-3" /></button>
-                              <button onClick={(e)=>{ e.stopPropagation(); cellExec('italic'); }}    className="p-1 hover:bg-white/10 rounded" title="斜體"><Italic className="w-3 h-3" /></button>
-                              <button onClick={(e)=>{ e.stopPropagation(); cellExec('underline'); }} className="p-1 hover:bg-white/10 rounded" title="底線"><Underline className="w-3 h-3" /></button>
+                              <div className="w-px h-5 bg-gray-200 mx-1" />
+                              <button onClick={(e)=>{ e.stopPropagation(); cellExec('bold'); }}      className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="粗體"><Bold className="w-4 h-4" /></button>
+                              <button onClick={(e)=>{ e.stopPropagation(); cellExec('italic'); }}    className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="斜體"><Italic className="w-4 h-4" /></button>
+                              <button onClick={(e)=>{ e.stopPropagation(); cellExec('underline'); }} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="底線"><Underline className="w-4 h-4" /></button>
                             </>
                             );
                           })()}
