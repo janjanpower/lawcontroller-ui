@@ -953,8 +953,10 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
   if (blk.type !== 'table') return;
   const table = blk as TableBlock;
 
-  const containerTable = (e.currentTarget as HTMLElement).closest('table') as HTMLTableElement | null;
-  const totalPx = containerTable?.getBoundingClientRect().width || 1;
+  // 使用外框寬度作為最大限制
+  const maxWidth = blk.w || 600;
+  const borderPadding = table.showBorders ? 2 : 0;
+  const availableWidth = maxWidth - borderPadding;
 
   // 目前欄數
   const cols = Math.max(
@@ -962,18 +964,16 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
     table.headers.length > 0 ? table.headers.length : (table.rows[0]?.length || 0)
   ) || 1;
 
-  // 以 px 為主；若未設定，先把百分比換算成 px
+  // 獲取當前欄寬陣列（px）
   const startPxArr: number[] = (() => {
     const fromPx = (table as any).columnWidthsPx as number[] | undefined;
     if (fromPx && fromPx.length === cols) return fromPx.slice();
-    const fromPct = (table.columnWidths && table.columnWidths.length === cols)
-      ? table.columnWidths.slice()
-      : new Array(cols).fill(100 / cols);
-    return fromPct.map(p => (p / 100) * totalPx);
+    // 預設平均分配可用寬度
+    return new Array(cols).fill(availableWidth / cols);
   })();
 
   const startX = e.clientX;
-  const startW = startPxArr[colIndex] ?? (totalPx / cols);
+  const startW = startPxArr[colIndex] ?? (availableWidth / cols);
   const MIN_PX = 24;
 
   let live = startPxArr.slice();
@@ -981,10 +981,16 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
 
   const onMove = (mv: MouseEvent) => {
     const dx = mv.clientX - startX;
-    let w = startW + dx;
-    if (w < MIN_PX) w = MIN_PX;
+    let newW = startW + dx;
+    if (newW < MIN_PX) newW = MIN_PX;
+
+    // 確保所有欄寬總和不超過可用寬度
+    const otherColsWidth = startPxArr.reduce((sum, w, i) => i !== colIndex ? sum + w : sum, 0);
+    const maxAllowed = availableWidth - otherColsWidth;
+    if (newW > maxAllowed) newW = maxAllowed;
+
     live = startPxArr.slice();
-    live[colIndex] = w; // 只改被拖動的欄
+    live[colIndex] = newW;
 
     // 用暫存刷新畫面
     liveColsPxRef.current[blk.id] = live.slice();
@@ -997,12 +1003,10 @@ const startResizeColumn = (e: React.MouseEvent, blk: CanvasBlock, colIndex: numb
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
 
-    // 提交成正式欄寬（px 版）；不再用百分比
+    // 提交成正式欄寬（px 版），外框寬度保持不變
     const finalColWidths = liveColsPxRef.current[blk.id] ?? live;
-    // 計算新的表格總寬度
-    const newTableWidth = finalColWidths.reduce((a, b) => a + b, 0) + (table.showBorders ? (finalColWidths.length + 1) : 0);
-    updateBlock(blk.id, { ...(blk as any), columnWidthsPx: finalColWidths, w: newTableWidth } as any);
-    // 清掉暫存（避免干擾之後）
+    updateBlock(blk.id, { ...(blk as any), columnWidthsPx: finalColWidths } as any);
+    // 清掉暫存
     delete liveColsPxRef.current[blk.id];
   };
 
@@ -1018,26 +1022,35 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
   if (blk.type !== 'table') return;
   const t = blk as TableBlock;
 
+  // 使用外框高度作為最大限制
+  const maxHeight = blk.h || 400;
+  const headerHeight = t.headers.length > 0 ? 40 : 0;
+  const borderPadding = t.showBorders ? 2 : 0;
+  const availableHeight = maxHeight - headerHeight - borderPadding;
+
   const startY = e.clientY;
   const rows = t.rows || [];
-  const init = ((t as any).rowHeights as number[] | undefined) ?? new Array(rows.length).fill(32);
+  const init = ((t as any).rowHeights as number[] | undefined) ?? new Array(rows.length).fill(Math.min(32, availableHeight / rows.length));
 
   let live = init.slice();
   let rafId: number | null = null;
 
   const onMove = (mv: MouseEvent) => {
     const dy = mv.clientY - startY;
-    let h1 = (init[rowIndex] ?? 32) + dy;
-    if (h1 < 5) h1 = 5;
+    let newH = (init[rowIndex] ?? 32) + dy;
+    if (newH < 5) newH = 5;
+
+    // 確保所有列高總和不超過可用高度
+    const otherRowsHeight = init.reduce((sum, h, i) => i !== rowIndex ? sum + h : sum, 0);
+    const maxAllowed = availableHeight - otherRowsHeight;
+    if (newH > maxAllowed) newH = maxAllowed;
 
     live = init.slice();
-    live[rowIndex] = h1;
+    live[rowIndex] = newH;
 
     if (rafId) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(() => {
-      // 只改視覺，不觸發 onChange（可放進一個 liveRowHeightsRef 類似欄寬的做法）
-      // 這裡最保守做法：暫時把目前區塊的樣式撐起來（用 data-* 或 local state）
-      // 如果想最少改動，也可先保持不動，mouseup 才 updateBlock。
+      // 視覺更新會通過 invalidate 觸發
     });
   };
 
@@ -1045,9 +1058,8 @@ const startResizeRow = (e: React.MouseEvent, blk: CanvasBlock, rowIndex: number)
     if (rafId) cancelAnimationFrame(rafId);
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
-    // ✅ mouseup 才寫回，同時更新外框高度
-    const newTableHeight = live.reduce((a, b) => a + b, 0) + (t.showBorders ? (live.length + 1) : 0) + (t.headers.length > 0 ? 40 : 0);
-    updateBlock(blk.id, { ...(t as any), rowHeights: live, h: newTableHeight } as any);
+    // mouseup 才寫回，外框高度保持不變
+    updateBlock(blk.id, { ...(t as any), rowHeights: live } as any);
   };
 
   document.addEventListener('mousemove', onMove);
@@ -1225,12 +1237,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
 
   // === 浮動工具列輔助：避免點工具列時 contentEditable 失焦、讓 execCommand 作用在當前選取 ===
   const preventBlur = (e: React.SyntheticEvent) => {
-    const target = e.target as HTMLElement;
-    // 讓 input/select/textarea 正常工作（例如顏色選擇器）
-    if (target.closest('input, select, textarea')) {
-      e.stopPropagation();
-      return;
-    }
+    // 總是阻止默認行為和冒泡，確保不會失去焦點
     e.preventDefault();
     e.stopPropagation();
   };
@@ -1793,7 +1800,7 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                   updateBlock(block.id, payload);
                 }}
                 disableDragging={isPreview || block.locked || isEditing}
-                enableResizing={block.type === 'table' ? false : (!isPreview && !block.locked && !isEditing)}
+                enableResizing={!isPreview && !block.locked && !isEditing}
                 dragGrid={[1, 1]}
                 resizeGrid={[1, 1]}
                 onClick={(e) => {
@@ -1803,10 +1810,29 @@ const insertVariableToBlock = (payload: InsertVarPayload) => {
                     setSelectedCellId(null);
                   }
                 }}
-                className={`${selectedBlockId === block.id ? 'ring-2 ring-blue-600 shadow-lg' : 'hover:ring-1 hover:ring-gray-300'} ${
+                className={`${selectedBlockId === block.id ? 'relative' : 'hover:ring-1 hover:ring-gray-300'} ${
                   block.locked ? 'opacity-60' : ''
                 } transition-all`}
+                style={{
+                  ...(selectedBlockId === block.id ? {
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                  } : {})
+                }}
               >
+                {/* 自定義選取框 - 四角 90 度符號，帶內距 */}
+                {selectedBlockId === block.id && !isPreview && (
+                  <>
+                    {/* 左上角 */}
+                    <div className="absolute top-1 left-1 w-5 h-5 border-l-[3px] border-t-[3px] border-blue-600 pointer-events-none" />
+                    {/* 右上角 */}
+                    <div className="absolute top-1 right-1 w-5 h-5 border-r-[3px] border-t-[3px] border-blue-600 pointer-events-none" />
+                    {/* 左下角 */}
+                    <div className="absolute bottom-1 left-1 w-5 h-5 border-l-[3px] border-b-[3px] border-blue-600 pointer-events-none" />
+                    {/* 右下角 */}
+                    <div className="absolute bottom-1 right-1 w-5 h-5 border-r-[3px] border-b-[3px] border-blue-600 pointer-events-none" />
+                  </>
+                )}
+
                 {/* 浮動操作工具列 */}
                 {selectedBlockId === block.id && !isPreview && (
                   <div
