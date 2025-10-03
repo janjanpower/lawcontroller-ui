@@ -1,10 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Search, Filter, Plus, Upload, Download, Eye, Edit, Trash2,
-  FileText, User, Building, Calendar, Clock, ChevronDown, ChevronUp,
-  MoreVertical, X, CheckCircle, AlertCircle, Archive, Folder,
-  MoreHorizontal, PenTool
-} from 'lucide-react';
+import { Search, Filter, Plus, Upload, Download, Eye, CreditCard as Edit, Trash2, FileText, User, Building, Calendar, Clock, ChevronDown, ChevronUp, MoreVertical, X, CheckCircle, AlertCircle, Archive, Folder, MoreHorizontal, PenTool } from 'lucide-react';
 import CaseForm from '../components/CaseForm';
 import StageEditDialog, { type StageFormData } from '../components/StageEditDialog';
 import FileUploadDialog from '../components/FileUploadDialog';
@@ -14,6 +9,7 @@ import ClosedTransferDialog from '../components/ClosedTransferDialog';
 import UnifiedDialog from '../components/UnifiedDialog';
 import ImportDataDialog from '../components/ImportDataDialog';
 import WriteDocument from '../pages/WriteDocument';
+import QuoteComposerDialog from '../components/QuoteComposerDialog';
 import { parseExcelToCases } from '../utils/importers';
 import { FolderManager } from '../utils/folderManager';
 import { hasClosedStage } from '../utils/caseStage';
@@ -51,6 +47,8 @@ export default function CaseOverview() {
   const [showWriteDocument, setShowWriteDocument] = useState(false);
   const [writeDocumentCaseId, setWriteDocumentCaseId] = useState<string>('');
   const [writeDocumentClientName, setWriteDocumentClientName] = useState<string>('');
+  const [showQuoteComposer, setShowQuoteComposer] = useState(false);
+  const [quoteStageKey, setQuoteStageKey] = useState<string>('');
   const [dialogConfig, setDialogConfig] = useState<DialogConfig>({
     title: '',
     message: '',
@@ -1735,7 +1733,14 @@ const handlePreview = async (fileId: string) => {
                       return (
                         <div
                           key={`${stage.name}-${stageIndex}`}
-                          className="flex flex-col space-y-2 p-3 rounded-lg hover:bg-gray-50 group border border-gray-100 mb-2"
+                          className="flex flex-col space-y-2 p-3 rounded-lg hover:bg-gray-50 group border border-gray-100 mb-2 cursor-pointer"
+                          onClick={(e) => {
+                            const target = e.target as HTMLElement;
+                            if (target.closest('button')) return;
+                            const safeKey = stage.name.replace(/[^a-zA-Z0-9_]/g, '_');
+                            setQuoteStageKey(safeKey);
+                            setShowQuoteComposer(true);
+                          }}
                         >
                           {/* 標題與操作區 */}
                           <div className="flex items-start justify-between">
@@ -1964,5 +1969,17 @@ const handlePreview = async (fileId: string) => {
         onClose={() => setPreviewOpen(false)}
         files={previewFiles}
       />
+
+      {selectedCase && (
+        <QuoteComposerDialog
+          isOpen={showQuoteComposer}
+          onClose={() => {
+            setShowQuoteComposer(false);
+            setQuoteStageKey('');
+          }}
+          caseId={selectedCase.id}
+          stageKey={quoteStageKey}
+        />
+      )}
     </div>
   );}

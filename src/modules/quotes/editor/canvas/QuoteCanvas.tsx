@@ -25,6 +25,7 @@ interface QuoteCanvasProps {
   onSaveTemplate: () => void;
   onRemoveTemplate: () => void;
   caseId: string;
+  stageKey?: string;
 }
 
 interface VariableDef {
@@ -687,7 +688,8 @@ export default function QuoteCanvas({
   onExport,
   onSaveTemplate,
   onRemoveTemplate,
-  caseId
+  caseId,
+  stageKey
 }: QuoteCanvasProps) {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
@@ -854,6 +856,13 @@ export default function QuoteCanvas({
         const d = today.getDate();
         data.unshift({ key: 'today_day', label: '當日', value: String(d) });
 
+        // 排序變數：stageKey 對應的變數排在最前面
+        if (stageKey) {
+          const stagePrefix = `stage.${stageKey}.`;
+          const stageVars = data.filter(v => v.key.startsWith(stagePrefix));
+          const otherVars = data.filter(v => !v.key.startsWith(stagePrefix));
+          data = [...stageVars, ...otherVars];
+        }
         setVariables(data);
 
       }
